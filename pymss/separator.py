@@ -76,6 +76,7 @@ class MSSeparator:
                 "overlap_size": None,
                 "chunk_size": None,
                 "normalize": None,
+                "mask_mode": None,
                 "torch_compile": None,
                 "torch_compile_mode": None,
                 "torch_compile_cache_dir": None,
@@ -174,6 +175,7 @@ class MSSeparator:
         model, config = get_model_from_config(model_type, self.config_path)
 
         self.update_inference_params(config, self.inference_params)
+        self.apply_model_inference_config(model, config)
 
         self.logger.info(f"Separator params: model_type: {model_type}, model_path: {self.model_path}, config_path: {self.config_path}, output_folder: {self.store_dirs}")
         self.logger.info(f"Audio params: output_format: {self.output_format}, audio_params: {self.audio_params}")
@@ -190,6 +192,10 @@ class MSSeparator:
 
         self.logger.debug(f"Loading model completed, duration: {time() - start_time:.2f} seconds")
         return model, config
+
+    def apply_model_inference_config(self, model, config):
+        if hasattr(model, 'set_mask_mode'):
+            model.set_mask_mode(config.inference.get('mask_mode', 'no_segm'))
 
     def maybe_compile_model(self, model, config):
         compile_value = config.inference.get('torch_compile', False)
@@ -229,6 +235,7 @@ class MSSeparator:
             'overlap_size': 'inference',
             'chunk_size': 'audio',
             'normalize': 'inference',
+            'mask_mode': 'inference',
             'torch_compile': 'inference',
             'torch_compile_mode': 'inference',
             'torch_compile_cache_dir': 'inference',
@@ -236,7 +243,7 @@ class MSSeparator:
             if params.get(key) is not None:
                 if key in ('normalize', 'torch_compile'):
                     config[value][key] = params[key]
-                elif key in ('torch_compile_mode', 'torch_compile_cache_dir'):
+                elif key in ('mask_mode', 'torch_compile_mode', 'torch_compile_cache_dir'):
                     config[value][key] = params[key]
                 else:
                     config[value][key] = int(params[key])

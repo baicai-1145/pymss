@@ -11,6 +11,7 @@ from .common import (
     MaskEstimator,
     RoformerRuntimeMixin,
     forward_roformer_mask_core,
+    forward_spectral_roformer,
     ignore_roformer_training_kwargs,
     init_roformer_band_modules,
     init_roformer_layers,
@@ -139,100 +140,27 @@ class MelBandRoformer(RoformerRuntimeMixin, Module):
     def _forward_mask_core(self, selected_stft_repr):
         return forward_roformer_mask_core(self, selected_stft_repr)
 
-    def forward(self, raw_audio):
-        """
-        einops
-
-        b - batch
-        f - freq
-        t - time
-        s - audio channel (1 for mono, 2 for stereo)
-        n - number of 'stems'
-        c - complex (2)
-        d - feature dimension
-        """
-
-        device = raw_audio.device
-
-        if raw_audio.ndim == 2:
-            raw_audio = raw_audio.unsqueeze(1)
-
-        batch, channels, raw_audio_length = raw_audio.shape
-
-        istft_length = raw_audio_length if self.match_input_audio_length else None
-
-        assert (not self.stereo and channels == 1) or (
-                    self.stereo and channels == 2), 'stereo needs to be set to True if passing in audio signal that is stereo (channel dimension of 2). also need to be False if mono (channel dimension of 1)'
-
-        # to stft
-
-        stft_audio = raw_audio.reshape(batch * channels, raw_audio_length)
-
-        stft_window = self.stft_window(device)
-
-        stft_repr = torch.stft(stft_audio, **self.stft_kwargs, window=stft_window, return_complex=True)
-        stft_repr = torch.view_as_real(stft_repr)
-
-        stft_repr = stft_repr.reshape(batch, channels, *stft_repr.shape[-3:])
-
-        # merge stereo / mono into the frequency, with frequency leading dimension, for band splitting
-        b, s, f, t, c = stft_repr.shape
-        stft_freq_bins = f
-        stft_repr = stft_repr.permute(0, 2, 1, 3, 4).reshape(b, f * s, t, c)
-
-        # index out all frequencies for all frequency ranges across bands ascending in one go
-
-        batch_arange = torch.arange(batch, device=device)[..., None]
-
-        # account for stereo
-
-        x = stft_repr[batch_arange, self.freq_indices]
-
-        num_stems = len(self.mask_estimators)
+    def _mask_stft_repr(self, stft_repr, context):
+        x = stft_repr[torch.arange(context.batch, device=stft_repr.device)[..., None], self.freq_indices]
         self._warm_group_cache(x)
         masks = self._forward_mask_core(x)
 
-        # modulate frequency representation
-
-        stft_repr = stft_repr.unsqueeze(1)
-
-        # complex number multiplication
-
-        stft_repr = torch.view_as_complex(stft_repr)
-        masks = torch.view_as_complex(masks.contiguous())
-
-        masks = masks.type(stft_repr.dtype)
-
-        # need to average the estimated mask for the overlapped frequencies
-
-        scatter_indices = self.freq_indices.view(1, 1, -1, 1).expand(batch, num_stems, -1, stft_repr.shape[-1])
-
-        masks_summed = stft_repr.new_zeros(batch, num_stems, stft_repr.shape[2], stft_repr.shape[-1])
-        masks_summed.scatter_add_(2, scatter_indices, masks)
-
-        denom = self.num_bands_per_channel_freq
-
-        masks_averaged = masks_summed / denom.clamp(min=1e-8)
-
-        # modulate stft repr with estimated mask
-
-        stft_repr = stft_repr * masks_averaged
-
-        # istft
-
-        b, n, fs, t = stft_repr.shape
-        stft_repr = stft_repr.reshape(b, n, stft_freq_bins, s, t).permute(0, 1, 3, 2, 4).reshape(
-            b * n * s,
-            stft_freq_bins,
-            t
+        stft_repr = torch.view_as_complex(stft_repr.unsqueeze(1))
+        masks = torch.view_as_complex(masks.contiguous()).to(dtype=stft_repr.dtype)
+        num_stems = len(self.mask_estimators)
+        scatter_indices = self.freq_indices.view(1, 1, -1, 1).expand(
+            context.batch,
+            num_stems,
+            -1,
+            stft_repr.shape[-1],
         )
+        masks_summed = stft_repr.new_zeros(context.batch, num_stems, stft_repr.shape[2], stft_repr.shape[-1])
+        masks_summed.scatter_add_(2, scatter_indices, masks)
+        return stft_repr * (masks_summed / self.num_bands_per_channel_freq.clamp(min=1e-8))
 
-        recon_audio = torch.istft(stft_repr, **self.stft_kwargs, window=stft_window, return_complex=False,
-                                  length=istft_length)
-
-        recon_audio = recon_audio.reshape(batch, num_stems, channels, recon_audio.shape[-1])
-
-        if num_stems == 1:
-            recon_audio = recon_audio[:, 0]
-
-        return recon_audio
+    def forward(self, raw_audio):
+        return forward_spectral_roformer(
+            self,
+            raw_audio,
+            match_input_audio_length=self.match_input_audio_length,
+        )
