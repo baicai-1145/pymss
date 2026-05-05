@@ -159,41 +159,5 @@ def test8():
     separator.process_folder("./input")
     separator.del_cache()            
 
-def test9():
-    logger = get_separation_logger()
-    logger.info("test9")
-
-    separator = MSSeparator(
-        model_type="swin_upernet",
-        model_path='pretrain/vocal_models/model_swin_upernet_ep_56_sdr_10.6703.ckpt',
-        config_path="configs/vocal_models/config_vocals_swin_upernet.yaml",
-        device='cpu',
-        device_ids=[0],
-        output_format='wav',
-        store_dirs="output",
-        logger=logger,
-    )
-
-    separator.process_folder("./input")
-    separator.del_cache()
-
-def test10():
-    logger = get_separation_logger()
-    logger.info("test10")
-
-    separator = MSSeparator(
-        model_type="segm_models",
-        model_path='pretrain/vocal_models/model_vocals_segm_models_sdr_9.77.ckpt',
-        config_path="configs/vocal_models/config_vocals_segm_models.yaml",
-        device='mps',
-        device_ids=[0],
-        output_format='wav',
-        store_dirs="output",
-        logger=logger,
-    )
-
-    separator.process_folder("./input")
-    separator.del_cache()    
-
 if __name__ == "__main__":
-    test10()
+    test8()

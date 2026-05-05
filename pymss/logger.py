@@ -1,30 +1,15 @@
 import logging
 import os
-from colorama import Fore, Style, init
 from datetime import datetime
-
-init(autoreset=True)
 
 MAX_LOG = 100
 LOG_DIR = "logs"
 
-class ColorFormatter(logging.Formatter):
+
+class LogFormatter(logging.Formatter):
     def format(self, record):
         record.pathname = os.path.relpath(record.pathname)
-        log_msg = super().format(record)
-
-        if record.levelname == "INFO":
-            log_msg = log_msg.replace("INFO", f"{Fore.GREEN}INFO{Style.RESET_ALL}")
-        elif record.levelname == "DEBUG":
-            log_msg = log_msg.replace("DEBUG", f"{Fore.BLUE}DEBUG{Style.RESET_ALL}")
-        elif record.levelname == "WARNING":
-            log_msg = log_msg.replace("WARNING", f"{Fore.YELLOW}WARNING{Style.RESET_ALL}")
-        elif record.levelname == "ERROR":
-            log_msg = log_msg.replace("ERROR", f"{Fore.RED}ERROR{Style.RESET_ALL}")
-        elif record.levelname == "CRITICAL":
-            log_msg = log_msg.replace("CRITICAL", f"{Fore.MAGENTA}CRITICAL{Style.RESET_ALL}")
-
-        return log_msg
+        return super().format(record)
 
 
 def manage_log_files(log_dir, max_log):
@@ -61,7 +46,7 @@ def get_separation_logger(console_level=logging.INFO, enable_file_log=False, max
 
     console_handler = logging.StreamHandler()
     console_handler.setLevel(console_level)
-    formatter = ColorFormatter(fmt="%(asctime)s.%(msecs)03d [%(levelname)s] [%(pathname)s:%(lineno)d] %(message)s", datefmt="%H:%M:%S")
+    formatter = LogFormatter(fmt="%(asctime)s.%(msecs)03d [%(levelname)s] [%(pathname)s:%(lineno)d] %(message)s", datefmt="%H:%M:%S")
     console_handler.setFormatter(formatter)
 
     logger.addHandler(console_handler)

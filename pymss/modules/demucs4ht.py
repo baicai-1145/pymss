@@ -1,5 +1,4 @@
 import torch
-from omegaconf import OmegaConf
 from demucs.demucs import Demucs
 from demucs.hdemucs import HDemucs
 
@@ -16,6 +15,7 @@ from demucs.demucs import rescale_module
 from demucs.states import capture_init
 from demucs.spec import spectro, ispectro
 from demucs.hdemucs import pad1d, ScaledEmbedding, HEncLayer, MultiWrap, HDecLayer
+from ..config import to_plain
 
 
 class HTDemucs(nn.Module):
@@ -699,6 +699,6 @@ def get_model(args):
         'hdemucs': HDemucs,
         'htdemucs': HTDemucs,
     }[args.model]
-    kw = OmegaConf.to_container(getattr(args, args.model), resolve=True)
+    kw = to_plain(getattr(args, args.model))
     model = klass(**extra, **kw)
     return model

@@ -28,7 +28,7 @@ separator = MSSeparator(
     debug=False, # 可以省略
     inference_params={
         "batch_size": 4,
-        "num_overlap": 1,
+        "overlap_size": 512,
         "chunk_size": 1024,
         "normalize": True
     } # 可以省略
@@ -40,17 +40,12 @@ separator.process_folder('path/to/input_folder')
 - model_type: 模型类型，例如 'htdemucs'。 必须是以下之一
     ['bs_roformer',
     'mel_band_roformer',
-    'segm_models',
     'htdemucs',
     'mdx23c',
-    'swin_upernet',
     'bandit',
     'bandit_v2',
     'scnet',
-    'scnet_unofficial',
-    'torchseg',
-    'apollo',
-    'bs_mamba2']
+    'apollo']
 - model_path: 模型文件路径。
 - config_path: 配置文件路径。
 - device: 设备类型，默认为 'auto'。 必须是以下之一 ['auto', 'cuda', 'mps', 'cpu']
@@ -61,6 +56,6 @@ separator.process_folder('path/to/input_folder')
 - audio_params: 音频参数，包括 wav_bit_depth、flac_bit_depth 和 mp3_bit_rate。 默认为 {"wav_bit_depth": "FLOAT", "flac_bit_depth": "PCM_24", "mp3_bit_rate": "320k"}。
 - logger: Logger 实例。 默认为 pymss.get_separation_logger()
 - debug: 是否启用调试模式，默认为 False。
-- inference_params: 推理参数，包括 batch_size、num_overlap、chunk_size 和 normalize。 默认值均为 None（意味着所有参数都取决于配置文件）。
+- inference_params: 推理参数，包括 batch_size、overlap_size、chunk_size 和 normalize。 默认值均为 None（意味着所有参数都取决于配置文件）。
 ## 贡献
 欢迎贡献！

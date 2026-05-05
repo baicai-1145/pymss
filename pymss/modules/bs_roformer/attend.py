@@ -1,5 +1,4 @@
 from functools import wraps
-from packaging import version
 from collections import namedtuple
 
 import os
@@ -18,6 +17,20 @@ def exists(val):
 
 def default(v, d):
     return v if exists(v) else d
+
+
+def major_minor(version_string):
+    parts = version_string.split('+', 1)[0].split('.')[:2]
+    numbers = []
+    for part in parts:
+        digits = ''
+        for char in part:
+            if not char.isdigit():
+                break
+            digits += char
+        numbers.append(int(digits or 0))
+    return tuple(numbers + [0] * (2 - len(numbers)))
+
 
 def once(fn):
     called = False
@@ -47,7 +60,7 @@ class Attend(nn.Module):
         self.attn_dropout = nn.Dropout(dropout)
 
         self.flash = flash
-        assert not (flash and version.parse(torch.__version__) < version.parse('2.0.0')), 'in order to use flash attention, you must be using pytorch 2.0 or above'
+        assert not (flash and major_minor(torch.__version__) < (2, 0)), 'in order to use flash attention, you must be using pytorch 2.0 or above'
 
         # determine efficient attention configs for cuda and cpu
 
@@ -58,9 +71,8 @@ class Attend(nn.Module):
             return
 
         device_properties = torch.cuda.get_device_properties(torch.device('cuda'))
-        device_version = version.parse(f'{device_properties.major}.{device_properties.minor}')
 
-        if device_version >= version.parse('8.0'):
+        if (device_properties.major, device_properties.minor) >= (8, 0):
             if os.name == 'nt':
                 print_once('Windows OS detected, using math or mem efficient attention if input tensor is on cuda')
                 self.cuda_config = FlashAttentionConfig(False, True, True)

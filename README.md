@@ -35,7 +35,7 @@ separator = MSSeparator(
     debug=False, # Can be omitted
     inference_params={
         "batch_size": 4,
-        "num_overlap": 1,
+        "overlap_size": 512,
         "chunk_size": 1024,
         "normalize": True
     } # Can be omitted
@@ -50,17 +50,12 @@ separator.process_folder('path/to/input_folder')
 - model_type: The type of model, e.g., 'htdemucs'. Must be one of 
     ['bs_roformer', 
     'mel_band_roformer', 
-    'segm_models', 
     'htdemucs', 
     'mdx23c', 
-    'swin_upernet', 
     'bandit', 
     'bandit_v2', 
     'scnet', 
-    'scnet_unofficial', 
-    'torchseg', 
-    'apollo', 
-    'bs_mamba2']
+    'apollo']
 - model_path: The path to the model file.
 - config_path: The path to the configuration file.
 - device: The type of device, default is 'auto'. Must be one of ['auto', 'cuda', 'mps', 'cpu']
@@ -71,7 +66,7 @@ separator.process_folder('path/to/input_folder')
 - audio_params: Audio parameters including wav_bit_depth, flac_bit_depth, and mp3_bit_rate. Default is {"wav_bit_depth": "FLOAT", "flac_bit_depth": "PCM_24", "mp3_bit_rate": "320k"}.
 - logger: Logger instance. Default is pymss.get_separation_logger()
 - debug: Whether to enable debug mode, default is False.
-- inference_params: Inference parameters including batch_size, num_overlap, chunk_size, and normalize. Default is all None (means all params are depended on the config file).
+- inference_params: Inference parameters including batch_size, overlap_size, chunk_size, and normalize. Default is all None (means all params are depended on the config file).
 
 ## Contributing
 Contributions are welcome! 

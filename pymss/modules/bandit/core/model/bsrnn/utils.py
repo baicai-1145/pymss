@@ -4,12 +4,8 @@ from typing import Callable
 
 import numpy as np
 import torch
-from librosa import hz_to_midi, midi_to_hz
+from librosa import filters, hz_to_midi, midi_to_hz
 from torch import Tensor
-from torchaudio import functional as taF
-from spafe.fbanks import bark_fbanks
-from spafe.utils.converters import hz2bark, hz2erb
-from torchaudio.functional.functional import _create_triangular_filterbank
 
 
 def band_widths_from_specs(band_specs):
@@ -39,6 +35,23 @@ def check_no_gap(band_specs):
         if fstart_curr - fend_prev > 1:
             raise ValueError("Bands cannot leave gap")
         fend_prev = fend_curr
+
+
+def create_triangular_filterbank(all_freqs, f_pts):
+    f_diff = f_pts[1:] - f_pts[:-1]
+    slopes = f_pts.unsqueeze(0) - all_freqs.unsqueeze(1)
+    down_slopes = -slopes[:, :-2] / f_diff[:-1]
+    up_slopes = slopes[:, 2:] / f_diff[1:]
+    return torch.clamp(torch.minimum(down_slopes, up_slopes), min=0.0)
+
+
+def hz_to_bark(hz):
+    return 6 * np.arcsinh(np.asarray(hz) / 600)
+
+
+def hz_to_erb(hz):
+    a = (1000 * np.log(10)) / (24.7 * 4.37)
+    return a * np.log10(1 + 0.00437 * np.asarray(hz))
 
 
 class BandsplitSpecification:
@@ -351,16 +364,19 @@ class PerceptualBandsplitSpecification(BandsplitSpecification):
             )
 
 def mel_filterbank(n_bands, fs, f_min, f_max, n_freqs):
-    fb = taF.melscale_fbanks(
-                n_mels=n_bands,
-                sample_rate=fs,
-                f_min=f_min,
-                f_max=f_max,
-                n_freqs=n_freqs,
-        ).T
-
+    nfft = 2 * (n_freqs - 1)
+    fb = torch.as_tensor(
+        filters.mel(
+            sr=fs,
+            n_fft=nfft,
+            n_mels=n_bands,
+            fmin=f_min,
+            fmax=f_max,
+            htk=True,
+            norm=None,
+        )
+    )
     fb[0, 0] = 1.0
-
     return fb
 
 
@@ -425,15 +441,24 @@ class MusicalBandsplitSpecification(PerceptualBandsplitSpecification):
 def bark_filterbank(
     n_bands, fs, f_min, f_max, n_freqs
 ):
-    nfft = 2 * (n_freqs -1)
-    fb, _ = bark_fbanks.bark_filter_banks(
-            nfilts=n_bands,
-            nfft=nfft,
-            fs=fs,
-            low_freq=f_min,
-            high_freq=f_max,
-            scale="constant"
-    )
+    nfft = 2 * (n_freqs - 1)
+    f_max = f_max or fs / 2
+    centers = np.linspace(hz_to_bark(f_min), hz_to_bark(f_max), n_bands)
+    bins = np.floor((nfft + 1) * (600 * np.sinh(centers / 6) / fs)).astype(int)
+    start, end = int(bins[0]), int(bins[-1])
+    bark_bins = hz_to_bark(np.arange(start, end) * fs / (nfft + 1))
+    fb = np.zeros((n_bands, n_freqs))
+
+    for band, center in enumerate(centers):
+        diff = bark_bins - center
+        values = np.zeros_like(diff)
+        lower = (-1.3 <= diff) & (diff <= -0.5)
+        center_mask = (-0.5 < diff) & (diff < 0.5)
+        upper = (0.5 <= diff) & (diff <= 2.5)
+        values[lower] = 10 ** (2.5 * (diff[lower] + 0.5))
+        values[center_mask] = 1
+        values[upper] = 10 ** (-(diff[upper] - 0.5))
+        fb[band, start:end] = values
 
     return torch.as_tensor(fb)
 
@@ -456,14 +481,14 @@ def triangular_bark_filterbank(
     all_freqs = torch.linspace(0, fs // 2, n_freqs)
 
     # calculate mel freq bins
-    m_min = hz2bark(f_min)
-    m_max = hz2bark(f_max)
+    m_min = hz_to_bark(f_min)
+    m_max = hz_to_bark(f_max)
 
     m_pts = torch.linspace(m_min, m_max, n_bands + 2)
     f_pts = 600 * torch.sinh(m_pts / 6)
 
     # create filterbank
-    fb = _create_triangular_filterbank(all_freqs, f_pts)
+    fb = create_triangular_filterbank(all_freqs, f_pts)
 
     fb = fb.T
 
@@ -529,14 +554,14 @@ def erb_filterbank(
     all_freqs = torch.linspace(0, fs // 2, n_freqs)
 
     # calculate mel freq bins
-    m_min = hz2erb(f_min)
-    m_max = hz2erb(f_max)
+    m_min = hz_to_erb(f_min)
+    m_max = hz_to_erb(f_max)
 
     m_pts = torch.linspace(m_min, m_max, n_bands + 2)
     f_pts = (torch.pow(10, (m_pts / A)) - 1)/ 0.00437
 
     # create filterbank
-    fb = _create_triangular_filterbank(all_freqs, f_pts)
+    fb = create_triangular_filterbank(all_freqs, f_pts)
 
     fb = fb.T
 

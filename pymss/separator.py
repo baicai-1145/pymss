@@ -1,16 +1,14 @@
 import gc
 import os
-import librosa
 import logging
-import soundfile as sf
 import torch
 import numpy as np
 import platform
 import subprocess
 from time import time
 from tqdm import tqdm
-from pydub import AudioSegment
 
+from .audio_io import load_audio, save_audio
 from .utils import demix, get_model_from_config
 from .logger import get_separation_logger, set_log_level
 
@@ -289,7 +287,7 @@ class MSSeparator:
             if not self.debug:
                 all_mixtures_path.set_postfix({'track': os.path.basename(path)})
             try:
-                mix, sr = librosa.load(path, sr=sample_rate, mono=False)
+                mix, sr = load_audio(path, sr=sample_rate, mono=False)
             except Exception as e:
                 self.logger.warning(f'Cannot process track: {path}, error: {str(e)}')
                 continue
@@ -404,28 +402,9 @@ class MSSeparator:
         return results
 
     def save_audio(self, audio, sr, file_name, store_dir):
-        if self.output_format.lower() == 'flac':
-            file = os.path.join(store_dir, file_name + '.flac')
-            sf.write(file, audio, sr, subtype=self.audio_params['flac_bit_depth'])
-
-        elif self.output_format.lower() == 'mp3':
-            file = os.path.join(store_dir, file_name + '.mp3')
-
-            if audio.dtype != np.int16:
-                audio = (audio * 32767).astype(np.int16)
-
-            audio_segment = AudioSegment(
-                audio.tobytes(),
-                frame_rate=sr,
-                sample_width=audio.dtype.itemsize,
-                channels=2
-                )
-
-            audio_segment.export(file, format='mp3', bitrate=self.audio_params['mp3_bit_rate'])
-
-        else:
-            file = os.path.join(store_dir, file_name + '.wav')
-            sf.write(file, audio, sr, subtype=self.audio_params['wav_bit_depth'])
+        output_format = self.output_format.lower()
+        file = os.path.join(store_dir, f"{file_name}.{output_format}")
+        save_audio(file, audio, sr, output_format, self.audio_params)
 
     def del_cache(self):
         self.logger.debug("Running garbage collection...")

@@ -1,23 +1,17 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import yaml
-from ml_collections import ConfigDict
-from omegaconf import OmegaConf
 from tqdm.auto import tqdm
 from numpy.typing import NDArray
 from typing import Dict
 
+from .config import load_config
 from .logger import get_separation_logger
 logger = get_separation_logger()
 
 
 def get_model_from_config(model_type, config_path):
-    with open(config_path) as f:
-        if model_type == 'htdemucs':
-            config = OmegaConf.load(config_path)
-        else:
-            config = ConfigDict(yaml.load(f, Loader=yaml.FullLoader))
+    config = load_config(config_path)
 
     if model_type == 'mdx23c':
         from .modules.mdx23c_tfc_tdf_v3 import TFC_TDF_net
@@ -25,9 +19,6 @@ def get_model_from_config(model_type, config_path):
     elif model_type == 'htdemucs':
         from .modules.demucs4ht import get_model
         model = get_model(config)
-    elif model_type == 'segm_models':
-        from .modules.segm_models import Segm_Models_Net
-        model = Segm_Models_Net(config)
     elif model_type == 'mel_band_roformer':
         from .modules.bs_roformer import MelBandRoformer
         model = MelBandRoformer(
@@ -43,9 +34,6 @@ def get_model_from_config(model_type, config_path):
         model = BSRoformerHyperACE(
             **dict(config.model)
         )
-    elif model_type == 'swin_upernet':
-        from .modules.upernet_swin_transformers import Swin_UperNet_Model
-        model = Swin_UperNet_Model(config)
     elif model_type == 'bandit':
         from .modules.bandit.core.model import MultiMaskMultiSourceBandSplitRNNSimple
         model = MultiMaskMultiSourceBandSplitRNNSimple(
