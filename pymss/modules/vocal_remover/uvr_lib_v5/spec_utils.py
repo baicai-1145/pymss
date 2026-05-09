@@ -15,6 +15,20 @@ else:
     wav_resolution = "soxr_hq"
 
 
+_HANN_WINDOW_CACHE = {}
+_FILTER_MASK_CACHE = {}
+
+
+def _hann_window(n_fft, dtype, device):
+    torch_device = torch.device(device)
+    key = (int(n_fft), dtype, torch_device.type, torch_device.index)
+    window = _HANN_WINDOW_CACHE.get(key)
+    if window is None:
+        window = torch.hann_window(n_fft, dtype=dtype, device=torch_device)
+        _HANN_WINDOW_CACHE[key] = window
+    return window
+
+
 def resample_audio(wave, orig_sr, target_sr, res_type=None):
     orig_sr = int(orig_sr)
     target_sr = int(target_sr)
@@ -204,7 +218,7 @@ def _torch_stft(wave, n_fft, hop_length, device):
         return None
     wave_np = np.ascontiguousarray(wave)
     wave_t = torch.from_numpy(wave_np).to(device)
-    window = torch.hann_window(n_fft, dtype=wave_t.dtype, device=device)
+    window = _hann_window(n_fft, wave_t.dtype, device)
     spec = torch.stft(
         wave_t,
         n_fft=n_fft,
@@ -222,7 +236,7 @@ def _torch_istft(spec, hop_length, device):
         return None
     n_fft = (spec.shape[1] - 1) * 2
     spec_t = torch.from_numpy(np.ascontiguousarray(spec)).to(device)
-    window = torch.hann_window(n_fft, dtype=torch.float64, device=device)
+    window = _hann_window(n_fft, spec_t.real.dtype, device)
     wave = torch.istft(spec_t, n_fft=n_fft, hop_length=hop_length, window=window, center=True, return_complex=False)
     return np.asfortranarray(wave.cpu().numpy())
 
@@ -267,7 +281,7 @@ def cmb_spectrogram_to_wave(spec_m, mp, extra_bins_h=None, extra_bins=None, is_v
 
     for d in range(1, bands_n + 1):
         bp = mp.param["band"][d]
-        spec_s = np.zeros((2, bp["n_fft"] // 2 + 1, spec_m.shape[2]), dtype=np.complex128)
+        spec_s = np.zeros((2, bp["n_fft"] // 2 + 1, spec_m.shape[2]), dtype=np.result_type(spec_m.dtype, np.complex64))
         height = bp["crop_stop"] - bp["crop_start"]
         spec_s[:, bp["crop_start"]:bp["crop_stop"], :] = spec_m[:, offset:offset + height, :]
         offset += height
@@ -304,19 +318,29 @@ def cmb_spectrogram_to_wave(spec_m, mp, extra_bins_h=None, extra_bins=None, is_v
 
 
 def get_lp_filter_mask(n_bins, bin_start, bin_stop):
-    return np.concatenate([
-        np.ones((bin_start - 1, 1)),
-        np.linspace(1, 0, bin_stop - bin_start + 1)[:, None],
-        np.zeros((n_bins - bin_stop, 1)),
-    ], axis=0)
+    key = ("lp", int(n_bins), int(bin_start), int(bin_stop))
+    mask = _FILTER_MASK_CACHE.get(key)
+    if mask is None:
+        mask = np.concatenate([
+            np.ones((bin_start - 1, 1)),
+            np.linspace(1, 0, bin_stop - bin_start + 1)[:, None],
+            np.zeros((n_bins - bin_stop, 1)),
+        ], axis=0)
+        _FILTER_MASK_CACHE[key] = mask
+    return mask
 
 
 def get_hp_filter_mask(n_bins, bin_start, bin_stop):
-    return np.concatenate([
-        np.zeros((bin_stop + 1, 1)),
-        np.linspace(0, 1, 1 + bin_start - bin_stop)[:, None],
-        np.ones((n_bins - bin_start - 2, 1)),
-    ], axis=0)
+    key = ("hp", int(n_bins), int(bin_start), int(bin_stop))
+    mask = _FILTER_MASK_CACHE.get(key)
+    if mask is None:
+        mask = np.concatenate([
+            np.zeros((bin_stop + 1, 1)),
+            np.linspace(0, 1, 1 + bin_start - bin_stop)[:, None],
+            np.ones((n_bins - bin_start - 2, 1)),
+        ], axis=0)
+        _FILTER_MASK_CACHE[key] = mask
+    return mask
 
 
 def fft_lp_filter(spec, bin_start, bin_stop):

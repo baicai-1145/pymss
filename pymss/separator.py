@@ -285,6 +285,8 @@ class MSSeparator:
                     "post_process_threshold": 0.2,
                     "high_end_process": False,
                     "use_amp": True,
+                    "fuse_conv_bn": False,
+                    "use_channels_last": False,
                     "normalize": False,
                 },
             })
@@ -350,9 +352,11 @@ class MSSeparator:
             'post_process_threshold': 'inference',
             'high_end_process': 'inference',
             'use_amp': 'inference',
+            'fuse_conv_bn': 'inference',
+            'use_channels_last': 'inference',
         }.items():
             if params.get(key) is not None:
-                if key in ('normalize', 'mask_mode', 'enable_tta', 'enable_post_process', 'high_end_process', 'use_amp'):
+                if key in ('normalize', 'mask_mode', 'enable_tta', 'enable_post_process', 'high_end_process', 'use_amp', 'fuse_conv_bn', 'use_channels_last'):
                     config[value][key] = params[key]
                 elif key == 'post_process_threshold':
                     config[value][key] = float(params[key])

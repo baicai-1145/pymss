@@ -4,6 +4,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from torch import nn
+from torch.nn.utils.fusion import fuse_conv_bn_eval
 from tqdm import tqdm
 
 from .common_separator import CommonSeparator
@@ -13,6 +15,40 @@ from .uvr_lib_v5.vr_network.model_param_init import ModelParameters
 
 
 VR_PARAMS_DIR = Path(__file__).resolve().parents[2] / "resources" / "vr_modelparams"
+
+
+def _fuse_sequential_conv_bn(module):
+    fused = 0
+    for name, child in list(module.named_children()):
+        if isinstance(child, nn.Sequential):
+            new_children = []
+            child_items = list(child._modules.items())
+            i = 0
+            while i < len(child_items):
+                child_name, current = child_items[i]
+                if (
+                    i + 1 < len(child_items)
+                    and isinstance(current, nn.Conv2d)
+                    and isinstance(child_items[i + 1][1], nn.BatchNorm2d)
+                ):
+                    try:
+                        new_children.append((child_name, fuse_conv_bn_eval(current, child_items[i + 1][1])))
+                        fused += 1
+                        i += 2
+                        continue
+                    except Exception:
+                        pass
+                child_fused = _fuse_sequential_conv_bn(current)
+                fused += child_fused
+                new_children.append((child_name, current))
+                i += 1
+
+            child._modules.clear()
+            for child_name, current in new_children:
+                child.add_module(child_name, current)
+        else:
+            fused += _fuse_sequential_conv_bn(child)
+    return fused
 
 
 class VRSeparator(CommonSeparator):
@@ -36,6 +72,9 @@ class VRSeparator(CommonSeparator):
         self.window_size = int(arch_config.get("window_size", 512))
         self.high_end_process = bool(arch_config.get("high_end_process", False))
         self.use_amp = bool(arch_config.get("use_amp", True))
+        device_type = torch.device(self.torch_device).type
+        self.fuse_conv_bn = bool(arch_config.get("fuse_conv_bn", False))
+        self.use_channels_last = bool(arch_config.get("use_channels_last", False)) and device_type == "cuda"
         self.input_high_end_h = None
         self.input_high_end = None
         self.aggression = float(int(arch_config.get("aggression", 5)) / 100)
@@ -72,13 +111,21 @@ class VRSeparator(CommonSeparator):
         except Exception:
             state_dict = torch.load(self.model_path, map_location="cpu", weights_only=False)
         self.model_run.load_state_dict(state_dict)
+        self.model_run.eval()
+        if self.fuse_conv_bn:
+            fused = _fuse_sequential_conv_bn(self.model_run)
+            self.logger.debug(f"Fused {fused} VR Conv2d+BatchNorm2d pairs")
         self.model_run.to(self.torch_device)
+        if self.use_channels_last:
+            self.model_run.to(memory_format=torch.channels_last)
         self.model_run.eval()
 
     def to(self, device):
         self.torch_device = device
         if self.model_run is not None:
             self.model_run.to(device)
+            if self.use_channels_last:
+                self.model_run.to(memory_format=torch.channels_last)
         return self
 
     def eval(self):
@@ -93,8 +140,8 @@ class VRSeparator(CommonSeparator):
         self.secondary_source = None
         x_spec = self.loading_mix(mix, sample_rate)
         y_spec, v_spec = self.inference_vr(x_spec, self.torch_device, self.aggressiveness)
-        y_spec = np.nan_to_num(y_spec, nan=0.0, posinf=0.0, neginf=0.0)
-        v_spec = np.nan_to_num(v_spec, nan=0.0, posinf=0.0, neginf=0.0)
+        y_spec = np.nan_to_num(y_spec, nan=0.0, posinf=0.0, neginf=0.0, copy=False)
+        v_spec = np.nan_to_num(v_spec, nan=0.0, posinf=0.0, neginf=0.0, copy=False)
 
         results = {
             self.primary_stem_name: self.process_stem(self.primary_source, y_spec),
@@ -185,7 +232,11 @@ class VRSeparator(CommonSeparator):
             process_batches = tqdm(batch_starts, leave=False, desc="Processing VR batches") if self.debug else batch_starts
             with torch.inference_mode():
                 for i in process_batches:
-                    x_batch = torch.from_numpy(x_dataset[i:i + self.batch_size]).to(device)
+                    x_batch_cpu = torch.from_numpy(x_dataset[i:i + self.batch_size])
+                    if self.use_channels_last:
+                        x_batch = x_batch_cpu.to(device=device, non_blocking=True, memory_format=torch.channels_last)
+                    else:
+                        x_batch = x_batch_cpu.to(device=device, non_blocking=True)
                     use_amp = self.use_amp and torch.device(device).type == "cuda"
                     with torch.amp.autocast("cuda", dtype=torch.float16, enabled=use_amp):
                         pred = self.model_run.predict_mask(x_batch)
