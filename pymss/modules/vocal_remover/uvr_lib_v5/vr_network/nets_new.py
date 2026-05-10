@@ -33,7 +33,7 @@ class BaseNet(nn.Module):
 		self.lstm_dec2 = layers.LSTMModule(nout * 2, nin_lstm, nout_lstm)
 		self.dec1 = layers.Decoder(nout * (1 + 2) + 1, nout * 1, 3, 1, 1)
 
-	def __call__(self, input_tensor):
+	def forward(self, input_tensor):
 		# Sequentially pass the input through the encoder layers.
 		encoded1 = self.enc1(input_tensor)
 		encoded2 = self.enc2(encoded1)

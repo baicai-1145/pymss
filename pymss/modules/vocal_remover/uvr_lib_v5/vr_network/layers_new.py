@@ -19,7 +19,7 @@ class Conv2DBNActiv(nn.Module):
 		# Sequential model combining Conv2D, BatchNorm, and activation function into a single module
 		self.conv = nn.Sequential(nn.Conv2d(nin, nout, kernel_size=ksize, stride=stride, padding=pad, dilation=dilation, bias=False), nn.BatchNorm2d(nout), activ())
 
-	def __call__(self, input_tensor):
+	def forward(self, input_tensor):
 		# Forward pass through the sequential model
 		return self.conv(input_tensor)
 
@@ -39,7 +39,7 @@ class Encoder(nn.Module):
 		# Second convolutional layer of the encoder
 		self.conv2 = Conv2DBNActiv(nout, nout, ksize, 1, pad, activ=activ)
 
-	def __call__(self, input_tensor):
+	def forward(self, input_tensor):
 		# Applying the first and then the second convolutional layers
 		hidden = self.conv1(input_tensor)
 		hidden = self.conv2(hidden)
@@ -61,7 +61,7 @@ class Decoder(nn.Module):
 		# self.conv2 = Conv2DBNActiv(nout, nout, ksize, 1, pad, activ=activ)
 		self.dropout = nn.Dropout2d(0.1) if dropout else None
 
-	def __call__(self, input_tensor, skip=None):
+	def forward(self, input_tensor, skip=None):
 		# Forward pass through the convolutional layer and optional dropout
 		input_tensor = F.interpolate(input_tensor, scale_factor=2, mode="bilinear", align_corners=True)
 

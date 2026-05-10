@@ -1,34 +1,13 @@
-from typing import List, Tuple
-
 from pymss.modules.bandit.bandsplit import (
-    BandSplitModuleBase,
     SequentialNormFC as NormFC,
+    _ConfiguredBandSplitModule,
 )
 
 
-class BandSplitModule(BandSplitModuleBase):
-    def __init__(
-            self,
-            band_specs: List[Tuple[float, float]],
-            emb_dim: int,
-            in_channels: int,
-            require_no_overlap: bool = False,
-            require_no_gap: bool = True,
-            normalize_channel_independently: bool = False,
-            treat_channel_as_feature: bool = True,
-    ) -> None:
-        super().__init__(
-            band_specs=band_specs,
-            emb_dim=emb_dim,
-            in_channels=in_channels,
-            norm_fc_cls=NormFC,
-            complex_order='freq_reim',
-            flatten_input=True,
-            require_no_overlap=require_no_overlap,
-            require_no_gap=require_no_gap,
-            normalize_channel_independently=normalize_channel_independently,
-            treat_channel_as_feature=treat_channel_as_feature,
-        )
+class BandSplitModule(_ConfiguredBandSplitModule):
+    norm_fc_cls = NormFC
+    complex_order = 'freq_reim'
+    flatten_input = True
 
 
 __all__ = ["BandSplitModule", "NormFC"]

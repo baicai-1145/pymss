@@ -16,6 +16,8 @@ from .common import (
     init_roformer_layers,
     init_roformer_runtime,
     init_roformer_stft,
+    roformer_stft_freq_bins,
+    roformer_transformer_kwargs,
 )
 
 
@@ -54,7 +56,7 @@ class MelBandRoformer(RoformerRuntimeMixin, Module):
         ignore_roformer_training_kwargs(kwargs)
         init_roformer_runtime(self, stereo, num_stems)
 
-        transformer_kwargs = dict(
+        transformer_kwargs = roformer_transformer_kwargs(
             dim=dim,
             heads=heads,
             dim_head=dim_head,
@@ -75,7 +77,7 @@ class MelBandRoformer(RoformerRuntimeMixin, Module):
         self.final_norm = nn.Identity()
         init_roformer_stft(self, stft_n_fft, stft_hop_length, stft_win_length, stft_normalized, stft_window_fn)
 
-        freqs = torch.stft(torch.randn(1, 4096), **self.stft_kwargs, window=torch.ones(stft_n_fft), return_complex=True).shape[1]
+        freqs = roformer_stft_freq_bins(self, stft_n_fft)
 
         # create mel filter bank
         # with librosa.filters.mel as in section 2 of paper

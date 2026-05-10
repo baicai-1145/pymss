@@ -20,7 +20,10 @@ __all__ = [
     'init_roformer_band_modules',
     'init_roformer_layers',
     'init_roformer_runtime',
+    'init_roformer_shared_bias',
     'init_roformer_stft',
+    'roformer_stft_freq_bins',
+    'roformer_transformer_kwargs',
     'roformer_freqs_per_bands_with_complex',
 ]
 
@@ -104,6 +107,45 @@ def init_roformer_runtime(module, stereo, num_stems):
     module.num_stems = num_stems
 
 
+def init_roformer_shared_bias(module, dim, heads, dim_head, use_shared_bias):
+    if not use_shared_bias:
+        return None, None
+
+    dim_inner = heads * dim_head
+    module.linear_62_bias_0 = nn.Parameter(torch.ones(dim_inner * 3))
+    module.linear_64_bias_0 = nn.Parameter(torch.ones(dim))
+    return module.linear_62_bias_0, module.linear_64_bias_0
+
+
+def roformer_transformer_kwargs(
+        *,
+        dim,
+        heads,
+        dim_head,
+        attn_dropout,
+        ff_dropout,
+        flash_attn,
+        norm_output=None,
+        shared_qkv_bias=None,
+        shared_out_bias=None,
+):
+    kwargs = dict(
+        dim=dim,
+        heads=heads,
+        dim_head=dim_head,
+        attn_dropout=attn_dropout,
+        ff_dropout=ff_dropout,
+        flash_attn=flash_attn,
+    )
+    if norm_output is not None:
+        kwargs['norm_output'] = norm_output
+    if shared_qkv_bias is not None:
+        kwargs['shared_qkv_bias'] = shared_qkv_bias
+    if shared_out_bias is not None:
+        kwargs['shared_out_bias'] = shared_out_bias
+    return kwargs
+
+
 def init_roformer_layers(
         module,
         *,
@@ -141,6 +183,12 @@ def init_roformer_stft(module, stft_n_fft, stft_hop_length, stft_win_length, stf
     )
     module.stft_window_fn = partial(default(stft_window_fn, torch.hann_window), stft_win_length)
     module._stft_window_cache = {}
+
+
+def roformer_stft_freq_bins(module, window_length):
+    probe = torch.randn(1, 4096)
+    window = torch.ones(window_length)
+    return torch.stft(probe, **module.stft_kwargs, window=window, return_complex=True).shape[1]
 
 
 def roformer_freqs_per_bands_with_complex(module, freqs_per_bands, freqs):

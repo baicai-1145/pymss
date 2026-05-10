@@ -1,5 +1,3 @@
-import torch
-from torch import nn
 from torch.nn import Module
 
 from typing import Callable, Optional, Tuple
@@ -15,8 +13,11 @@ from .common import (
     init_roformer_band_modules,
     init_roformer_layers,
     init_roformer_runtime,
+    init_roformer_shared_bias,
     init_roformer_stft,
     roformer_freqs_per_bands_with_complex,
+    roformer_stft_freq_bins,
+    roformer_transformer_kwargs,
 )
 
 
@@ -54,16 +55,14 @@ class BSRoformer(RoformerRuntimeMixin, Module):
         ignore_roformer_training_kwargs(kwargs)
         init_roformer_runtime(self, stereo, num_stems)
 
-        shared_qkv_bias = None
-        shared_out_bias = None
-        if use_shared_bias:
-            dim_inner = heads * dim_head
-            self.linear_62_bias_0 = nn.Parameter(torch.ones(dim_inner * 3))
-            self.linear_64_bias_0 = nn.Parameter(torch.ones(dim))
-            shared_qkv_bias = self.linear_62_bias_0
-            shared_out_bias = self.linear_64_bias_0
-
-        transformer_kwargs = dict(
+        shared_qkv_bias, shared_out_bias = init_roformer_shared_bias(
+            self,
+            dim=dim,
+            heads=heads,
+            dim_head=dim_head,
+            use_shared_bias=use_shared_bias,
+        )
+        transformer_kwargs = roformer_transformer_kwargs(
             dim=dim,
             heads=heads,
             dim_head=dim_head,
@@ -87,7 +86,7 @@ class BSRoformer(RoformerRuntimeMixin, Module):
         self.final_norm = RMSNorm(dim)
         init_roformer_stft(self, stft_n_fft, stft_hop_length, stft_win_length, stft_normalized, stft_window_fn)
 
-        freqs = torch.stft(torch.randn(1, 4096), **self.stft_kwargs, window=torch.ones(stft_win_length), return_complex=True).shape[1]
+        freqs = roformer_stft_freq_bins(self, stft_win_length)
         freqs_per_bands_with_complex = roformer_freqs_per_bands_with_complex(self, freqs_per_bands, freqs)
         init_roformer_band_modules(
             self,

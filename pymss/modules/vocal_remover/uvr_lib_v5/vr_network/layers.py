@@ -33,7 +33,7 @@ class Conv2DBNActiv(nn.Module):
 		# into a single module, simplifying the forward pass.
 		self.conv = nn.Sequential(nn.Conv2d(nin, nout, kernel_size=ksize, stride=stride, padding=pad, dilation=dilation, bias=False), nn.BatchNorm2d(nout), activ())
 
-	def __call__(self, input_tensor):
+	def forward(self, input_tensor):
 		# Defines the computation performed at every call.
 		# Simply passes the input through the sequential container.
 		return self.conv(input_tensor)
@@ -92,7 +92,7 @@ class SeperableConv2DBNActiv(nn.Module):
 			activ(),  # Apply the activation function
 		)
 
-	def __call__(self, input_tensor):
+	def forward(self, input_tensor):
 		# Pass the input through the sequential container.
 		# This performs the depthwise convolution, followed by the pointwise convolution,
 		# batch normalization, and finally applies the activation function.
@@ -132,7 +132,7 @@ class Encoder(nn.Module):
 		# This layer helps in capturing more complex patterns in the data by building upon the initial features extracted by conv1.
 		self.conv2 = Conv2DBNActiv(nout, nout, ksize, stride, pad, activ=activ)
 
-	def __call__(self, input_tensor):
+	def forward(self, input_tensor):
 		# The input data `input_tensor` is passed through the first convolutional layer.
 		# The output of this layer serves as a 'skip connection' that can be used later in the network to preserve spatial information.
 		skip = self.conv1(input_tensor)
@@ -174,7 +174,7 @@ class Decoder(nn.Module):
 		# Initialize the dropout layer if include_dropout is set to True
 		self.dropout = nn.Dropout2d(0.1) if dropout else None
 
-	def __call__(self, input_tensor, skip=None):
+	def forward(self, input_tensor, skip=None):
 		# Upsample the input tensor to a higher resolution using bilinear interpolation.
 		input_tensor = F.interpolate(input_tensor, scale_factor=2, mode="bilinear", align_corners=True)
 		# If a skip connection is provided, crop it to match the size of input_tensor and concatenate them along the channel dimension.

@@ -143,3 +143,32 @@ class BandSplitModuleBase(nn.Module):
             z[:, i, :, :] = nfm(xb.contiguous())
 
         return z
+
+
+class _ConfiguredBandSplitModule(BandSplitModuleBase):
+    norm_fc_cls: type[nn.Module]
+    complex_order: str
+    flatten_input: bool
+
+    def __init__(
+            self,
+            band_specs: List[Tuple[float, float]],
+            emb_dim: int,
+            in_channels: int,
+            require_no_overlap: bool = False,
+            require_no_gap: bool = True,
+            normalize_channel_independently: bool = False,
+            treat_channel_as_feature: bool = True,
+    ) -> None:
+        super().__init__(
+            band_specs=band_specs,
+            emb_dim=emb_dim,
+            in_channels=in_channels,
+            norm_fc_cls=self.norm_fc_cls,
+            complex_order=self.complex_order,
+            flatten_input=self.flatten_input,
+            require_no_overlap=require_no_overlap,
+            require_no_gap=require_no_gap,
+            normalize_channel_independently=normalize_channel_independently,
+            treat_channel_as_feature=treat_channel_as_feature,
+        )

@@ -39,7 +39,7 @@ class BaseASPPNet(nn.Module):
 		self.dec2 = layers.Decoder(ch * (2 + 4), ch * 2, 3, 1, 1)
 		self.dec1 = layers.Decoder(ch * (1 + 2), ch, 3, 1, 1)
 
-	def __call__(self, input_tensor):
+	def forward(self, input_tensor):
 		# The input tensor is passed through a series of encoder layers.
 		hidden_state, encoder_output1 = self.enc1(input_tensor)
 		hidden_state, encoder_output2 = self.enc2(hidden_state)
