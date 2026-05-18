@@ -14,7 +14,9 @@ from .uvr_lib_v5.vr_network import nets, nets_new
 from .uvr_lib_v5.vr_network.model_param_init import ModelParameters
 
 
-VR_PARAMS_DIR = Path(__file__).resolve().parents[2] / "resources" / "vr_modelparams"
+_PACKAGE_VR_PARAMS_DIR = Path(__file__).resolve().parents[2] / "resources" / "vr_modelparams"
+_REPO_VR_PARAMS_DIR = Path(__file__).resolve().parents[3] / "resources" / "vr_modelparams"
+VR_PARAMS_DIR = _PACKAGE_VR_PARAMS_DIR if _PACKAGE_VR_PARAMS_DIR.exists() else _REPO_VR_PARAMS_DIR
 
 
 def _fuse_sequential_conv_bn(module):

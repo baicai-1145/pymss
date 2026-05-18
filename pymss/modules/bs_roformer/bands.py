@@ -7,6 +7,7 @@ from torch import nn
 from torch.nn import Module, ModuleList
 import torch.nn.functional as F
 
+from .triton_kernels import mask_final_tanh_glu_flat_triton, mask_final_tanh_glu_packed_triton, triton_kernels_available
 from .transformer import RMSNorm
 
 
@@ -80,15 +81,15 @@ class BandSplit(Module):
         return cached
 
     def _forward_grouped(self, x):
-        def forward_group(start, end, dim_in):
-            offset_start = self._dim_offsets[start]
-            offset_end = self._dim_offsets[end]
-            group_x = x[..., offset_start:offset_end].reshape(*x.shape[:-1], end - start, dim_in)
-            gamma, weight, bias = self._get_group_params(start, end, x.device, x.dtype)
-            group_x = F.normalize(group_x, dim=-1) * (dim_in ** 0.5) * gamma
-            return grouped_linear(group_x, weight, bias)
+        return torch.cat([self._forward_group(x, start, end, dim_in) for start, end, dim_in in self._dim_groups], dim=-2)
 
-        return torch.cat([forward_group(start, end, dim_in) for start, end, dim_in in self._dim_groups], dim=-2)
+    def _forward_group(self, x, start, end, dim_in):
+        offset_start = self._dim_offsets[start]
+        offset_end = self._dim_offsets[end]
+        group_x = x[..., offset_start:offset_end].reshape(*x.shape[:-1], end - start, dim_in)
+        gamma, weight, bias = self._get_group_params(start, end, x.device, x.dtype)
+        group_x = F.normalize(group_x, dim=-1) * (dim_in ** 0.5) * gamma
+        return grouped_linear(group_x, weight, bias)
 
     def warm_group_cache(self, device, dtype):
         for start, end, _ in self._dim_groups:
@@ -268,6 +269,21 @@ class MaskEstimator(Module):
             self._index_cache[key] = cached
         return cached
 
+    @staticmethod
+    def _contiguous_bounds(indices):
+        return (indices[0], indices[-1] + 1) if indices and indices == tuple(range(indices[0], indices[-1] + 1)) else None
+
+    def _select_group(self, group_x, indices):
+        bounds = self._contiguous_bounds(indices)
+        return group_x[..., bounds[0]:bounds[1], :] if bounds is not None else group_x.index_select(-2, self._indices_tensor(indices, group_x.device))
+
+    def _copy_group_(self, dst, indices, src):
+        bounds = self._contiguous_bounds(indices)
+        if bounds is None:
+            dst.index_copy_(-2, self._indices_tensor(indices, dst.device), src)
+        else:
+            dst[..., bounds[0]:bounds[1], :] = src
+
     def _get_group_params(self, start, end, device, dtype):
         key = (start, end, device.type, device.index, dtype)
         cached = self._group_cache.get(key)
@@ -375,6 +391,9 @@ class MaskEstimator(Module):
         plan = self._layer_grouping_plan()
         if plan is None:
             return None
+        streamed = self._forward_two_layer_stream(x, plan)
+        if streamed is not None:
+            return streamed
 
         group_x = x
         for layer_index, (kind, groups) in enumerate(plan):
@@ -389,8 +408,7 @@ class MaskEstimator(Module):
                 outs = [None] * len(self.to_freqs)
                 for signature, indices in groups:
                     weight, bias = self._get_layer_group_params(layer_index, signature, indices, x.device, x.dtype)
-                    band_index = self._indices_tensor(indices, x.device)
-                    selected = group_x.index_select(-2, band_index)
+                    selected = self._select_group(group_x, indices)
                     out = F.glu(grouped_linear(selected, weight, bias), dim=-1)
                     for band_position, band_out in zip(indices, out.unbind(dim=-2)):
                         outs[band_position] = band_out
@@ -399,13 +417,45 @@ class MaskEstimator(Module):
             next_x = group_x.new_empty(*group_x.shape[:-1], next(iter(out_dims)))
             for signature, indices in groups:
                 weight, bias = self._get_layer_group_params(layer_index, signature, indices, x.device, x.dtype)
-                band_index = self._indices_tensor(indices, x.device)
-                selected = group_x.index_select(-2, band_index)
-                out = grouped_linear(selected, weight, bias)
-                next_x.index_copy_(-2, band_index, out)
+                self._copy_group_(next_x, indices, grouped_linear(self._select_group(group_x, indices), weight, bias))
             group_x = next_x
 
         return F.glu(group_x, dim=-1).flatten(start_dim=-2)
+
+    def _forward_two_layer_stream(self, x, plan):
+        if len(plan) != 3 or plan[0][0] != 'linear' or plan[1][0] != 'tanh' or plan[2][0] != 'linear' or len(plan[0][1]) != 1:
+            return None
+        if torch.is_grad_enabled() or not x.is_cuda or x.dtype != torch.float16 or not triton_kernels_available():
+            return None
+
+        first_signature, _ = plan[0][1][0]
+        result = x.new_empty(x.shape[0], x.shape[1], sum(self.dim_inputs))
+
+        for final_signature, indices in plan[2][1]:
+            weight, bias = self._get_layer_group_params(0, first_signature, indices, x.device, x.dtype)
+            group_x = grouped_linear(self._select_group(x, indices), weight, bias)
+            weight, bias = self._get_layer_group_params(2, final_signature, indices, x.device, x.dtype)
+            out_dim = final_signature[1] // 2
+            bounds = self._contiguous_bounds(indices)
+            offset_start = None if bounds is None else self._dim_offsets[bounds[0]]
+
+            if (
+                bounds is not None
+                and self._dim_offsets[bounds[1]] - offset_start == len(indices) * out_dim
+                and mask_final_tanh_glu_flat_triton(group_x, weight, bias, result, offset_start, out_dim)
+            ):
+                continue
+
+            group_x = F.glu(grouped_linear(inference_tanh(group_x), weight, bias), dim=-1)
+            if bounds is not None:
+                result[:, :, offset_start:self._dim_offsets[bounds[1]]] = group_x.flatten(start_dim=-2)
+            else:
+                for group_position, band_position in enumerate(indices):
+                    offset_start = self._dim_offsets[band_position]
+                    offset_end = self._dim_offsets[band_position + 1]
+                    result[:, :, offset_start:offset_end] = group_x[:, :, group_position, :]
+
+        return result
 
     def _forward_by_band_fast(self, x):
         band_layers = self._band_groupable_layers()
@@ -453,11 +503,11 @@ class MaskEstimator(Module):
                 return False
         return True
 
-    @staticmethod
-    def _select_packed_group(group_x, band_index, stem_count):
+    def _select_packed_group(self, group_x, indices, stem_count):
+        selected = self._select_group(group_x, indices)
         if group_x.ndim == 4:
-            return group_x.index_select(-2, band_index).unsqueeze(2).expand(-1, -1, stem_count, -1, -1)
-        return group_x.index_select(-2, band_index)
+            return selected.unsqueeze(2).expand(-1, -1, stem_count, -1, -1)
+        return selected
 
     @staticmethod
     def _forward_packed_estimators_two_layer_stream(estimators, x, plan):
@@ -478,22 +528,26 @@ class MaskEstimator(Module):
             weight, bias = first._get_packed_layer_group_params(
                 estimators, 0, first_signature, indices, x.device, x.dtype
             )
-            band_index = first._indices_tensor(indices, x.device)
-            group_x = x.index_select(-2, band_index).unsqueeze(2).expand(-1, -1, stem_count, -1, -1)
+            group_x = first._select_group(x, indices).unsqueeze(2).expand(-1, -1, stem_count, -1, -1)
             b, t, s, g, d = group_x.shape
             group_x = grouped_linear(group_x.reshape(b, t, s * g, d), weight, bias)
-            group_x = inference_tanh(group_x)
 
             weight, bias = first._get_packed_layer_group_params(
                 estimators, 2, final_signature, indices, x.device, x.dtype
             )
-            group_x = grouped_linear(group_x, weight, bias)
-            group_x = F.glu(group_x, dim=-1).reshape(b, t, s, g, -1)
+            out_dim = final_signature[1] // 2
+            bounds = first._contiguous_bounds(indices)
+            offset_start = None if bounds is None else first._dim_offsets[bounds[0]]
+            if (
+                bounds is not None
+                and first._dim_offsets[bounds[1]] - offset_start == len(indices) * out_dim
+                and mask_final_tanh_glu_packed_triton(group_x, weight, bias, result, len(indices), offset_start, out_dim)
+            ):
+                continue
 
-            if indices == tuple(range(indices[0], indices[-1] + 1)):
-                offset_start = first._dim_offsets[indices[0]]
-                offset_end = first._dim_offsets[indices[-1] + 1]
-                result[:, :, :, offset_start:offset_end] = group_x.flatten(start_dim=-2).transpose(1, 2)
+            group_x = F.glu(grouped_linear(inference_tanh(group_x), weight, bias), dim=-1).reshape(b, t, s, g, -1)
+            if bounds is not None:
+                result[:, :, :, offset_start:first._dim_offsets[bounds[1]]] = group_x.flatten(start_dim=-2).transpose(1, 2)
             else:
                 for group_position, band_position in enumerate(indices):
                     offset_start = first._dim_offsets[band_position]
@@ -533,8 +587,7 @@ class MaskEstimator(Module):
                     weight, bias = first._get_packed_layer_group_params(
                         estimators, layer_index, signature, indices, x.device, x.dtype
                     )
-                    band_index = first._indices_tensor(indices, x.device)
-                    selected = MaskEstimator._select_packed_group(group_x, band_index, stem_count)
+                    selected = first._select_packed_group(group_x, indices, stem_count)
                     b, t, s, g, d = selected.shape
                     out = grouped_linear(selected.reshape(b, t, s * g, d), weight, bias)
                     out = F.glu(out, dim=-1).reshape(b, t, s, g, -1)
@@ -556,11 +609,10 @@ class MaskEstimator(Module):
                 weight, bias = first._get_packed_layer_group_params(
                     estimators, layer_index, signature, indices, x.device, x.dtype
                 )
-                band_index = first._indices_tensor(indices, x.device)
-                selected = MaskEstimator._select_packed_group(group_x, band_index, stem_count)
+                selected = first._select_packed_group(group_x, indices, stem_count)
                 b, t, s, g, d = selected.shape
                 out = grouped_linear(selected.reshape(b, t, s * g, d), weight, bias)
-                next_x.index_copy_(-2, band_index, out.reshape(b, t, s, g, out_dim))
+                first._copy_group_(next_x, indices, out.reshape(b, t, s, g, out_dim))
             group_x = next_x
 
         out = F.glu(group_x, dim=-1).flatten(start_dim=-2)

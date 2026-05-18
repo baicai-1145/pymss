@@ -9,7 +9,6 @@ from typing import Dict
 
 from .config import load_config
 
-
 def get_model_from_config(model_type, config_path):
     config = load_config(config_path)
 
@@ -140,6 +139,11 @@ def _autocast(device, enabled):
     return nullcontext()
 
 
+def _use_amp(config):
+    value = config.inference.get('use_amp', None)
+    return config.training.get('use_amp', True) if value is None else bool(value)
+
+
 def _source_names(config):
     return config.training.instruments if config.training.target_instrument is None else [config.training.target_instrument]
 
@@ -242,10 +246,17 @@ def _run_tail_chunks(model, mix, starts, windows, result, counter, chunk_size, s
 
 
 def _finalize_overlap(result, counter, length_init, border):
-    estimated_sources = (result / counter).cpu().numpy()
-    np.nan_to_num(estimated_sources, copy=False, nan=0.0)
+    estimated_sources = result / counter
     if length_init > 2 * border and border > 0:
         estimated_sources = estimated_sources[..., border:-border]
+    if estimated_sources.device.type == 'cuda':
+        host = torch.empty(estimated_sources.shape, dtype=estimated_sources.dtype, device='cpu', pin_memory=True)
+        host.copy_(estimated_sources, non_blocking=True)
+        torch.cuda.current_stream(estimated_sources.device).synchronize()
+        estimated_sources = host.numpy()
+    else:
+        estimated_sources = estimated_sources.cpu().numpy()
+    np.nan_to_num(estimated_sources, copy=False, nan=0.0)
     return estimated_sources
 
 
@@ -414,7 +425,7 @@ def demix_track(config, model, mix, device, pbar=False):
     use_complete_fast_path = device_type in ('cuda', 'cpu')
     mix_device = _model_mix(mix, device)
 
-    with _autocast(device, config.training.get('use_amp', True)):
+    with _autocast(device, _use_amp(config)):
         with torch.inference_mode():
             result, counter = _init_overlap_buffers(config, mix, device, use_complete_fast_path)
             progress_bar = tqdm(total=mix.shape[1], desc="Processing audio chunks", leave=False) if pbar else None
@@ -447,7 +458,7 @@ def demix_track_demucs(config, model, mix, device, pbar=False):
     batch_size = config.inference.batch_size
     step = _get_inference_step(config, C)
 
-    with _autocast(device, config.training.get('use_amp', True)):
+    with _autocast(device, _use_amp(config)):
         with torch.inference_mode():
             req_shape = (S, ) + tuple(mix.shape)
             result = torch.zeros(req_shape, dtype=torch.float32)

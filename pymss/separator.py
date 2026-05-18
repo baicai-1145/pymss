@@ -30,7 +30,13 @@ INFERENCE_PARAM_TARGETS = {
     'post_process_threshold': 'inference',
     'high_end_process': 'inference',
     'use_amp': 'inference',
+    'model_compute_dtype': 'inference',
     'cuda_attention_backend': 'inference',
+    'cuda_triton_backend': 'inference',
+    'approx_time_kv_stride': 'inference',
+    'approx_time_kv_stride_start_layer': 'inference',
+    'approx_time_kv_stride_every': 'inference',
+    'approx_time_kv_stride_mode': 'inference',
     'mps_attention_backend': 'inference',
     'mps_mlx_min_tokens': 'inference',
     'mps_model_backend': 'inference',
@@ -45,7 +51,13 @@ PASSTHROUGH_INFERENCE_PARAMS = frozenset({
     'enable_post_process',
     'high_end_process',
     'use_amp',
+    'model_compute_dtype',
     'cuda_attention_backend',
+    'cuda_triton_backend',
+    'approx_time_kv_stride',
+    'approx_time_kv_stride_start_layer',
+    'approx_time_kv_stride_every',
+    'approx_time_kv_stride_mode',
     'mps_attention_backend',
     'mps_model_backend',
     'mps_model_compute_dtype',
@@ -196,6 +208,39 @@ def _coerce_mps_float64(module):
         for name, buffer in list(child._buffers.items()):
             if buffer is not None and buffer.dtype == torch.float64:
                 child._buffers[name] = buffer.float()
+
+
+def _model_compute_dtype(config, model_type, device):
+    value = config.inference.get('model_compute_dtype', 'auto')
+    value = 'auto' if value is None else str(value).lower()
+    use_amp = config.inference.get('use_amp', None)
+    use_amp = config.training.get('use_amp', True) if use_amp is None else bool(use_amp)
+    if value in ('auto', 'default'):
+        return torch.float16 if use_amp and torch.device(device).type == 'cuda' and model_type in ('bs_roformer', 'bs_roformer_hyperace') else None
+    if value in ('off', 'float32', 'fp32'):
+        return None
+    if value in ('float16', 'fp16', 'half'):
+        if torch.device(device).type != 'cuda':
+            return None
+        if not use_amp:
+            raise ValueError("inference.model_compute_dtype='float16' requires inference.use_amp=True")
+        return torch.float16
+    raise ValueError("inference.model_compute_dtype must be one of: auto, off, float16, float32")
+
+
+def _convert_roformer_inference_weights(module, dtype):
+    seen = set()
+    with torch.no_grad():
+        for child in module.modules():
+            if isinstance(child, torch.nn.Linear):
+                for param in (child.weight, child.bias):
+                    if param is not None and id(param) not in seen:
+                        param.data = param.data.to(dtype=dtype)
+                        seen.add(id(param))
+            gamma = getattr(child, 'gamma', None)
+            if isinstance(gamma, torch.nn.Parameter) and id(gamma) not in seen:
+                gamma.data = gamma.data.to(dtype=dtype)
+                seen.add(id(gamma))
 
 
 def _model_is_stereo(model_type, config):
@@ -442,6 +487,9 @@ class MSSeparator:
         if len(self.device_ids) > 1 and not keep_torch_model_cpu:
             model = torch.nn.DataParallel(model, device_ids=self.device_ids)
         model = model.to("cpu" if keep_torch_model_cpu else self.device)
+        compute_dtype = _model_compute_dtype(config, model_type, self.device)
+        if compute_dtype is not None and not keep_torch_model_cpu:
+            _convert_roformer_inference_weights(model, compute_dtype)
         model.eval()
 
         self.logger.debug(f"Loading model completed, duration: {time() - start_time:.2f} seconds")
@@ -455,6 +503,19 @@ class MSSeparator:
             for module in model.modules():
                 if hasattr(module, 'set_cuda_attention_backend'):
                     module.set_cuda_attention_backend(cuda_attention_backend)
+        cuda_triton_backend = config.inference.get('cuda_triton_backend', None)
+        if cuda_triton_backend is not None:
+            for module in model.modules():
+                if hasattr(module, 'set_cuda_triton_backend'):
+                    module.set_cuda_triton_backend(cuda_triton_backend)
+        approx_time_kv_stride = config.inference.get('approx_time_kv_stride', None)
+        if approx_time_kv_stride is not None:
+            start_layer = config.inference.get('approx_time_kv_stride_start_layer', 0)
+            every = config.inference.get('approx_time_kv_stride_every', 1)
+            mode = config.inference.get('approx_time_kv_stride_mode', 'avg')
+            for module in model.modules():
+                if hasattr(module, 'set_approx_time_kv_stride'):
+                    module.set_approx_time_kv_stride(approx_time_kv_stride, start_layer, every, mode)
         model_backend = config.inference.get('mps_model_backend', None)
         if model_backend is not None:
             compute_dtype = config.inference.get('mps_model_compute_dtype', None)

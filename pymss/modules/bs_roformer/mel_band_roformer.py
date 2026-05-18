@@ -103,6 +103,11 @@ class MelBandRoformer(RoformerRuntimeMixin, Module):
             num_bands_per_freq.repeat_interleave(self.audio_channels).view(1, 1, -1, 1),
             persistent=False
         )
+        self.register_buffer(
+            'num_bands_per_channel_freq_inv',
+            num_bands_per_freq.repeat_interleave(self.audio_channels).float().reciprocal().view(1, 1, -1, 1),
+            persistent=False,
+        )
 
         freqs_per_bands_with_complex = tuple(2 * f * self.audio_channels for f in num_freqs_per_band.tolist())
         init_roformer_band_modules(
@@ -122,7 +127,7 @@ class MelBandRoformer(RoformerRuntimeMixin, Module):
         return forward_roformer_mask_core(self, selected_stft_repr)
 
     def _mask_stft_repr(self, stft_repr, context):
-        x = stft_repr[torch.arange(context.batch, device=stft_repr.device)[..., None], self.freq_indices]
+        x = stft_repr.index_select(1, self.freq_indices)
         self._warm_group_cache(x)
         masks = self._forward_mask_core(x)
 
@@ -150,7 +155,7 @@ class MelBandRoformer(RoformerRuntimeMixin, Module):
             )
             masks_summed = stft_repr.new_zeros(context.batch, num_stems, stft_repr.shape[2], stft_repr.shape[-1])
             masks_summed.scatter_add_(2, scatter_indices, masks)
-        return stft_repr * (masks_summed / self.num_bands_per_channel_freq.clamp(min=1e-8))
+        return stft_repr * (masks_summed * self.num_bands_per_channel_freq_inv)
 
     def forward(self, raw_audio):
         if self._use_mlx_full_forward(raw_audio):

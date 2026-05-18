@@ -5,6 +5,7 @@ import torch
 from torch import nn
 
 from .bands import BandSplit, MaskEstimator
+from .triton_kernels import copy_rms_norm_4d_triton
 from .transformer import RMSNorm, Transformer
 
 
@@ -180,6 +181,28 @@ def init_roformer_band_modules(
 class RoformerRuntimeMixin:
     mps_model_backend = "torch"
     mps_model_compute_dtype = torch.float16
+    approx_time_kv_stride = 1
+    approx_time_kv_stride_start_layer = 0
+    approx_time_kv_stride_every = 1
+    approx_time_kv_stride_mode = "avg"
+
+    def set_approx_time_kv_stride(self, stride=None, start_layer=0, every=1, mode="avg"):
+        stride = 1 if stride is None else int(stride)
+        start_layer = int(start_layer or 0)
+        every = int(every or 1)
+        mode = (mode or "avg").lower()
+        if stride < 1:
+            raise ValueError("approx_time_kv_stride must be >= 1")
+        if start_layer < 0:
+            raise ValueError("approx_time_kv_stride_start_layer must be >= 0")
+        if every < 1:
+            raise ValueError("approx_time_kv_stride_every must be >= 1")
+        if mode not in ("sample", "avg"):
+            raise ValueError("approx_time_kv_stride_mode must be 'sample' or 'avg'")
+        self.approx_time_kv_stride = stride
+        self.approx_time_kv_stride_start_layer = start_layer
+        self.approx_time_kv_stride_every = every
+        self.approx_time_kv_stride_mode = mode
 
     def set_mps_model_backend(self, backend=None, compute_dtype=None):
         backend = (backend or "torch").lower()
@@ -247,11 +270,35 @@ def forward_roformer_mask_core(module, stft_repr):
     b, fs, model_t, complex_dim = stft_repr.shape
     x = stft_repr.permute(0, 2, 1, 3).reshape(b, model_t, fs * complex_dim)
     x = module.band_split(x)
+    kv_stride = getattr(module, "approx_time_kv_stride", 1)
+    kv_stride_start = getattr(module, "approx_time_kv_stride_start_layer", 0)
+    kv_stride_every = getattr(module, "approx_time_kv_stride_every", 1)
+    kv_stride_mode = getattr(module, "approx_time_kv_stride_mode", "avg")
 
-    for time_transformer, freq_transformer in module.layers:
+    for layer_index, (time_transformer, freq_transformer) in enumerate(module.layers):
         b, t, f, d = x.shape
-        x = time_transformer(x.permute(0, 2, 1, 3).reshape(b * f, t, d)).reshape(b, f, t, d).permute(0, 2, 1, 3)
-        x = freq_transformer(x.reshape(b * t, f, d)).reshape(b, t, f, d)
+        normed_residual = None
+        use_kv_stride = (
+            kv_stride > 1
+            and not time_transformer.training
+            and not torch.is_grad_enabled()
+            and layer_index >= kv_stride_start
+            and (layer_index - kv_stride_start) % kv_stride_every == 0
+            and t >= kv_stride * 2
+        )
+        if not time_transformer.training and not torch.is_grad_enabled():
+            normed_residual = copy_rms_norm_4d_triton(x, time_transformer.layers[0][0].norm.gamma, "bft")
+        if use_kv_stride:
+            time_transformer.set_approx_kv_stride(kv_stride, kv_stride_mode)
+        try:
+            x = (time_transformer(x.permute(0, 2, 1, 3).reshape(b * f, t, d)) if normed_residual is None else time_transformer.forward_from_normed_first(*normed_residual)).reshape(b, f, t, d).permute(0, 2, 1, 3)
+        finally:
+            if use_kv_stride:
+                time_transformer.set_approx_kv_stride(1, kv_stride_mode)
+        normed_residual = None
+        if not freq_transformer.training and not torch.is_grad_enabled():
+            normed_residual = copy_rms_norm_4d_triton(x, freq_transformer.layers[0][0].norm.gamma, "btf")
+        x = (freq_transformer(x.reshape(b * t, f, d)) if normed_residual is None else freq_transformer.forward_from_normed_first(*normed_residual)).reshape(b, t, f, d)
 
     return mask_to_complex_shape(module._estimate_masks(module.final_norm(x)), complex_dim=2)
 
