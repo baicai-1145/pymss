@@ -63,7 +63,28 @@ separator.process_folder('path/to/input_folder')
 
 RoFormer 系列模型在已安装 PyTorch 暴露 cuDNN attention 时默认使用 cuDNN attention，否则使用 PyTorch 默认 SDPA 路径。需要探测式回退时可通过 `inference_params={"cuda_attention_backend": "auto"}` 覆盖。可选值为 `auto`、`default`、`flash`、`cudnn`、`efficient`、`math` 和 `xformers`。`auto` 会优先尝试 cuDNN attention，然后回退到 PyTorch memory-efficient SDPA，再回退到 PyTorch 默认 SDPA。`xformers` 是本地可选安装项，不作为必需依赖。
 
-RoFormer 系列在 CUDA 上还默认使用 `cuda_triton_backend="auto"`。该路径只在本机 Torch/Triton 与当前 tensor shape 支持时启用实测有效的 attention gate/output 融合内核，否则自动回退 Torch 路径。可用 `inference_params={"cuda_triton_backend": "off"}` 或 `"default"` 关闭。诊断值包括 `freq_atomic_out`、`attention_gate` 和 `attention_gate_out`。
+### CUDA Triton 融合
+
+RoFormer 系列在 CUDA 上还默认使用 `cuda_triton_backend="auto"`。这是可选路径：如果本机未安装 Triton、不是 CUDA、dtype/shape 不支持，或 Triton kernel 运行失败，pymss 会回退到常规 Torch/cuDNN/cuBLAS 路径。可用 `inference_params={"cuda_triton_backend": "off"}` 或 `"default"` 关闭。诊断值包括 `freq_atomic_out`、`attention_gate` 和 `attention_gate_out`。
+
+Triton kernel 不替换主要 cuBLAS GEMM，而是处理 GEMM 周围大量小算子带来的 kernel launch 和中间 tensor 写回：
+
+| 融合区域 | 融合内容 |
+|---|---|
+| transformer 输入路由 | time/freq transformer block 前的 4D shape routing、residual copy 和 RMSNorm |
+| rotary embedding | tensor layout 和 dtype 匹配时，对 Q/K 做 in-place RoPE 旋转 |
+| attention 尾部 | attention output、sigmoid gate、output projection、bias/residual 处理，短序列下可连 RoPE 一起融合 |
+| mask estimator 尾部 | final tanh、grouped linear、GLU 和 mask buffer 写回 |
+
+RTX 5090 上，BS-Roformer-HyperACE_v2_voc 使用 `chunk_size=160000`、`batch_size=5`，只 profile `_forward_mask_core` 的结果：
+
+| 路径 | 每 chunk GPU kernel 数 | 每 chunk mask-core 耗时 |
+|---|---:|---:|
+| 完全关闭 Triton | 92.0 | 10.57 ms |
+| Triton auto | 64.8 | 8.71 ms |
+| 减少 | 27.2 | 1.85 ms |
+
+减少最多的是 elementwise/layout kernel：`aten::mul`、`aten::sigmoid`、`aten::rms_norm`、小 `copy_`/`clone`，以及大量临时 tensor 分配。主要收益来自减少 kernel launch 和中间 DRAM 读写；显存峰值通常变化不大，因为大激活和 GEMM 输入仍然占主要部分。实际收益会随 chunk size、batch size、模型宽度、PyTorch/Triton 版本和 GPU 改变。
 
 启用 CUDA AMP 时，BS-RoFormer 系列默认使用 `model_compute_dtype="auto"`，会让 Linear 权重/偏置和 RMSNorm gamma 在推理中常驻 fp16，避免反复 autocast 权重转换。需要保持 fp32 参数可设置 `inference_params={"model_compute_dtype": "off"}`；CUDA RoFormer 实验可显式使用 `"float16"`。
 

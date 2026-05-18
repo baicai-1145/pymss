@@ -73,7 +73,28 @@ separator.process_folder('path/to/input_folder')
 
 RoFormer-family models default to cuDNN attention on CUDA when the installed PyTorch build exposes it, otherwise they use PyTorch's default SDPA path. Override with `inference_params={"cuda_attention_backend": "auto"}` if you want fallback probing. Valid values are `auto`, `default`, `flash`, `cudnn`, `efficient`, `math`, and `xformers`. `auto` tries cuDNN attention first, then PyTorch memory-efficient SDPA, then PyTorch default SDPA. `xformers` is optional and only used if installed locally; it is not a required dependency.
 
-RoFormer-family models also default to `cuda_triton_backend="auto"` on CUDA. This uses optional Triton kernels for the measured attention gate/output fusion path when the installed Torch/Triton stack and tensor shapes support it, and otherwise falls back to the Torch path. Use `inference_params={"cuda_triton_backend": "off"}` or `"default"` to disable it. Diagnostic values include `freq_atomic_out`, `attention_gate`, and `attention_gate_out`.
+### CUDA Triton Fusion
+
+RoFormer-family models also default to `cuda_triton_backend="auto"` on CUDA. This path is optional: if Triton is not installed, the device is not CUDA, the dtype/shape is unsupported, or a Triton kernel fails, pymss falls back to the normal Torch/cuDNN/cuBLAS path. Use `inference_params={"cuda_triton_backend": "off"}` or `"default"` to disable it. Diagnostic values include `freq_atomic_out`, `attention_gate`, and `attention_gate_out`.
+
+The Triton kernels do not replace the main cuBLAS GEMMs. They target the small operations around the GEMMs that are expensive because they launch many kernels and write intermediate tensors:
+
+| fused area | what is fused |
+|---|---|
+| transformer input routing | 4D shape routing, residual copy, and RMSNorm before the time/frequency transformer blocks |
+| rotary embedding | in-place RoPE rotation for Q/K when the tensor layout and dtype match |
+| attention tail | attention output, sigmoid gate, output projection, bias/residual handling, and short-sequence RoPE when supported |
+| mask estimator tail | final tanh, grouped linear, GLU, and writeback into the mask buffer |
+
+Measured on RTX 5090 with BS-Roformer-HyperACE_v2_voc, `chunk_size=160000`, `batch_size=5`, profiling only `_forward_mask_core`:
+
+| path | GPU kernels / chunk | mask-core time / chunk |
+|---|---:|---:|
+| no Triton | 92.0 | 10.57 ms |
+| Triton auto | 64.8 | 8.71 ms |
+| saved | 27.2 | 1.85 ms |
+
+The biggest reduction is in elementwise/layout kernels: `aten::mul`, `aten::sigmoid`, `aten::rms_norm`, small `copy_`/`clone`, and allocator-heavy temporary tensors. The main benefit is lower launch overhead and less intermediate DRAM traffic; peak memory usually changes little because the large model activations and GEMM inputs still dominate. The exact gain depends on chunk size, batch size, model width, installed PyTorch/Triton versions, and GPU.
 
 When CUDA AMP is enabled, BS-RoFormer-family models default to `model_compute_dtype="auto"`, which keeps Linear weights/biases and RMSNorm gamma in fp16 for inference to avoid repeated autocast weight conversion. Set `inference_params={"model_compute_dtype": "off"}` to keep parameters in fp32. Explicit `"float16"` can be used for CUDA RoFormer experiments.
 
