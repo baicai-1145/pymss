@@ -71,7 +71,7 @@ separator.process_folder('path/to/input_folder')
 
 ### CUDA Attention Backend
 
-RoFormer-family models default to cuDNN attention on CUDA when the installed PyTorch build exposes it, otherwise they use PyTorch's default SDPA path. Override with `inference_params={"cuda_attention_backend": "auto"}` if you want fallback probing. Valid values are `auto`, `default`, `flash`, `cudnn`, `efficient`, `math`, and `xformers`. `auto` tries cuDNN attention first, then PyTorch memory-efficient SDPA, then PyTorch default SDPA. `xformers` is optional and only used if installed locally; it is not a required dependency.
+RoFormer-family models default to PyTorch's default SDPA path on CUDA. On A10G this was faster and more stable than forcing cuDNN attention for the `BS-Roformer-HyperACE_v2_voc` inference path. Override with `inference_params={"cuda_attention_backend": "auto"}` if you want fallback probing, or set a specific backend for local experiments. Valid values are `auto`, `default`, `flash`, `cudnn`, `efficient`, `math`, and `xformers`. `auto` tries cuDNN attention first, then PyTorch memory-efficient SDPA, then PyTorch default SDPA. `xformers` is optional and only used if installed locally; it is not a required dependency.
 
 ### CUDA Triton Fusion
 
@@ -86,13 +86,13 @@ The Triton kernels do not replace the main cuBLAS GEMMs. They target the small o
 | attention tail | attention output, sigmoid gate, output projection, bias/residual handling, and short-sequence RoPE when supported |
 | mask estimator tail | final tanh, grouped linear, GLU, and writeback into the mask buffer |
 
-Measured on RTX 5090 with BS-Roformer-HyperACE_v2_voc, `chunk_size=160000`, `batch_size=5`, profiling only `_forward_mask_core`:
+Measured on NVIDIA A10G with BS-Roformer-HyperACE_v2_voc, `chunk_size=160000`, `batch_size=24`, `overlap_size=0`, `cuda_attention_backend="default"`, `test.m4a` 311.6 s input, two warmups and five measured end-to-end separation runs:
 
-| path | GPU kernels / chunk | mask-core time / chunk |
+| path | median time | median RTFx |
 |---|---:|---:|
-| no Triton | 92.0 | 10.57 ms |
-| Triton auto | 64.8 | 8.71 ms |
-| saved | 27.2 | 1.85 ms |
+| no Triton | 4.306 s | 72.37x |
+| Triton auto | 2.818 s | 110.59x |
+| speedup | 1.53x | 1.53x |
 
 The biggest reduction is in elementwise/layout kernels: `aten::mul`, `aten::sigmoid`, `aten::rms_norm`, small `copy_`/`clone`, and allocator-heavy temporary tensors. The main benefit is lower launch overhead and less intermediate DRAM traffic; peak memory usually changes little because the large model activations and GEMM inputs still dominate. The exact gain depends on chunk size, batch size, model width, installed PyTorch/Triton versions, and GPU.
 
@@ -102,17 +102,7 @@ When CUDA AMP is enabled, BS-RoFormer-family models default to `model_compute_dt
 
 For RoFormer-family inference, `overlap_size=0` removes redundant chunk overlap work while keeping each model's original chunk length and batch size. This changes chunk-boundary blending, so outputs are not bit-identical to the common 5% overlap setting, but it is not an approximate attention or model-forward shortcut.
 
-Measured on `test.m4a`, 300 s input, RTX 5090, PyTorch 2.9.1+cu128, no TTA, two warmups and five measured runs:
-
-| model | 5% overlap RTFx | 0% overlap RTFx | 0% overlap 1-hour audio | MUSDB18-HQ test full-song SDR drop |
-|---|---:|---:|---:|---:|
-| BS-Roformer-HyperACE_v2_voc | 300.81x | 324.51x | 11.1s | 0.007 dB |
-| model_bs_roformer_ep_368_sdr_12.9628 | 138.04x | 146.41x | 24.6s | 0.089 dB |
-| logic_bs_roformer | 202.61x | 216.38x | 16.6s | 0.065 dB |
-| mel-band-roformer-deux | 209.73x | 217.58x | 16.5s | -0.068 dB |
-| Mel-Band-Roformer-big | 229.40x | 244.10x | 14.7s | -0.049 dB |
-
-The fastest exact BS-Roformer-HyperACE_v2_voc run measured so far uses `chunk_size=160000`, `batch_size=5`, 5% overlap, and CUDA graph capture for `_mask_stft_repr`: **358.39x**, or about **10.0 s** for 1 hour of audio. The chunk-level max absolute difference versus the uncaptured path was `1.74e-7`.
+This A10G branch keeps the original HyperACE chunk schedule as the recommended fast path: `chunk_size=480000`, `batch_size=2`, and `overlap_size=0`. This avoids redundant overlap work while preserving the model forward path. It changes chunk-boundary blending, so outputs are not bit-identical to overlap settings.
 
 Use the 0% overlap setting explicitly:
 
@@ -137,15 +127,7 @@ inference_params={
 }
 ```
 
-Measured on `test.m4a`, 300 s input, RTX 5090, PyTorch 2.9.1+cu128, no TTA, two warmups and measured runs:
-
-| model | setting | RTFx | MUSDB18-HQ test full-song SDR drop |
-|---|---|---:|---:|
-| BS-Roformer-HyperACE_v2_voc | exact | 301.74x | 0.000 dB |
-| BS-Roformer-HyperACE_v2_voc | KV sample `stride=2,start_layer=4,every=2` | 308.44x | 0.467 dB |
-| BS-Roformer-HyperACE_v2_voc | KV sample `stride=2,start_layer=4,every=3` | 305.57x | 0.275 dB |
-
-Keep approximate modes explicit; exact inference remains the default.
+Keep approximate modes explicit and revalidate both speed and SDR on the target GPU and material; exact inference remains the default.
 
 ### Apple Silicon MLX Backend
 
@@ -199,23 +181,25 @@ inference:
   overlap_size: 0
 ```
 
-### RTX 5090 Benchmark
+### A10G Benchmark
 
-Measured on an NVIDIA GeForce RTX 5090 with PyTorch 2.9.1+cu128, CUDA 12.8, no TTA. Main model rows use the fastest measured settings; RoFormer and smoke rows were confirmed with two warmups and five measured runs.
+Measured on an NVIDIA A10G with PyTorch 2.8.0+cu128, no TTA. Main model rows use the listed A10G settings; RoFormer and smoke rows were confirmed with one warmup and three measured `separator.separate()` runs. File writes are not included. RoFormer-family rows use `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, `cuda_attention_backend="default"`, `cuda_triton_backend="auto"`, and `model_compute_dtype="auto"`.
 
 | model | type | fastest setting | RTFx | 1-hour audio |
 |---|---|---|---:|---:|
-| BS-Roformer-HyperACE_v2_voc | bs_roformer | chunk=160000, overlap=5%, batch=5, CUDA graph | 358.39x | 10.0s |
-| model_bs_roformer_ep_368_sdr_12.9628 | bs_roformer | chunk=120000, overlap=0, batch=8 | 154.92x | 23.2s |
-| logic_bs_roformer | bs_roformer | chunk=160000, overlap=0, batch=4 | 274.72x | 13.1s |
-| mel-band-roformer-deux | mel_band_roformer | chunk=160000, overlap=0, batch=6 | 271.66x | 13.3s |
-| Mel-Band-Roformer-big | mel_band_roformer | chunk=160000, overlap=0, batch=4 | 274.04x | 13.1s |
-| model_vocals_mdx23c_sdr_10.17 | mdx23c | chunk=130560, overlap=0, batch=2 | 235.77x | 15.3s |
-| HTDemucs4 | htdemucs | chunk=646800, overlap=0, batch=12 | 350.85x | 10.3s |
-| scnet_checkpoint_musdb18 | scnet | chunk=242550, overlap=0, batch=8 | 599.39x | 6.0s |
-| model_bandit_plus_dnr_sdr_11.47 | bandit | chunk=264600, overlap=0, batch=10 | 257.44x | 14.0s |
-| checkpoint-multi_state_dict | bandit_v2 | chunk=256000, overlap=0, batch=12 | 230.69x | 15.6s |
-| Apollo_LQ_MP3_restoration | apollo | chunk=66150, overlap=0, batch=2 | 110.32x | 32.6s |
+| BS-Roformer-HyperACE_v2_voc | bs_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 93.95x | 38.3s |
+| model_bs_roformer_ep_368_sdr_12.9628 | bs_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 33.21x | 108.4s |
+| logic_bs_roformer | bs_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 72.81x | 49.4s |
+| mvsep_mega_model_bs_roformer_53_stems | bs_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 22.58x | 159.5s |
+| mel-band-roformer-deux | mel_band_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 70.34x | 51.2s |
+| Mel-Band-Roformer-big | mel_band_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 65.94x | 54.6s |
+| model_vocals_mdx23c_sdr_10.17 | mdx23c | chunk=261120, overlap=0, batch=1 | 73.25x | 49.1s |
+| scnet_checkpoint_musdb18 | scnet | chunk=485100, overlap=0, batch=8 | 191.51x | 18.8s |
+| model_bandit_plus_dnr_sdr_11.47 | bandit | chunk=264600, overlap=0, batch=1 | 39.19x | 91.9s |
+| checkpoint-multi_state_dict | bandit_v2 | chunk=384000, overlap=0, batch=8 | 87.60x | 41.1s |
+| Apollo_LQ_MP3_restoration | apollo | chunk=132300, overlap=0, batch=4 | 29.96x | 120.1s |
+
+`HTDemucs4` smoke weights were not benchmarked because the local checkpoint file could not be read (`PytorchStreamReader failed reading zip archive`). `model_swin_upernet_ep_56_sdr_10.6703` is present under `models/smoke`, but this inference-only package does not expose a matching `model_type`.
 
 VR models were batch-searched with `window_size=512`, `aggression=5`, TTA off and post-processing off, then confirmed with two warmups and three measured runs at the listed batch size.
 

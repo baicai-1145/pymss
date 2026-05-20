@@ -61,7 +61,7 @@ separator.process_folder('path/to/input_folder')
 
 ### CUDA Attention 后端
 
-RoFormer 系列模型在已安装 PyTorch 暴露 cuDNN attention 时默认使用 cuDNN attention，否则使用 PyTorch 默认 SDPA 路径。需要探测式回退时可通过 `inference_params={"cuda_attention_backend": "auto"}` 覆盖。可选值为 `auto`、`default`、`flash`、`cudnn`、`efficient`、`math` 和 `xformers`。`auto` 会优先尝试 cuDNN attention，然后回退到 PyTorch memory-efficient SDPA，再回退到 PyTorch 默认 SDPA。`xformers` 是本地可选安装项，不作为必需依赖。
+RoFormer 系列模型在 CUDA 上默认使用 PyTorch 默认 SDPA 路径。在 A10G 的 `BS-Roformer-HyperACE_v2_voc` 推理路径上，它比强制 cuDNN attention 更快且更稳定。需要探测式回退时可通过 `inference_params={"cuda_attention_backend": "auto"}` 覆盖，也可以为本地实验指定具体后端。可选值为 `auto`、`default`、`flash`、`cudnn`、`efficient`、`math` 和 `xformers`。`auto` 会优先尝试 cuDNN attention，然后回退到 PyTorch memory-efficient SDPA，再回退到 PyTorch 默认 SDPA。`xformers` 是本地可选安装项，不作为必需依赖。
 
 ### CUDA Triton 融合
 
@@ -76,13 +76,13 @@ Triton kernel 不替换主要 cuBLAS GEMM，而是处理 GEMM 周围大量小算
 | attention 尾部 | attention output、sigmoid gate、output projection、bias/residual 处理，短序列下可连 RoPE 一起融合 |
 | mask estimator 尾部 | final tanh、grouped linear、GLU 和 mask buffer 写回 |
 
-RTX 5090 上，BS-Roformer-HyperACE_v2_voc 使用 `chunk_size=160000`、`batch_size=5`，只 profile `_forward_mask_core` 的结果：
+A10G 上，BS-Roformer-HyperACE_v2_voc 使用 `chunk_size=160000`、`batch_size=24`、`overlap_size=0`、`cuda_attention_backend="default"`，对 `test.m4a` 311.6 秒输入做端到端分离，预热 2 次、正式运行 5 次后的实测：
 
-| 路径 | 每 chunk GPU kernel 数 | 每 chunk mask-core 耗时 |
+| 路径 | 中位耗时 | 中位 RTFx |
 |---|---:|---:|
-| 完全关闭 Triton | 92.0 | 10.57 ms |
-| Triton auto | 64.8 | 8.71 ms |
-| 减少 | 27.2 | 1.85 ms |
+| 完全关闭 Triton | 4.306 s | 72.37x |
+| Triton auto | 2.818 s | 110.59x |
+| 提升 | 1.53x | 1.53x |
 
 减少最多的是 elementwise/layout kernel：`aten::mul`、`aten::sigmoid`、`aten::rms_norm`、小 `copy_`/`clone`，以及大量临时 tensor 分配。主要收益来自减少 kernel launch 和中间 DRAM 读写；显存峰值通常变化不大，因为大激活和 GEMM 输入仍然占主要部分。实际收益会随 chunk size、batch size、模型宽度、PyTorch/Triton 版本和 GPU 改变。
 
@@ -92,17 +92,7 @@ RTX 5090 上，BS-Roformer-HyperACE_v2_voc 使用 `chunk_size=160000`、`batch_s
 
 RoFormer 系列推理可显式设置 `overlap_size=0`，减少 chunk overlap 带来的重复计算，同时保留各模型原始 chunk 长度和 batch size。它会改变 chunk 边界混合方式，所以输出不会和常见 5% overlap 设置逐 bit 一致；但它不是近似 attention，也不改模型 forward。
 
-以下为 `test.m4a`、300 秒输入、RTX 5090、PyTorch 2.9.1+cu128、关闭 TTA、预热 2 次、正式运行 5 次后的实测：
-
-| 模型 | 5% overlap RTFx | 0% overlap RTFx | 0% overlap 处理 1 小时音频 | MUSDB18-HQ test 全曲 SDR 下降 |
-|---|---:|---:|---:|---:|
-| BS-Roformer-HyperACE_v2_voc | 300.81x | 324.51x | 11.1s | 0.007 dB |
-| model_bs_roformer_ep_368_sdr_12.9628 | 138.04x | 146.41x | 24.6s | 0.089 dB |
-| logic_bs_roformer | 202.61x | 216.38x | 16.6s | 0.065 dB |
-| mel-band-roformer-deux | 209.73x | 217.58x | 16.5s | -0.068 dB |
-| Mel-Band-Roformer-big | 229.40x | 244.10x | 14.7s | -0.049 dB |
-
-目前 BS-Roformer-HyperACE_v2_voc 测到的最快精确推理使用 `chunk_size=160000`、`batch_size=5`、5% overlap，并对 `_mask_stft_repr` 使用 CUDA graph capture：**358.39x**，即处理 1 小时音频约 **10.0s**。相对未 capture 路径的 chunk 级最大绝对误差为 `1.74e-7`。
+这个 A10G 分支保留原始 HyperACE chunk schedule 作为推荐快速路径：`chunk_size=480000`、`batch_size=2`、`overlap_size=0`。它减少 chunk overlap 带来的重复计算，同时不改模型 forward。它会改变 chunk 边界混合方式，所以输出不会和 overlap 设置逐 bit 一致。
 
 显式开启 0% overlap 的方式：
 
@@ -127,15 +117,7 @@ inference_params={
 }
 ```
 
-以下为 `test.m4a`、300 秒输入、RTX 5090、PyTorch 2.9.1+cu128、关闭 TTA、预热 2 次后的实测：
-
-| 模型 | 设置 | RTFx | MUSDB18-HQ test 全曲 SDR 下降 |
-|---|---|---:|---:|
-| BS-Roformer-HyperACE_v2_voc | 精确 | 301.74x | 0.000 dB |
-| BS-Roformer-HyperACE_v2_voc | KV sample `stride=2,start_layer=4,every=2` | 308.44x | 0.467 dB |
-| BS-Roformer-HyperACE_v2_voc | KV sample `stride=2,start_layer=4,every=3` | 305.57x | 0.275 dB |
-
-近似模式必须保持显式开启；默认仍是精确推理。
+近似模式必须保持显式开启，并在目标 GPU 和目标素材上重新验证速度与 SDR；默认仍是精确推理。
 
 ### Apple Silicon MLX 后端
 
@@ -188,23 +170,25 @@ inference:
   overlap_size: 0
 ```
 
-### RTX 5090 实测
+### A10G 实测
 
-测试环境为 NVIDIA GeForce RTX 5090、PyTorch 2.9.1+cu128、CUDA 12.8，关闭 TTA。主模型表使用实测最快设置；RoFormer 和 smoke 模型均为预热 2 次、正式运行 5 次后的确认结果。
+测试环境为 NVIDIA A10G、PyTorch 2.8.0+cu128，关闭 TTA。主模型表使用表中列出的 A10G 设置；RoFormer 和 smoke 模型均为预热 1 次、正式运行 3 次后的 `separator.separate()` 确认结果，不包含输出文件写入。RoFormer 系列使用 `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`、`cuda_attention_backend="default"`、`cuda_triton_backend="auto"` 和 `model_compute_dtype="auto"`。
 
 | 模型 | 类型 | 最快设置 | RTFx | 1 小时音频 |
 |---|---|---|---:|---:|
-| BS-Roformer-HyperACE_v2_voc | bs_roformer | chunk=160000, overlap=5%, batch=5, CUDA graph | 358.39x | 10.0s |
-| model_bs_roformer_ep_368_sdr_12.9628 | bs_roformer | chunk=120000, overlap=0, batch=8 | 154.92x | 23.2s |
-| logic_bs_roformer | bs_roformer | chunk=160000, overlap=0, batch=4 | 274.72x | 13.1s |
-| mel-band-roformer-deux | mel_band_roformer | chunk=160000, overlap=0, batch=6 | 271.66x | 13.3s |
-| Mel-Band-Roformer-big | mel_band_roformer | chunk=160000, overlap=0, batch=4 | 274.04x | 13.1s |
-| model_vocals_mdx23c_sdr_10.17 | mdx23c | chunk=130560, overlap=0, batch=2 | 235.77x | 15.3s |
-| HTDemucs4 | htdemucs | chunk=646800, overlap=0, batch=12 | 350.85x | 10.3s |
-| scnet_checkpoint_musdb18 | scnet | chunk=242550, overlap=0, batch=8 | 599.39x | 6.0s |
-| model_bandit_plus_dnr_sdr_11.47 | bandit | chunk=264600, overlap=0, batch=10 | 257.44x | 14.0s |
-| checkpoint-multi_state_dict | bandit_v2 | chunk=256000, overlap=0, batch=12 | 230.69x | 15.6s |
-| Apollo_LQ_MP3_restoration | apollo | chunk=66150, overlap=0, batch=2 | 110.32x | 32.6s |
+| BS-Roformer-HyperACE_v2_voc | bs_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 93.95x | 38.3s |
+| model_bs_roformer_ep_368_sdr_12.9628 | bs_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 33.21x | 108.4s |
+| logic_bs_roformer | bs_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 72.81x | 49.4s |
+| mvsep_mega_model_bs_roformer_53_stems | bs_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 22.58x | 159.5s |
+| mel-band-roformer-deux | mel_band_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 70.34x | 51.2s |
+| Mel-Band-Roformer-big | mel_band_roformer | chunk=480000, overlap=0, batch=2, Triton auto | 65.94x | 54.6s |
+| model_vocals_mdx23c_sdr_10.17 | mdx23c | chunk=261120, overlap=0, batch=1 | 73.25x | 49.1s |
+| scnet_checkpoint_musdb18 | scnet | chunk=485100, overlap=0, batch=8 | 191.51x | 18.8s |
+| model_bandit_plus_dnr_sdr_11.47 | bandit | chunk=264600, overlap=0, batch=1 | 39.19x | 91.9s |
+| checkpoint-multi_state_dict | bandit_v2 | chunk=384000, overlap=0, batch=8 | 87.60x | 41.1s |
+| Apollo_LQ_MP3_restoration | apollo | chunk=132300, overlap=0, batch=4 | 29.96x | 120.1s |
+
+`HTDemucs4` smoke 权重未计入表格，因为本地 checkpoint 文件无法读取（`PytorchStreamReader failed reading zip archive`）。`models/smoke` 下的 `model_swin_upernet_ep_56_sdr_10.6703` 当前也未计入，因为这个推理版包没有暴露对应的 `model_type`。
 
 VR 模型使用 `window_size=512`、`aggression=5`，关闭 TTA 和后处理，先搜索 batch，再按表中 batch 预热 2 次、正式运行 3 次确认。
 
