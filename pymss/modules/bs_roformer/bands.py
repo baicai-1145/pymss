@@ -8,7 +8,7 @@ from torch.nn import Module, ModuleList
 import torch.nn.functional as F
 
 from .triton_kernels import mask_final_tanh_glu_flat_triton, mask_final_tanh_glu_packed_triton, triton_kernels_available
-from .transformer import RMSNorm
+from .transformer import RMSNorm, default_cuda_triton_backend, normalize_cuda_triton_backend
 
 
 def default(v, d):
@@ -61,6 +61,11 @@ class BandSplit(Module):
         self._group_cache = {}
         self.use_grouped_forward = True
         self.to_features = ModuleList([nn.Sequential(RMSNorm(dim_in), nn.Linear(dim_in, dim)) for dim_in in dim_inputs])
+
+    def set_cuda_triton_backend(self, backend=None):
+        backend = normalize_cuda_triton_backend(backend)
+        for to_feature in self.to_features:
+            to_feature[0].set_cuda_triton_backend(backend)
 
     def _get_group_params(self, start, end, device, dtype):
         key = (start, end, device.type, device.index, dtype)
@@ -145,6 +150,7 @@ class MaskEstimator(Module):
         self._layer_group_plan_ready = False
         self._can_group_mlp_cache = None
         self.use_grouped_forward = True
+        self.cuda_triton_backend = default_cuda_triton_backend()
         dim_hidden = dim * mlp_expansion_factor
         self.to_freqs = ModuleList([
             nn.Sequential(
@@ -153,6 +159,9 @@ class MaskEstimator(Module):
             )
             for dim_in in dim_inputs
         ])
+
+    def set_cuda_triton_backend(self, backend=None):
+        self.cuda_triton_backend = normalize_cuda_triton_backend(backend)
 
     def _groupable_layers(self, mlp_with_glu):
         cache_key = id(mlp_with_glu)
@@ -425,7 +434,13 @@ class MaskEstimator(Module):
     def _forward_two_layer_stream(self, x, plan):
         if len(plan) != 3 or plan[0][0] != 'linear' or plan[1][0] != 'tanh' or plan[2][0] != 'linear' or len(plan[0][1]) != 1:
             return None
-        if torch.is_grad_enabled() or not x.is_cuda or x.dtype != torch.float16 or not triton_kernels_available():
+        if (
+            self.cuda_triton_backend == "default"
+            or torch.is_grad_enabled()
+            or not x.is_cuda
+            or x.dtype != torch.float16
+            or not triton_kernels_available()
+        ):
             return None
 
         first_signature, _ = plan[0][1][0]
@@ -515,6 +530,8 @@ class MaskEstimator(Module):
             return None
 
         first = estimators[0]
+        if first.cuda_triton_backend == "default":
+            return None
         first_groups = plan[0][1]
         final_groups = plan[2][1]
         if len(first_groups) != 1:

@@ -8,7 +8,7 @@ from .triton_kernels import (
     attention_gate_out_inplace_triton,
     attention_gate_out_rope_inplace_triton,
     attention_gate_out_triton,
-    attention_gate_packed64_5090_triton,
+    attention_gate_packed64_triton,
     attention_gate_triton,
     attention_gate_varlen_triton,
     copy_rms_norm_4d_triton,
@@ -58,7 +58,7 @@ _SDPA_BACKEND_ENUM_NAMES = {
 
 
 def normalize_cuda_attention_backend(backend):
-    backend = str(backend or "cudnn").lower().replace("-", "_")
+    backend = str(default_cuda_attention_backend() if backend is None else backend).lower().replace("-", "_")
     if backend not in _CUDA_ATTENTION_BACKEND_ALIASES:
         raise ValueError(
             "cuda_attention_backend must be one of: auto, default, flash, cudnn, "
@@ -75,7 +75,7 @@ def _sdpa_backend_enum(backend):
 
 
 def default_cuda_attention_backend():
-    return "cudnn" if _sdpa_backend_enum("cudnn") is not None else "default"
+    return "default"
 
 
 def normalize_cuda_triton_backend(backend):
@@ -189,6 +189,10 @@ class RMSNorm(Module):
         self.scale = dim ** 0.5
         self.gamma = nn.Parameter(torch.ones(dim))
         self._gamma_dtype_cache = {}
+        self.cuda_triton_backend = default_cuda_triton_backend()
+
+    def set_cuda_triton_backend(self, backend=None):
+        self.cuda_triton_backend = normalize_cuda_triton_backend(backend)
 
     def forward(self, x):
         if not self.training and x.dtype in (torch.float16, torch.bfloat16):
@@ -198,7 +202,14 @@ class RMSNorm(Module):
                 gamma = self.gamma.detach().to(device=x.device, dtype=x.dtype)
                 self._gamma_dtype_cache.clear()
                 self._gamma_dtype_cache[key] = gamma
-            if x.is_cuda and x.dtype == torch.float16 and x.is_contiguous() and x.shape[-1] in (256, 384) and x.numel() // x.shape[-1] >= 65536:
+            if (
+                self.cuda_triton_backend != "default"
+                and x.is_cuda
+                and x.dtype == torch.float16
+                and x.is_contiguous()
+                and x.shape[-1] in (256, 384)
+                and x.numel() // x.shape[-1] >= 32768
+            ):
                 out = rms_norm_triton(x, gamma, eps=1e-12)
                 if out is not None:
                     return out
@@ -218,72 +229,14 @@ class FeedForward(Module):
             nn.Linear(dim_inner, dim),
             nn.Dropout(dropout)
         )
-        self._dropout_identity = isinstance(self.net[3], nn.Dropout) and self.net[3].p == 0.
-        self._out_dropout_identity = isinstance(self.net[5], nn.Dropout) and self.net[5].p == 0.
-        self._fused_linear_gelu_dim_candidate = dim in (256, 384, 512)
-        self._fc1_dtype_cache = {}
-
-    def _fc1_params(self, dtype, device):
-        linear = self.net[1]
-        key = (device.type, device.index, dtype, linear.weight.data_ptr(), linear.weight._version, None if linear.bias is None else linear.bias.data_ptr(), None if linear.bias is None else linear.bias._version)
-        cached = self._fc1_dtype_cache.get(key)
-        if cached is None:
-            cached = (
-                linear.weight.detach().to(device=device, dtype=dtype),
-                None if linear.bias is None else linear.bias.detach().to(device=device, dtype=dtype),
-            )
-            self._fc1_dtype_cache.clear()
-            self._fc1_dtype_cache[key] = cached
-        return cached
-
-    def _use_fused_linear_gelu(self, x):
-        if not self._fused_linear_gelu_dim_candidate:
-            return False
-        rows = x.numel() // x.shape[-1]
-        return (
-            not self.training
-            and not torch.is_grad_enabled()
-            and x.is_cuda
-            and x.dtype in (torch.float16, torch.bfloat16)
-            and x.ndim == 3
-            and x.is_contiguous()
-            and x.shape[-1] in (256, 384, 512)
-            and 16384 <= rows <= 230000
-            and isinstance(self.net[2], nn.GELU)
-            and self.net[2].approximate == "none"
-            and hasattr(torch.ops.aten, "_addmm_activation")
-        )
-
-    def _fused_linear_gelu(self, x):
-        linear = self.net[1]
-        weight, bias = self._fc1_params(x.dtype, x.device)
-        return torch.ops.aten._addmm_activation(bias, x.reshape(-1, x.shape[-1]), weight.t(), beta=1, alpha=1, use_gelu=True).reshape(*x.shape[:-1], linear.out_features)
 
     def forward(self, x):
-        if not self._fused_linear_gelu_dim_candidate:
-            return self.net(x)
-        if not self._use_fused_linear_gelu(x):
-            return self.net(x)
-        normed = self.net[0](x)
-        return self.net[5](self.net[4](self._fused_linear_gelu(normed)))
+        return self.net(x)
 
     def forward_residual(self, x):
         if isinstance(x, tuple):
             normed, residual = x
-            if not self._fused_linear_gelu_dim_candidate:
-                return self.net[1:](normed) + residual
-            return (self.net[5](self.net[4](self._fused_linear_gelu(normed))) if self._use_fused_linear_gelu(normed) else self.net[1:](normed)) + residual
-        if not self._fused_linear_gelu_dim_candidate:
-            if (
-                not self.training
-                and not torch.is_grad_enabled()
-                and x.is_cuda
-                and x.dtype in (torch.float16, torch.bfloat16)
-                and x.ndim == 3
-                and x.is_contiguous()
-            ):
-                return x.add_(self.net(x))
-            return self.net(x) + x
+            return self.net[1:](normed) + residual
         if (
             not self.training
             and not torch.is_grad_enabled()
@@ -292,10 +245,8 @@ class FeedForward(Module):
             and x.ndim == 3
             and x.is_contiguous()
         ):
-            if not self._use_fused_linear_gelu(x):
-                return x.add_(self.net(x))
-            return x.add_(self.net[5](self.net[4](self._fused_linear_gelu(self.net[0](x)))))
-        return self.forward(x) + x
+            return x.add_(self.net(x))
+        return self.net(x) + x
 
 
 class Attention(Module):
@@ -351,6 +302,7 @@ class Attention(Module):
 
     def set_cuda_triton_backend(self, backend=None):
         self.cuda_triton_backend = normalize_cuda_triton_backend(backend)
+        self.norm.set_cuda_triton_backend(self.cuda_triton_backend)
 
     def set_approx_kv_stride(self, stride=None, mode="avg"):
         stride = 1 if stride is None else int(stride)
@@ -530,7 +482,7 @@ class Attention(Module):
                         fused = attention_gate_out_triton(q, k, v, gates, weight, bias, residual=residual)
                     if fused is not None:
                         return self.to_out[1](fused)
-                gated = attention_gate_packed64_5090_triton(q, k, v, gates)
+                gated = attention_gate_packed64_triton(q, k, v, gates)
                 if gated is None:
                     gated = attention_gate_triton(q, k, v, gates)
                 if gated is None:
@@ -552,7 +504,7 @@ class Attention(Module):
                 self.cuda_triton_backend = "default"
 
         if self.cuda_triton_backend == "attention_gate" and not self.training and not torch.is_grad_enabled():
-            gated = attention_gate_packed64_5090_triton(q, k, v, gates)
+            gated = attention_gate_packed64_triton(q, k, v, gates)
             if gated is None:
                 gated = attention_gate_triton(q, k, v, gates)
             if gated is None:
@@ -634,6 +586,8 @@ class Transformer(Module):
         self.cuda_triton_backend = normalize_cuda_triton_backend(backend)
         for attn, _ in self.layers:
             attn.set_cuda_triton_backend(self.cuda_triton_backend)
+        if hasattr(self.norm, 'set_cuda_triton_backend'):
+            self.norm.set_cuda_triton_backend(self.cuda_triton_backend)
 
     def set_approx_kv_stride(self, stride=None, mode="avg"):
         self.approx_kv_stride = 1 if stride is None else int(stride)

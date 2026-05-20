@@ -6,7 +6,7 @@ from torch import nn
 
 from .bands import BandSplit, MaskEstimator
 from .triton_kernels import copy_rms_norm_4d_triton
-from .transformer import RMSNorm, Transformer
+from .transformer import RMSNorm, Transformer, normalize_cuda_triton_backend
 
 
 __all__ = ('DEFAULT_FREQS_PER_BANDS', 'MaskEstimator', 'RMSNorm', 'RoformerRuntimeMixin', 'forward_bandsplit_roformer', 'forward_roformer_mask_core', 'forward_spectral_roformer', 'ignore_roformer_training_kwargs', 'init_roformer_band_modules', 'init_roformer_layers', 'init_roformer_runtime', 'init_roformer_shared_bias', 'init_roformer_stft', 'roformer_stft_freq_bins', 'roformer_transformer_kwargs', 'roformer_freqs_per_bands_with_complex')
@@ -181,10 +181,17 @@ def init_roformer_band_modules(
 class RoformerRuntimeMixin:
     mps_model_backend = "torch"
     mps_model_compute_dtype = torch.float16
+    cuda_triton_backend = "auto"
     approx_time_kv_stride = 1
     approx_time_kv_stride_start_layer = 0
     approx_time_kv_stride_every = 1
     approx_time_kv_stride_mode = "avg"
+
+    def set_cuda_triton_backend(self, backend=None):
+        self.cuda_triton_backend = normalize_cuda_triton_backend(backend)
+        for child in self.children():
+            if hasattr(child, 'set_cuda_triton_backend'):
+                child.set_cuda_triton_backend(self.cuda_triton_backend)
 
     def set_approx_time_kv_stride(self, stride=None, start_layer=0, every=1, mode="avg"):
         stride = 1 if stride is None else int(stride)
@@ -286,7 +293,8 @@ def forward_roformer_mask_core(module, stft_repr):
             and (layer_index - kv_stride_start) % kv_stride_every == 0
             and t >= kv_stride * 2
         )
-        if not time_transformer.training and not torch.is_grad_enabled():
+        triton_enabled = getattr(module, "cuda_triton_backend", "auto") != "default"
+        if triton_enabled and not time_transformer.training and not torch.is_grad_enabled():
             normed_residual = copy_rms_norm_4d_triton(x, time_transformer.layers[0][0].norm.gamma, "bft")
         if use_kv_stride:
             time_transformer.set_approx_kv_stride(kv_stride, kv_stride_mode)
@@ -296,7 +304,7 @@ def forward_roformer_mask_core(module, stft_repr):
             if use_kv_stride:
                 time_transformer.set_approx_kv_stride(1, kv_stride_mode)
         normed_residual = None
-        if not freq_transformer.training and not torch.is_grad_enabled():
+        if triton_enabled and not freq_transformer.training and not torch.is_grad_enabled():
             normed_residual = copy_rms_norm_4d_triton(x, freq_transformer.layers[0][0].norm.gamma, "btf")
         x = (freq_transformer(x.reshape(b * t, f, d)) if normed_residual is None else freq_transformer.forward_from_normed_first(*normed_residual)).reshape(b, t, f, d)
 

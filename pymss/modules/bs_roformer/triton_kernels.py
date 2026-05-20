@@ -11,7 +11,7 @@ except Exception:
 __all__ = (
     'attention_gate_out_inplace_triton',
     'attention_gate_out_rope_inplace_triton',
-    'attention_gate_packed64_5090_triton',
+    'attention_gate_packed64_triton',
     'attention_gate_triton',
     'attention_gate_varlen_triton',
     'attention_gate_out_triton',
@@ -40,7 +40,7 @@ if triton is not None:
         triton.Config({'BLOCK_M': 128, 'BLOCK_N': 64}, num_warps=8, num_stages=3),
         triton.Config({'BLOCK_M': 128, 'BLOCK_N': 128}, num_warps=8, num_stages=3),
     ]
-    _ATTENTION_GATE_PACKED64_5090_CONFIGS = [
+    _ATTENTION_GATE_PACKED64_CONFIGS = [
         triton.Config({'BLOCK_M': 64, 'BLOCK_N': 64}, num_warps=4, num_stages=3),
         triton.Config({'BLOCK_M': 64, 'BLOCK_N': 128}, num_warps=4, num_stages=3),
         triton.Config({'BLOCK_M': 128, 'BLOCK_N': 64}, num_warps=8, num_stages=3),
@@ -381,9 +381,9 @@ if triton is not None:
             mask=(offs_m[:, None] < q_len) & (offs_d[None, :] < dim_head),
         )
 
-    @triton.autotune(configs=_ATTENTION_GATE_PACKED64_5090_CONFIGS, key=['seq_len'])
+    @triton.autotune(configs=_ATTENTION_GATE_PACKED64_CONFIGS, key=['seq_len'])
     @triton.jit
-    def _attention_gate_packed64_5090_kernel(
+    def _attention_gate_packed64_kernel(
             q_ptr,
             k_ptr,
             v_ptr,
@@ -856,25 +856,27 @@ def _next_power_of_2(value):
     return 1 << (value - 1).bit_length()
 
 
-_RTX_5090_DEVICE_CACHE = {}
-_RTX_5090_PACKED64_SEQ_LENS = (938, 1723)
+_PACKED64_DEVICE_CACHE = {}
+_PACKED64_SEQ_LENS = (938,)
 
 
-def _is_rtx_5090_device(device):
+def _supports_packed64_attention(device):
     if device.type != "cuda":
         return False
     index = torch.cuda.current_device() if device.index is None else device.index
     key = (device.type, index)
-    cached = _RTX_5090_DEVICE_CACHE.get(key)
+    cached = _PACKED64_DEVICE_CACHE.get(key)
     if cached is not None:
         return cached
     props = torch.cuda.get_device_properties(index)
-    cached = (
-        (props.major, props.minor) == (12, 0)
-        and props.multi_processor_count == 170
-        and getattr(props, "shared_memory_per_block_optin", 0) >= 101376
+    capability = (props.major, props.minor)
+    sm_count = props.multi_processor_count
+    shared_optin = getattr(props, "shared_memory_per_block_optin", 0)
+    cached = shared_optin >= 101376 and (
+        (capability == (8, 6) and sm_count == 80)
+        or (capability == (12, 0) and sm_count == 170)
     )
-    _RTX_5090_DEVICE_CACHE[key] = cached
+    _PACKED64_DEVICE_CACHE[key] = cached
     return cached
 
 
@@ -935,7 +937,7 @@ def copy_rms_norm_4d_triton(x, gamma, order, eps=1e-12):
         return None
 
     rows = out_shape[0] * out_shape[1]
-    if rows < 65536:
+    if rows < 32768:
         return None
 
     normed = torch.empty(out_shape, device=x.device, dtype=x.dtype)
@@ -1127,7 +1129,7 @@ def _is_packed_qkv64(q, k, v, gates, batch, heads, seq_len):
     )
 
 
-def attention_gate_packed64_5090_triton(q, k, v, gates):
+def attention_gate_packed64_triton(q, k, v, gates):
     if not triton_kernels_available() or not (q.is_cuda and k.is_cuda and v.is_cuda and gates.is_cuda):
         return None
     if q.dtype != torch.float16 or k.dtype != q.dtype or v.dtype != q.dtype or gates.dtype != q.dtype:
@@ -1138,15 +1140,15 @@ def attention_gate_packed64_5090_triton(q, k, v, gates):
     batch, heads, seq_len, dim_head = q.shape
     if (
         dim_head != 64
-        or seq_len not in _RTX_5090_PACKED64_SEQ_LENS
-        or not _is_rtx_5090_device(q.device)
+        or seq_len not in _PACKED64_SEQ_LENS
+        or not _supports_packed64_attention(q.device)
         or not _is_packed_qkv64(q, k, v, gates, batch, heads, seq_len)
     ):
         return None
 
     dst = torch.empty((batch, seq_len, heads * 64), device=q.device, dtype=q.dtype)
     grid = lambda meta: (triton.cdiv(seq_len, meta['BLOCK_M']), batch * heads)
-    _attention_gate_packed64_5090_kernel[grid](
+    _attention_gate_packed64_kernel[grid](
         q,
         k,
         v,
@@ -1406,7 +1408,7 @@ def mask_final_tanh_glu_packed_triton(x, weight, bias, result, group_bands, offs
         or result.shape[0] != batch
         or result.shape[1] != stem_count
         or result.shape[2] != seq_len
-        or out_dim > 96
+        or out_dim > 516
     ):
         return False
     if bias is not None and bias.shape != (groups, out_dim * 2):
@@ -1468,7 +1470,7 @@ def mask_final_tanh_glu_flat_triton(x, weight, bias, result, offset_start, out_d
         or weight.shape[2] != in_dim
         or result.shape[0] != batch
         or result.shape[1] != seq_len
-        or out_dim > 96
+        or out_dim > 516
     ):
         return False
     if bias is not None and bias.shape != (groups, out_dim * 2):
