@@ -37,18 +37,22 @@ if "{mode}" == "cpu":
     builder, shape, _ = parity.cases()["{name}"]
     torch.manual_seed(0)
     model_cpu = builder().eval()
+    x = torch.randn(*shape)
     with torch.inference_mode():
-        torch.save(model_cpu(torch.randn(*shape)).float(), "{ref_path}")
+        # The input travels with the reference: the device random generator does
+        # not reproduce the CPU stream, so regenerating it on the card would
+        # compare two different signals.
+        torch.save({{"input": x, "ref": model_cpu(x).float()}}, "{ref_path}")
     print("CPU_DONE", flush=True)
     raise SystemExit(0)
 
 name = "{name}"
 builder, shape, _ = parity.cases()[name]
-ref = torch.load("{ref_path}")
+saved = torch.load("{ref_path}")
+ref = saved["ref"]
 torch.manual_seed(0)
 model = builder().eval().to(torch.device("supa:0"))
-torch.manual_seed(0)
-x_dev = torch.randn(*shape, device=torch.device("supa:0"))
+x_dev = saved["input"].to(torch.device("supa:0"))
 outs = []
 with torch.inference_mode():
     for _ in range(2):
