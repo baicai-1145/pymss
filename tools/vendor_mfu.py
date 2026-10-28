@@ -71,10 +71,15 @@ from torch.utils.flop_counter import FlopCounterMode
 
 name = "{name}"
 builder, shape, _ = parity.cases()[name]
+# parity's shapes are sized for correctness tests (64 samples for the roformer
+# family), which makes both the FLOP count and the timing unrepresentative, so the
+# benchmark uses real audio of --seconds length and keeps the channel count.
+channels = shape[1] if len(shape) > 1 else 1
+samples = int({sample_rate} * {seconds})
+x = torch.randn(shape[0], channels, samples)
 
 torch.manual_seed(0)
 model_cpu = builder().eval()
-x = torch.randn(*shape)
 with torch.inference_mode(), FlopCounterMode(display=False) as counter:
     model_cpu(x)
 flops = counter.get_total_flops()
@@ -125,6 +130,8 @@ def _run(cmd_env: dict, code: str, timeout: float) -> tuple[int, str]:
 def main() -> int:  # noqa: C901
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tests-dir", default="/tmp/pc/tests")
+    parser.add_argument("--seconds", type=float, default=10.0, help="audio length per family")
+    parser.add_argument("--sample-rate", type=int, default=44100)
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--only", default="")
     parser.add_argument(
@@ -173,14 +180,12 @@ def main() -> int:  # noqa: C901
     for name in names:
         code, out = _run(
             env,
-            MODEL_CHILD.format(tests_dir=args.tests_dir, name=name, use_bf16=str(args.bf16)),
+            MODEL_CHILD.format(tests_dir=args.tests_dir, name=name, use_bf16=str(args.bf16),
+                               sample_rate=args.sample_rate, seconds=args.seconds),
             args.timeout,
         )
         if not out.startswith("MODEL"):
             print(f"{name:{width}s} FAILED {out}", flush=True)
-            tail = [ln for ln in proc.stderr.splitlines() if ln.strip() and "Warning" not in ln][-6:]
-            for line in tail:
-                print(f"    {line.strip()[:180]}", flush=True)
             continue
         parts = dict(p.split("=") for p in out.split()[1:])
         flops, ms, tflops = float(parts["flops"]), float(parts["ms"]), float(parts["tflops"])
