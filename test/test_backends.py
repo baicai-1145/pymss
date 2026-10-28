@@ -7,6 +7,7 @@ from pymss.backends import (
     SUPPORTED_DEVICES,
     amp_supported,
     device_profile,
+    install_conv_fallback,
     install_recurrent_fallback,
     prepare_device_alias,
 )
@@ -66,3 +67,14 @@ def test_domestic_vendor_alias_resolves_to_cuda(monkeypatch):
     monkeypatch.setattr(torch.cuda, "get_device_name", lambda index=0: "Iluvatar BI-V150", raising=False)
     assert prepare_device_alias("iluvatar") == "cuda"
     assert device_profile("cuda").vendor == "iluvatar"
+
+
+def test_install_conv_fallback_is_noop_where_dilation_is_supported():
+    assert install_conv_fallback("cpu") is False
+    assert install_conv_fallback("cuda:0") is False
+
+
+def test_install_conv_fallback_patches_on_biren():
+    """BIREN's SUDNN aborts the process on dilated convs, so the shim must load."""
+    assert install_conv_fallback("supa:0") is True
+    assert install_conv_fallback("supa:0") is True

@@ -25,6 +25,7 @@ from pymss_core.device import (
     clear_device_cache,
     detect_vendor,
     device_profile,
+    dilated_conv_supported,
     fft_fallback_required,
     prepare_device_alias,
     requires_plugin,
@@ -43,11 +44,32 @@ __all__ = (
     "detect_vendor",
     "device_profile",
     "fft_fallback_required",
+    "install_conv_fallback",
     "install_recurrent_fallback",
     "prepare_device_alias",
     "requires_plugin",
     "rnn_fallback_required",
 )
+
+
+def install_conv_fallback(device) -> bool:
+    """Install the CPU fallback for dilated convolutions when needed.
+
+    BIREN's SUDNN aborts the process (C++ exception -> ``terminate()``) on most
+    dilated convolutions, so affected calls are evaluated on CPU instead.
+
+    Args:
+        device: Device string, ``torch.device`` or tensor.
+
+    Returns:
+        ``True`` when the fallback was installed.
+    """
+    if dilated_conv_supported(device):
+        return False
+    from pymss_core.npu_conv import install_dilated_conv_fallback
+
+    install_dilated_conv_fallback()
+    return True
 
 
 def install_recurrent_fallback(device) -> bool:
