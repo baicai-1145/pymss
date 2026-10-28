@@ -82,8 +82,11 @@ flops = counter.get_total_flops()
 torch.manual_seed(0)
 model = builder().eval().to(torch.device("supa:0"))
 x_dev = x.to(torch.device("supa:0"))
+USE_BF16 = {use_bf16}
+amp = torch.supa.amp.autocast(dtype=torch.bfloat16) if USE_BF16 else torch.no_grad()
 with torch.inference_mode():
-    model(x_dev)
+    with amp:
+        model(x_dev)
     torch.supa.synchronize()
     times = []
     for _ in range(3):
@@ -91,7 +94,8 @@ with torch.inference_mode():
         start = torch.supa.Event(enable_timing=True)
         end = torch.supa.Event(enable_timing=True)
         start.record()
-        model(x_dev)
+        with amp:
+            model(x_dev)
         end.record()
         torch.supa.synchronize()
         times.append(start.elapsed_time(end))
@@ -118,12 +122,13 @@ def _run(cmd_env: dict, code: str, timeout: float) -> tuple[int, str]:
     return 0, "\n".join(lines)
 
 
-def main() -> int:
+def main() -> int:  # noqa: C901
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tests-dir", default="/tmp/pc/tests")
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--only", default="")
     parser.add_argument("--skip-gemm", action="store_true")
+    parser.add_argument("--bf16", action="store_true", help="wrap the model forward in vendor bf16 autocast")
     args = parser.parse_args()
 
     env = dict(os.environ)
@@ -149,16 +154,21 @@ def main() -> int:
     if args.only:
         names = [n for n in names if n in args.only.split(",")]
 
-    peak_used = peaks.get("fp32") or (PUBLISHED_BF16_TFLOPS / 2)
+    peak_key = "bf16" if args.bf16 else "fp32"
+    peak_used = peaks.get(peak_key) or (PUBLISHED_BF16_TFLOPS / (1 if args.bf16 else 2))
     print(
-        "\n=== per-model (MFU against measured fp32 peak %.1f TFLOPS; the models run fp32)"
-        % peak_used,
+        "\n=== per-model (MFU against measured %s peak %.1f TFLOPS)"
+        % (peak_key, peak_used),
         flush=True,
     )
     print(f"{'family':22s} {'GFLOPs':>10s} {'ms':>9s} {'TFLOPS':>8s} {'MFU':>7s}", flush=True)
     width = max(len(n) for n in names)
     for name in names:
-        code, out = _run(env, MODEL_CHILD.format(tests_dir=args.tests_dir, name=name), args.timeout)
+        code, out = _run(
+            env,
+            MODEL_CHILD.format(tests_dir=args.tests_dir, name=name, use_bf16=str(args.bf16)),
+            args.timeout,
+        )
         if not out.startswith("MODEL"):
             print(f"{name:{width}s} FAILED {out}", flush=True)
             continue
