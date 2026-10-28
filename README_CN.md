@@ -20,6 +20,28 @@ pip install pymss
 
 使用 `--device npu`（或 `device="auto"`，其优先级为 CUDA → NPU → Apple Silicon）。`--device-id` 指定 NPU 编号；传入多个编号时仅使用第一项，目前不支持多 NPU 并行。NPU 上的 STFT/ISTFT 使用基于 `torch.fft` 原语的设备内实现；针对相关 `torch_npu` 版本，RNN/LSTM/GRU 循环层使用 CPU 推理回退，结果返回 NPU。此回退不支持训练，并会增加 CPU 数据传输开销。
 
+### 国产 GPU（壁仞 / 天数 / 沐曦 / 燧原 / 海光 / 寒武纪）
+
+pymss 同样支持壁仞（BIRENSUPA）、天数智芯 CoreX、沐曦 MACA、燧原 GCU、海光 DCU、寒武纪 MLU。
+这些目标都是纯 PyTorch 算子，pymss 没有 CUDA 扩展需要编译，所以唯一要求是厂商版 PyTorch **≥ 2.4**：
+
+```sh
+pip install --no-deps torch==<厂商构建>   # 切勿让 PyPI 公版覆盖厂商适配版
+pip install --no-deps pymss
+```
+
+| 厂商 | `--device` | 厂商 torch |
+| --- | --- | --- |
+| 壁仞 | `biren`（`supa`） | 2.4 – 2.8（`torch_br`） |
+| 天数智芯 | `iluvatar` | 2.4.1 / 2.7.1（`+corex`） |
+| 沐曦 | `metax` | 2.6 – 2.8（`+metax`） |
+| 燧原 | `enflame`（`gcu`） | 2.6 – 2.10（`torch_gcu`） |
+| 海光 | `hygon` | 2.4.1（`+das`，DTK 25.04） |
+| 寒武纪 | `mlu` | 2.4（`torch_mlu`） |
+
+完整兼容矩阵、替代硬编码 `device.type` 的能力标志、以及各厂商的开卡验证清单见
+[docs/cn-gpu.md](./docs/cn-gpu.md)。
+
 ### AMD ROCm
 
 ```sh

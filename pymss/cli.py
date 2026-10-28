@@ -3,6 +3,7 @@ import json
 import sys
 import warnings
 
+from .backends import SUPPORTED_DEVICES
 from .ensemble import ENSEMBLE_ALGORITHMS, save_ensemble_audio
 from .logger import get_separation_logger
 from .model_download import download_all, download_model
@@ -791,7 +792,7 @@ def build_parser():
         action="store_true",
         help="Save each input audio file's separated stems in a subfolder named after the audio file.",
     )
-    infer_parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda", "rocm", "mps", "npu", "mlx"])
+    infer_parser.add_argument("--device", default="auto", choices=list(SUPPORTED_DEVICES))
     infer_parser.add_argument(
         "--device-id", action="append", type=int, dest="device_ids", help="CUDA device id. Can be repeated."
     )
@@ -911,7 +912,7 @@ def build_parser():
     )
     workflow_run_parser.add_argument("--source", default="modelscope", choices=["modelscope", "huggingface", "hf-mirror"])
     workflow_run_parser.add_argument("--endpoint", help="Custom resolve endpoint. It must serve files by relative path.")
-    workflow_run_parser.add_argument("--device", choices=["auto", "cpu", "cuda", "rocm", "mps", "npu", "mlx"])
+    workflow_run_parser.add_argument("--device", choices=list(SUPPORTED_DEVICES))
     workflow_run_parser.add_argument("--format", choices=["wav", "flac", "mp3", "m4a"], dest="output_format")
     workflow_run_parser.add_argument("--wav-bit-depth", default="FLOAT", choices=["FLOAT", "PCM_16", "PCM_24"])
     workflow_run_parser.add_argument("--flac-bit-depth", default="PCM_16", choices=["PCM_16", "PCM_24"])
@@ -954,7 +955,7 @@ def build_parser():
     comfy_run_parser.add_argument("--download", action="store_true", help="Download missing model files before running.")
     comfy_run_parser.add_argument("--source", default="modelscope", choices=["modelscope", "huggingface", "hf-mirror"])
     comfy_run_parser.add_argument("--endpoint", help="Custom resolve endpoint. It must serve files by relative path.")
-    comfy_run_parser.add_argument("--device", choices=["auto", "cpu", "cuda", "rocm", "mps", "npu", "mlx"])
+    comfy_run_parser.add_argument("--device", choices=list(SUPPORTED_DEVICES))
     comfy_run_parser.add_argument("--format", choices=["wav", "flac", "mp3", "m4a", "aac", "opus", "vorbis", "ogg"], dest="output_format")
     comfy_run_parser.add_argument("--strict", dest="strict", action="store_true", default=True, help="Fail on unknown node types (default).")
     comfy_run_parser.add_argument("--no-strict", dest="strict", action="store_false", help="Skip unknown node types with a warning.")
@@ -982,7 +983,7 @@ def build_parser():
     )
     serve_parser.add_argument("--source", default="modelscope", choices=["modelscope", "huggingface", "hf-mirror"])
     serve_parser.add_argument("--endpoint", help="Custom resolve endpoint. It must serve files by relative path.")
-    serve_parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda", "rocm", "mps", "npu", "mlx"])
+    serve_parser.add_argument("--device", default="auto", choices=list(SUPPORTED_DEVICES))
     serve_parser.add_argument(
         "--device-id",
         action="append",

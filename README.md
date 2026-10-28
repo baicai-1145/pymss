@@ -56,6 +56,29 @@ If you need API or WebUI, install this instead:
 pip install "pymss[server]"
 ```
 
+### Chinese accelerators (Biren / Iluvatar / MetaX / Enflame / Hygon DCU / Cambricon MLU)
+
+pymss runs on the domestic accelerator families too: Biren (BIRENSUPA), Iluvatar CoreX,
+MetaX MACA, Enflame GCU, Hygon DCU and Cambricon MLU. They are pure-PyTorch targets -- pymss
+ships no CUDA extensions -- so the only requirement is a vendor PyTorch build of **2.4 or newer**:
+
+```sh
+pip install --no-deps torch==<vendor build>   # never let PyPI overwrite the vendor build
+pip install --no-deps pymss
+```
+
+| Vendor | `--device` | Vendor torch |
+| --- | --- | --- |
+| Biren | `biren` (`supa`) | 2.4 - 2.8 (`torch_br`) |
+| Iluvatar CoreX | `iluvatar` | 2.4.1 / 2.7.1 (`+corex`) |
+| MetaX MACA | `metax` | 2.6 - 2.8 (`+metax`) |
+| Enflame GCU | `enflame` (`gcu`) | 2.6 - 2.10 (`torch_gcu`) |
+| Hygon DCU | `hygon` | 2.4.1 (`+das`, DTK 25.04) |
+| Cambricon MLU | `mlu` | 2.4 (`torch_mlu`) |
+
+See [docs/cn-gpu.md](./docs/cn-gpu.md) for the full compatibility matrix, the capability flags that
+replace hardcoded `device.type` checks, and the per-vendor verification checklist.
+
 ## Develop
 
 Development requires Git, Python 3.10 or later, and [uv](https://docs.astral.sh/uv/). WebUI development also requires Node.js and npm.

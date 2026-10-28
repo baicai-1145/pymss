@@ -12,6 +12,7 @@ from tqdm import tqdm
 from pymss_core.modules.vocal_remover import ModelParameters, determine_model_capacity
 from pymss_core.modules.vocal_remover.uvr_lib_v5.vr_network import nets_new
 
+from ...backends import amp_supported, device_profile
 from .common_separator import CommonSeparator
 from .uvr_lib_v5 import spec_utils
 
@@ -99,7 +100,7 @@ class VRSeparator(CommonSeparator):
         self.use_amp = bool(arch_config.get("use_amp", True))
         device_type = torch.device(self.torch_device).type
         self.fuse_conv_bn = bool(arch_config.get("fuse_conv_bn", False))
-        self.use_channels_last = bool(arch_config.get("use_channels_last", False)) and device_type == "cuda"
+        self.use_channels_last = bool(arch_config.get("use_channels_last", False)) and device_profile(self.torch_device).channels_last
         self.input_high_end_h = None
         self.input_high_end = None
         self.aggression = float(int(arch_config.get("aggression", 5)) / 100)
@@ -333,7 +334,7 @@ class VRSeparator(CommonSeparator):
                         else x_batch_cpu.to(device=device, non_blocking=True)
                     )
                     device_type = torch.device(device).type
-                    use_amp = self.use_amp and device_type in ("cuda", "mps", "npu")
+                    use_amp = self.use_amp and amp_supported(device)
                     with torch.amp.autocast(device_type, dtype=torch.float16, enabled=use_amp):
                         pred = self.model_run.predict_mask(x_batch)
                     if not pred.size()[3] > 0:

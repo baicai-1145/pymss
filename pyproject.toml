@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pymss"
-version = "2.1.12"
+version = "2.1.13"
 description = "Python package for music source separation."
 readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.10"
@@ -39,9 +39,9 @@ dependencies = [
     "av>=14",
     "librosa>=0.10.2",
     "numpy>=1.26",
-    "pymss-core==0.1.14",
+    "pymss-core>=0.1.15",
     "pyyaml>=6.0.1",
-    "torch>=2.7.1",
+    "torch>=2.4",
     "tqdm>=4.60",
     "mlx>=0.31.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]

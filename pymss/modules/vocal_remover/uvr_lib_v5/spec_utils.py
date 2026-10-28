@@ -6,6 +6,8 @@ import librosa
 import numpy as np
 import torch
 
+from pymss_core.device import device_profile, fft_fallback_required
+
 
 ARM = "arm"
 wav_resolution = (
@@ -200,14 +202,14 @@ def wave_to_spectrogram(wave, hop_length, n_fft, mp, band, is_v51_model=False, t
 
 
 def _torch_stft(wave, n_fft, hop_length, device):
-    device_type = None if device is None else torch.device(device).type
-    if device_type not in ("cuda", "npu"):
+    if not device_profile(device).is_accelerator:
         return None
+    fft_fallback = fft_fallback_required(device)
     wave_t = torch.from_numpy(np.ascontiguousarray(wave)).to(device)
-    if device_type == "npu":
+    if fft_fallback:
         wave_t = wave_t.float()
     window = _hann_window(n_fft, wave_t.dtype, device)
-    if device_type == "npu":
+    if fft_fallback:
         from pymss_core.npu_fft import stft_npu
 
         spec = stft_npu(
@@ -233,13 +235,13 @@ def _torch_stft(wave, n_fft, hop_length, device):
 
 
 def _torch_istft(spec, hop_length, device):
-    device_type = None if device is None else torch.device(device).type
-    if device_type not in ("cuda", "npu"):
+    if not device_profile(device).is_accelerator:
         return None
+    fft_fallback = fft_fallback_required(device)
     n_fft = (spec.shape[1] - 1) * 2
     spec_t = torch.from_numpy(np.ascontiguousarray(spec)).to(device)
     window = _hann_window(n_fft, spec_t.real.dtype, device)
-    if device_type == "npu":
+    if fft_fallback:
         from pymss_core.npu_fft import istft_npu
 
         wave = istft_npu(
