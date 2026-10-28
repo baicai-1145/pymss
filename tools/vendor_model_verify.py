@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import os
 import subprocess
+import tempfile
 import sys
 import textwrap
 
@@ -27,18 +28,27 @@ import sys
 sys.path.insert(0, "{tests_dir}")
 import parity
 
+# The CPU reference runs in its own process on purpose: a CPU forward in the same
+# process makes the *first* device forward of some families fail with
+# "ErrorCode: 11, Sudnn Error" while the identical second forward succeeds.  That
+# is a vendor first-call state problem, not a property of the model, and two
+# processes also mirror how the models are actually used.
+if "{mode}" == "cpu":
+    builder, shape, _ = parity.cases()["{name}"]
+    torch.manual_seed(0)
+    model_cpu = builder().eval()
+    with torch.inference_mode():
+        torch.save(model_cpu(torch.randn(*shape)).float(), "{ref_path}")
+    print("CPU_DONE", flush=True)
+    raise SystemExit(0)
+
 name = "{name}"
 builder, shape, _ = parity.cases()[name]
-torch.manual_seed(0)
-model_cpu = builder().eval()
-x = torch.randn(*shape)
-
-with torch.inference_mode():
-    ref = model_cpu(x).float()
-
+ref = torch.load("{ref_path}")
 torch.manual_seed(0)
 model = builder().eval().to(torch.device("supa:0"))
-x_dev = x.to(torch.device("supa:0"))
+torch.manual_seed(0)
+x_dev = torch.randn(*shape, device=torch.device("supa:0"))
 outs = []
 with torch.inference_mode():
     for _ in range(2):
@@ -98,7 +108,14 @@ def main() -> int:
     width = max(len(n) for n in names)
     ok = 0
     for name in names:
-        code = textwrap.dedent(CHILD).format(tests_dir=args.tests_dir, name=name)
+        ref_path = os.path.join(tempfile.gettempdir(), f"pymss_ref_{name}.pt")
+        cpu_code = textwrap.dedent(CHILD).format(
+            tests_dir=args.tests_dir, name=name, mode="cpu", ref_path=ref_path
+        )
+        subprocess.run([sys.executable, "-u", "-c", cpu_code], capture_output=True, text=True, timeout=args.timeout, env=env)
+        code = textwrap.dedent(CHILD).format(
+            tests_dir=args.tests_dir, name=name, mode="device", ref_path=ref_path
+        )
         try:
             proc = subprocess.run(
                 [sys.executable, "-c", code], capture_output=True, text=True, timeout=args.timeout, env=env
