@@ -43,6 +43,7 @@ dependencies = [
     "pyyaml>=6.0.1",
     "torch>=2.4",
     "tqdm>=4.60",
+    "tomli>=2.0; python_version < '3.11'",
     "mlx>=0.31.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 

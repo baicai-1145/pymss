@@ -10,7 +10,10 @@ from __future__ import annotations
 import re
 
 import re
-import tomllib
+try:  # Python 3.11+
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Chinese vendor images ship 3.10
+    import tomli as tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
