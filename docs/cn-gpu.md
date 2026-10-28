@@ -70,6 +70,25 @@ PYMSS_DEVICE_BACKEND=iluvatar pymss infer --device auto ...
 | `PYMSS_RNN_FALLBACK=1` | 强制 LSTM/GRU/RNN 走 CPU 回退 |
 | `PYMSS_AMP=0` | 关闭 autocast（厂商 fp16 kernel 不稳时用） |
 
+## 调试任务：脚本化操作容器
+
+开卡只能走网页，但开出来之后的 JupyterLab 有标准 REST + websocket API，
+用 `tools/jlab_exec.py` 就能不看屏、不点鼠标地跑命令：
+
+```sh
+export JLAB_BASE=https://<host>/notebook_<hash>_task0     # 调试任务的 JupyterLab 地址
+python tools/jlab_exec.py --sh 'pip list | grep -Ei "torch|supa"'
+python tools/jlab_exec.py -f tools/cn_gpu_probe.py
+python tools/jlab_exec.py --new-kernel --sh 'brsmi'        # kernel 被长命令占住时换一个
+```
+
+两个必须知道的细节：POST 需要 `_xsrf` cookie（否则建 kernel 返回 403）；
+公网 ingress 会偶发重置 TLS，客户端已带重试。
+
+性能测量用 `tools/cn_gpu_bench.py`：它会拒绝在有别的推理进程时开跑（同卡并发
+会把数据污染成完全错误的结论），并且只在小形状上跑 CPU 对照组（大分辨率
+CPU 卷积的 im2col 会吃掉几十 GB 内存，会直接把宿主 OOM）。
+
 ## 在 OpenI 云脑任务里一键采集证据
 
 仓库自带 `tools/cn_gpu_probe.py`，可直接作为**训练任务的启动文件**（无人值守、不限时长），
