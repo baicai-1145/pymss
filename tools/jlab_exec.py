@@ -65,6 +65,7 @@ def api(path: str, payload: dict | None = None, method: str = "GET", retries: in
     headers = {"Content-Type": "application/json"} if data else {}
     headers["Connection"] = "close"
     if method != "GET":
+        bootstrap()
         headers["X-XSRFToken"] = _xsrf()
     request = urllib.request.Request(BASE + path, data=data, method=method, headers=headers)
     last: Exception | None = None

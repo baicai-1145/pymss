@@ -27,6 +27,17 @@ import time
 
 import torch
 
+#: Vendor extensions that register the private device type on import.  Without
+#: them ``torch.device("supa:0")`` raises "Expected one of cpu, cuda, ...".
+VENDOR_PLUGINS = {
+    "supa": "torch_br",
+    "biren": "torch_br",
+    "npu": "torch_npu",
+    "gcu": "torch_gcu",
+    "mlu": "torch_mlu",
+}
+VENDOR_DEVICE_TYPE = {"biren": "supa"}
+
 # Shapes taken from the VR (UVR) path of pymss: full resolution spectrogram
 # layers are the expensive ones, the low resolution layers are cheap.
 SMALL_SHAPES = (
@@ -121,7 +132,12 @@ def main() -> int:
         print("stop it, or pass --force")
         return 2
 
-    device = torch.device(f"{args.device}:{args.device_index}" if args.device != "cpu" else "cpu")
+    requested = args.device.lower()
+    plugin = VENDOR_PLUGINS.get(requested)
+    if plugin:
+        __import__(plugin)  # registers the private device type
+        requested = VENDOR_DEVICE_TYPE.get(requested, requested)
+    device = torch.device(f"{requested}:{args.device_index}" if requested != "cpu" else "cpu")
     print(f"device={device}  iters={args.iters}  threads={torch.get_num_threads()}")
 
     shapes = list(SMALL_SHAPES) + (list(FULL_SHAPES) if args.full_res else [])

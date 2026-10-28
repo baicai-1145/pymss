@@ -10,6 +10,7 @@ from torch.nn.utils.fusion import fuse_conv_bn_eval
 from tqdm import tqdm
 
 from pymss_core.modules.vocal_remover import ModelParameters, determine_model_capacity
+from pymss_core.npu_fft import masked_spectrum
 from pymss_core.modules.vocal_remover.uvr_lib_v5.vr_network import nets_new
 
 from ...backends import amp_supported, device_profile
@@ -417,8 +418,10 @@ class VRSeparator(CommonSeparator):
 
             mask = adjust_aggr_torch(mask, is_non_accom_stem)
             x_spec_t = torch.from_numpy(x_spec).to(device)
-            y_spec = (mask * x_spec_t).cpu().numpy()
-            v_spec = ((1 - mask) * x_spec_t).cpu().numpy()
+            # BIREN has no complex64 * float32 pointwise kernel, so the mask is
+            # applied on the real/imaginary planes (see npu_fft.masked_spectrum).
+            y_spec = masked_spectrum(mask, x_spec_t).cpu().numpy()
+            v_spec = masked_spectrum(1 - mask, x_spec_t).cpu().numpy()
             return y_spec, v_spec
 
         x_mag = np.abs(x_spec)
