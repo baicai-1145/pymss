@@ -8,7 +8,7 @@ from typing import Dict
 
 from pymss_core import get_model_from_config as _core_get_model_from_config
 
-from .backends import amp_supported, device_profile
+from .backends import amp_supported, autocast_dtype, device_profile
 from .config import load_config
 from .progress import _ProgressContext
 
@@ -309,7 +309,7 @@ def _autocast(device, enabled):
     if not enabled or not amp_supported(device):
         return nullcontext()
     try:
-        return torch.amp.autocast(device_type, dtype=torch.float16)
+        return torch.amp.autocast(device_type, dtype=autocast_dtype(device_type))
     except (AttributeError, RuntimeError, TypeError):
         # torch < 2.4 has no torch.amp.autocast(device_type=...) entry point and
         # vendor backends may refuse the device type outright; run without AMP.
