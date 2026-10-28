@@ -154,14 +154,53 @@ CPU 卷积的 im2col 会吃掉几十 GB 内存，会直接把宿主 OOM）。
 |---|---|---|
 | `stft(return_complex=True)` | 报 "does not support return_complex=True now" | 走 `torch.fft` 组合（`npu_fft.stft_npu`） |
 | `hann_window(device=supa)` | kernel 崩 | CPU 建窗再搬（`hann_window_npu`） |
-| `complex64 * float32` | `pointwise No SUPA Function found` | 在实/虚平面上相乘（`masked_spectrum`） |
+| `complex64 * float32` | `pointwise No SUPA Function found` | 在实/虚平面上相乘（`vendor_shims.complex_mul`） |
+| `complex64.reshape` | **静默污染设备状态**（`dev -1 is not a device`），报错指向下一个无辜算子 | `Tensor.reshape/view` 走实/虚平面（`vendor_shims.complex_reshape`） |
+| `complex64` 的 `torch.cat` | `Concat.cpp:68 ErrorCode: 11`（SUDNN） | 平面上拼接再重组（`vendor_shims.complex_cat`） |
+| `complex64.abs()` | `Complex tensor op is not supported now` | 用平面求模（apollo 的 band power） |
 | 复数 **D2H**（`complex.cpu()`） | `ErrorCode: 101, invalid device` | 只搬 `view_as_real` 的实数平面（`complex_to_numpy_cpu`） |
 | 复数 **H2D**（`.to(device)`） | `Unsupported BR type for ScalarType: 0` | 实数平面上卡、卡上重组（`numpy_complex_to_device`） |
 | `F.pad(mode="replicate")` | 警告"回退 CPU"，实际 SUDNN `ReorderWei2Plain() FAILED` + `suError: 101` | `cat`+`expand` 复现 replicate（`replicate_pad_bins`） |
-| fp16 | "Current SUPA Device does not support float16" | 用 bf16 或 fp32 |
-| bf16 autocast | `no valid backend was found for op: UpsampleBilinear` | 分离模型 `amp=False`（档案已注明原因） |
+| `F.pad`（band 轴补零） | `Unsupported BR type for ScalarType: 0` | 显式 `cat` 零块 |
+| **分组 conv1d**（`1 < groups < in_channels`） | `Conv1d.cpp:120` **801 operation not supported**（`groups=1` 与 depthwise 反而正常） | 按组拆分逐组卷积再 `cat`（`conv1d_grouped_equivalent`，逐位相同） |
+| `F.group_norm`（部分通道数） | `GroupNorm.cpp:43` **801** | reshape+mean+var 重建（误差 1e-7） |
+| 5 维 `index_add_` | 厂商内部 `vector::reserve` abort | one-hot 矩阵累加（`scatter_add_equivalent`，逐位相同） |
+| `scatter_add` / `F.glu` | 无内核 | 数学等价实现 |
+| fp16 | "Current SUPA Device does not support float16" | 用 bf16 或 fp32（文档亦写明 SDPA 只支持 BF16/FLOAT32） |
+| bf16 的 `F.interpolate(bilinear)` | `no valid backend was found for op: UpsampleBilinear` | 该算子单独用 fp32 算再转回 bf16（`vendor_shims.interpolate`），**AMP 保持开启** |
 | 融合 `_VF.lstm` | **静默算错** 0.18–0.47 | RNN 回退 CPU（手写 cell 只差 2e-06） |
 | 膨胀卷积（SUDNN 路径） | `terminate()` 杀进程 | 见下节 |
+| **`torch.fft`（1024 / 16 点）** | **静默返回全零**，无异常 | 结果级校验：全零即用精确 DFT 矩阵重算 |
+| **`torch.fft`（4096 点）** | 首次调用 **600 秒**（plan/autotune），随后报 SUPA 错 | 白名单只放行 2048；其余走 DFT 矩阵（`PYMSS_VENDOR_FFT_SIZES` 可覆盖） |
+
+> 关于 FFT：`torch.fft.*` 在厂商文档里是**明确不支持**的（chapter05 API 限制表）。
+> 实测它部分可用，但正确性与性能都依赖形状 —— 所以只在**已证明既正确又快**的
+> 尺寸（2048）上用厂商实现，其余一律用精确 DFT 矩阵，并保留结果级校验兜底。
+
+### 二·补：模型家族实测支持矩阵
+
+验收标准是三条同时成立（`tools/vendor_model_verify.py`）：与 CPU 参考的
+相对误差 `rel`、卡上两次运行的一致性 `repeat`、输出非零元素数。**只看"跑通"不够** ——
+这张卡曾经在 FFT 上静态返回全零，跑通但结果全零的情况真实发生过。
+
+| 家族 | rel | repeat | 结论 |
+|---|---:|---:|---|
+| `legacy_demucs` | 1.6e-05 | 0 | ✅ |
+| `htdemucs` | 4.4e-05 | 8.7e-08 | ✅ |
+| `bs_conformer` | 4.7e-05 | 0 | ✅ |
+| `mel_band_conformer` | 5.3e-05 | 2.2e-08 | ✅ |
+| `legacy_hdemucs` | 6.1e-05 | 1.2e-07 | ✅ |
+| `bs_roformer_hyperace` | 6.7e-05 | 5.3e-08 | ✅ |
+| `mdx23c` | 7.3e-05 | 8.7e-08 | ✅ |
+| `bs_roformer` | 7.5e-05 | 1.2e-08 | ✅ |
+| `legacy_tasnet` | 9.9e-05 | 0 | ✅ |
+| `mel_band_roformer` | 1.4e-04 | 0 | ✅ |
+| `apollo` | — | — | 🔧 复数 cat / 分组卷积已修，待复测 |
+| `bandit` / `bandit_v2` | — | — | 🔧 mask 累加在卡上形态异常，定位中 |
+| `scnet` / `legacy_v3_demucs` | — | — | 🔧 单算子黑洞，定位中 |
+
+`repeat ≈ 1e-08` 说明卡上运算是**确定性**的 —— 这条必须测，因为早期版本里
+退化 FFT 路径会让同输入两次结果不同（0.272 vs 0.334），看起来像精度问题。
 
 ### 三、CPU 回退的取舍原则
 
@@ -195,6 +234,12 @@ CPU 卷积的 im2col 会吃掉几十 GB 内存，会直接把宿主 OOM）。
   `torch.supa.synchronize()`。
 - 两个推理进程同时占一张 31.75 GiB 的卡（各 17 GiB）会让所有数字彻底失真
   （曾经测出 263 秒/batch 的假象），性能测量必须单进程。
+- **厂商错误有两类污染**：一是异步（报错指向后续无辜算子），二是**失败后会把
+  "当前设备"重置成 -1**（`complex.reshape` 的 SUDNN 分支就是这样），于是接下去任何
+  算子都报 `dev -1 is not a device`。看到这个字符串先怀疑**上一个**算子。
+- 有些失败**不抛异常**：`[SUDNN] STATUS_NOT_SUPPORTED ... date type 13`（dtype 13 是
+  complex64）只打日志不报错，之后的卷积/FFT 静默返回全零。所以验收必须比对数值，
+  不能只看"跑完没报错"。
 
 ## 开卡验证清单
 
