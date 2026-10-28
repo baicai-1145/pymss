@@ -178,6 +178,9 @@ def main() -> int:  # noqa: C901
         )
         if not out.startswith("MODEL"):
             print(f"{name:{width}s} FAILED {out}", flush=True)
+            tail = [ln for ln in proc.stderr.splitlines() if ln.strip() and "Warning" not in ln][-6:]
+            for line in tail:
+                print(f"    {line.strip()[:180]}", flush=True)
             continue
         parts = dict(p.split("=") for p in out.split()[1:])
         flops, ms, tflops = float(parts["flops"]), float(parts["ms"]), float(parts["tflops"])
