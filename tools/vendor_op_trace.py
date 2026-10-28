@@ -73,6 +73,38 @@ class Trace(torch.overrides.TorchFunctionMode):
 import faulthandler
 faulthandler.dump_traceback_later(cap, exit=True)
 
+# Module-granular pass: a synchronise after every submodule is cheap enough and,
+# unlike the per-operator tracer, keeps the vendor's queue shallow -- which is the
+# only way to name the module whose operator fails asynchronously.
+if {modules}:
+    last = []
+    handles = []
+    for mod_name, module in model.named_modules():
+        if not mod_name:
+            continue
+        def hook(_m, _i, _o, _name=mod_name):
+            last.append(_name)
+            try:
+                torch.supa.synchronize()
+            except Exception as exc:
+                print("  MODULE FAILED %s: %s" % (_name, str(exc).splitlines()[0][:150]), flush=True)
+                raise
+        handles.append(module.register_forward_hook(hook))
+    try:
+        with torch.inference_mode():
+            model(x)
+        torch.supa.synchronize()
+        print("  modules OK (%d hooks)" % len(handles), flush=True)
+    except Exception as exc:
+        print("  module pass FAILED after %d modules" % len(last), flush=True)
+        for line in str(exc).splitlines():
+            if line.strip():
+                print("    " + line.strip()[:190], flush=True)
+        print("  module chain:", " -> ".join(last[-6:]), flush=True)
+    for handle in handles:
+        handle.remove()
+    raise SystemExit(0)
+
 for run in range(repeat):
     recent.clear()
     try:
@@ -100,6 +132,7 @@ def main() -> int:
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--slow", dest="slower_than", type=float, default=1.0)
     parser.add_argument("--cap", type=float, default=120.0)
+    parser.add_argument("--modules", action="store_true", help="sync after each submodule to catch async failures")
     parser.add_argument("--timeout", type=float, default=300.0)
     args = parser.parse_args()
 
@@ -115,7 +148,7 @@ def main() -> int:
     for name in names:
         code = textwrap.dedent(CHILD).format(
             tests_dir=args.tests_dir, name=name, repeat=args.repeat,
-            slower_than=args.slower_than, cap=args.cap,
+            slower_than=args.slower_than, cap=args.cap, modules=args.modules,
         )
         try:
             proc = subprocess.run(
@@ -125,8 +158,12 @@ def main() -> int:
             out = proc.stdout
             if not out.strip():
                 out = "\n".join(proc.stderr.strip().splitlines()[-4:])
-        except subprocess.TimeoutExpired:
-            out = "TIMEOUT>%.0fs (the child was killed)" % args.timeout
+        except subprocess.TimeoutExpired as exc:
+            partial = exc.stdout or b""
+            if isinstance(partial, bytes):
+                partial = partial.decode("utf-8", "replace")
+            out = partial.strip() or "(no output)"
+            out += "\nTIMEOUT>%.0fs (the child was killed; the lines above are what it managed)" % args.timeout
         print(out.strip(), flush=True)
     return 0
 
