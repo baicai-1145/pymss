@@ -119,3 +119,42 @@ def test_model_placement_follows_effective_backend(backend, device, keep_cpu):
 
 def test_model_without_mlx_support_is_not_left_on_cpu_for_mps():
     assert not _store_torch_model_on_cpu_for_mlx(torch.nn.Linear(2, 2), "mps")
+
+
+@pytest.mark.parametrize("alias,plugin,device_type", [
+    ("biren", "torch_br", "supa"),
+    ("supa", "torch_br", "supa"),
+    ("iluvatar", None, "cuda"),
+    ("metax", None, "cuda"),
+    ("hygon", None, "cuda"),
+    ("enflame", "torch_gcu", "gcu"),
+    ("mlu", "torch_mlu", "mlu"),
+])
+def test_vendor_alias_resolves_through_the_backend_layer(monkeypatch, alias, plugin, device_type):
+    """Guards the domestic-GPU path that NameError'd on a real BIREN card.
+
+    ``separator`` imports the helpers from ``backends``; a missing import only
+    shows up when someone actually passes ``--device biren``.
+    """
+    from pymss import separator
+
+    monkeypatch.setattr(separator, "requires_plugin", lambda name: plugin)
+    monkeypatch.setattr(separator, "prepare_device_alias", lambda name: device_type)
+
+    device, params = _resolve_public_device(alias, {}, DummyLogger())
+
+    assert device == device_type
+    assert params == {}
+
+
+def test_vendor_alias_reports_a_missing_plugin(monkeypatch):
+    from pymss import separator
+
+    def boom(name):
+        raise ImportError("no torch_br")
+
+    monkeypatch.setattr(separator, "requires_plugin", lambda name: "torch_br")
+    monkeypatch.setattr(separator, "prepare_device_alias", boom)
+
+    with pytest.raises(RuntimeError, match="requires the torch_br package"):
+        _resolve_public_device("biren", {}, DummyLogger())

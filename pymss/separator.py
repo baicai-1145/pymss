@@ -18,7 +18,7 @@ from .utils import _resolve_use_amp, clear_mlx_cache, demix, get_model_from_conf
 from .logger import get_separation_logger, set_log_level
 from .config import AttrDict, load_config
 from pymss_core import ModelTypeDetectionError, clear_model_runtime_caches, detect_model_type
-from .backends import device_profile, install_recurrent_fallback, prepare_device_alias
+from .backends import device_profile, install_recurrent_fallback, prepare_device_alias, requires_plugin
 
 
 INFERENCE_PARAM_TARGETS = {
