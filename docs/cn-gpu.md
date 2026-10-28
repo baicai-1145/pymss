@@ -72,7 +72,7 @@ PYMSS_DEVICE_BACKEND=iluvatar pymss infer --device auto ...
 
 ## 在 OpenI 云脑任务里一键采集证据
 
-仓库自带 `scripts/cn_gpu_probe.py`，可直接作为**训练任务的启动文件**（无人值守、不限时长），
+仓库自带 `tools/cn_gpu_probe.py`，可直接作为**训练任务的启动文件**（无人值守、不限时长），
 结果写进 `c2net_context.output_path` 并 `upload_output()` 回传，在任务详情「结果下载」里取：
 
 ```sh
@@ -81,7 +81,7 @@ PYMSS_DEVICE_BACKEND=iluvatar pymss infer --device auto ...
 #   镜像：厂商 SDK 镜像
 #   访问Internet：是（需要 pip / git clone）
 #   代码分支：包含本文件的适配分支
-#   启动文件：scripts/cn_gpu_probe.py
+#   启动文件：tools/cn_gpu_probe.py
 #   运行参数：--device <alias>            # 例：--device enflame
 #             --install-tests             # 首次跑时装 pytest/librosa 等
 #   （默认会自己 pip install pymss-core：优先平台内 git，回落 GitHub，需 Internet=是）
