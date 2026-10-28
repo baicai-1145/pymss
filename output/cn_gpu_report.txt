@@ -1,0 +1,55 @@
+### environment
+python      : 3.12.15 (/Users/baicai1145/repos/pymss-cn-gpu/pymss/../.venv/bin/python)
+platform    : macOS-27.0.1-arm64-arm-64bit / arm64
+cwd         : /Users/baicai1145/repos/pymss-cn-gpu/pymss
+env         : 
+torch       : 2.4.1
+torch.cuda  : version=None hip=None
+cuda avail  : False count=0
+
+### install packages
+pymss_core: already importable
+pymss: already importable
+
+### installed stack
+numpy 2.5.4
+pymss 2.1.13
+pymss 2.1.13
+pymss-core 0.1.15
+torch 2.4.1
+
+### pymss device profile
+{
+  "requested": "cpu",
+  "device_type": "cpu",
+  "vendor": "cpu",
+  "detected_vendor": "cpu",
+  "profile": {
+    "vendor": "cpu",
+    "device_type": "cpu",
+    "plugin": null,
+    "complex_fft": true,
+    "rnn": true,
+    "amp": false,
+    "channels_last": false,
+    "multi_device": false
+  },
+  "fft_fallback": false,
+  "rnn_fallback": false
+}
+
+### imports
+pymss_core    : OK version=?
+pymss         : OK version=?
+pymss.backends: OK version=?
+supported devices: auto, cpu, cuda, rocm, mps, mlx, npu, gcu, mlu, supa, biren, iluvatar, metax, enflame, hygon
+
+### stft/istft round trip
+device=cpu
+native  : OK  spec=(2, 1025, 87) max_abs_err=9.537e-07
+fallback: OK  spec=(2, 1025, 87) max_abs_err=9.537e-07
+
+### recurrent forward
+device=cpu
+native  : OK out=(2, 10, 16) dtype=torch.float32
+fallback: OK out=(2, 10, 16) dtype=torch.float32

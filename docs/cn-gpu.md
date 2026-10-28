@@ -82,8 +82,9 @@ PYMSS_DEVICE_BACKEND=iluvatar pymss infer --device auto ...
 #   访问Internet：是（需要 pip / git clone）
 #   代码分支：包含本文件的适配分支
 #   启动文件：scripts/cn_gpu_probe.py
-#   运行参数：--device <alias>            # 例：--device biren
+#   运行参数：--device <alias>            # 例：--device enflame
 #             --install-tests             # 首次跑时装 pytest/librosa 等
+#   （默认会自己 pip install pymss-core：优先平台内 git，回落 GitHub，需 Internet=是）
 ```
 
 脚本会依次采集：环境与 torch 构建信息 → 已安装厂商栈（`torch/+supa/+corex/+metax/+gcu/+das/+mlu`）
