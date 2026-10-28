@@ -12,7 +12,7 @@ pymss 的模型全部是纯 PyTorch 算子（`torch.stft` / `torch.fft` / `nn.*`
 
 | 厂商 | 厂商软件栈 | 适配 torch | `--device` | torch 来源 | 已知限制 |
 |---|---|---|---|---|---|
-| 壁仞 Biren | BIRENSUPA / BRPyTorch | 2.4 – 2.8 | `biren`（或 `supa`） | `torch_br` + `torch 2.x+br` | 老版本 SUPA 把设备暴露为 `cuda`，新版本为 `supa` |
+| 壁仞 Biren | BIRENSUPA / BRPyTorch | 2.4 – 2.8 | `biren`（或 `supa`） | `torch_br` + `torch 2.x+br` | 老版本 SUPA 把设备暴露为 `cuda`，新版本为 `supa`；**实测 BIREN106M + torch-br 1.7.0.20700（torch 2.7.0+cpu）**：`stft(return_complex=True)` 报不支持 → 走 `torch.fft` 组合（误差 9.5e-07）；`hann_window(device=supa)` 崩 → 必须 CPU 建窗再搬；`nn.LSTM` 原生可用但 **`nn.GRU` 缺 `_thnn_fused_gru_cell`** → 仅 GRU 回退 CPU |
 | 天数智芯 Iluvatar | CoreX SDK 4.4 | **2.7.1** | `iluvatar` | `torch 2.7.1+corex.4.4.0` | 冒充 `cuda`；FFT 走原生路径，若报错用 `PYMSS_FFT_FALLBACK=1` |
 | 沐曦 MetaX | MACA 3.x | 2.6 – 2.8 | `metax` | `torch 2.x+metax` | 冒充 `cuda` |
 | 燧原 Enflame | TopsRider 3.5 – 3.7 | 2.6 – 2.10 | `enflame`（或 `gcu`） | `torch_gcu` | 私有 device type `gcu`；`transfer_to_gcu` 可让 CUDA 代码直接跑 |
