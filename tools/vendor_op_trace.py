@@ -68,6 +68,11 @@ class Trace(torch.overrides.TorchFunctionMode):
             raise TimeoutError("cap %.0fs" % cap)
         return out
 
+# A hung vendor call never returns, so the wall-clock cap inside the tracer can
+# never fire; this watchdog dumps the Python stack where it is stuck and exits.
+import faulthandler
+faulthandler.dump_traceback_later(cap, exit=True)
+
 for run in range(repeat):
     recent.clear()
     try:

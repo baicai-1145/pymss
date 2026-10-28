@@ -78,6 +78,7 @@ def main() -> int:
     parser.add_argument("--tests-dir", default="/tmp/pc/tests")
     parser.add_argument("--timeout", type=float, default=240.0)
     parser.add_argument("--only", default="")
+    parser.add_argument("--verbose", type=int, default=0, help="print N stderr lines of a failing child")
     args = parser.parse_args()
 
     sys.path.insert(0, args.tests_dir)
@@ -118,6 +119,11 @@ def main() -> int:
             err[-1] if err else "?",
         )
         print(f"{name:{width}s} FAILED {_scrub(reason)}", flush=True)
+        if args.verbose:
+            # The interesting part of a vendor failure is usually the few lines
+            # above the last one (the operator name and its shape).
+            for line in err[-args.verbose:]:
+                print(f"    {line.strip()[:190]}", flush=True)
     print(f"--- {ok}/{len(names)} ran end to end", flush=True)
     return 0
 
