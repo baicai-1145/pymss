@@ -242,7 +242,10 @@ def _torch_istft(spec, hop_length, device):
         return None
     fft_fallback = fft_fallback_required(device)
     n_fft = (spec.shape[1] - 1) * 2
-    spec_t = torch.from_numpy(np.ascontiguousarray(spec)).to(device)
+    from pymss_core.npu_fft import numpy_complex_to_device
+
+    # complex host->device copies are rejected by BIREN; send the real planes.
+    spec_t = numpy_complex_to_device(spec, device)
     window = _hann_window(n_fft, spec_t.real.dtype, device)
     if fft_fallback:
         from pymss_core.npu_fft import istft_npu
