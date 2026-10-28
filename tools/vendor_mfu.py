@@ -127,7 +127,14 @@ def main() -> int:  # noqa: C901
     parser.add_argument("--tests-dir", default="/tmp/pc/tests")
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--only", default="")
-    parser.add_argument("--skip-gemm", action="store_true")
+    parser.add_argument(
+        "--skip-gemm",
+        nargs="?",
+        const="true",
+        default="false",
+        choices=["true", "false"],
+        help="skip the matmul peak measurement",
+    )
     parser.add_argument("--bf16", action="store_true", help="wrap the model forward in vendor bf16 autocast")
     args = parser.parse_args()
 
@@ -138,7 +145,7 @@ def main() -> int:  # noqa: C901
     env["PYTHONPATH"] = args.tests_dir
 
     peaks = {}
-    if not args.skip_gemm:
+    if args.skip_gemm != "true":
         print("=== achievable dense matmul", flush=True)
         code, out = _run(env, GEMM_CHILD, args.timeout)
         print(out, flush=True)
