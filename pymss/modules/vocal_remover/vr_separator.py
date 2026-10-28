@@ -420,8 +420,9 @@ class VRSeparator(CommonSeparator):
             x_spec_t = torch.from_numpy(x_spec).to(device)
             # BIREN has no complex64 * float32 pointwise kernel, so the mask is
             # applied on the real/imaginary planes (see npu_fft.masked_spectrum).
-            y_spec = masked_spectrum(mask, x_spec_t).cpu().numpy()
-            v_spec = masked_spectrum(1 - mask, x_spec_t).cpu().numpy()
+            # to_cpu=True: BIREN cannot copy complex tensors device->host.
+            y_spec = masked_spectrum(mask, x_spec_t, to_cpu=True)
+            v_spec = masked_spectrum(1 - mask, x_spec_t, to_cpu=True)
             return y_spec, v_spec
 
         x_mag = np.abs(x_spec)

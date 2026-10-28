@@ -231,7 +231,10 @@ def _torch_stft(wave, n_fft, hop_length, device):
             pad_mode="constant",
             return_complex=True,
         )
-    return np.asfortranarray(spec.cpu().numpy())
+    # BIREN cannot copy complex tensors device->host; move the real planes instead.
+    from pymss_core.npu_fft import complex_to_numpy_cpu
+
+    return np.asfortranarray(complex_to_numpy_cpu(spec))
 
 
 def _torch_istft(spec, hop_length, device):
