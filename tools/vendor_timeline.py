@@ -115,16 +115,16 @@ for name, spans in records.items():
     rows.append((elapsed, len(spans), name))
 rows.sort(reverse=True)
 
-print(f"TOTAL {total:.0f} ms  preset={preset} bf16={use_bf16}", flush=True)
-print(f"  stft   {sum(s.elapsed_time(e) for s, e in stages['stft']):8.1f} ms", flush=True)
-print(f"  istft  {sum(s.elapsed_time(e) for s, e in stages['istft']):8.1f} ms", flush=True)
-print("  --- exclusive nest depth 2 ---", flush=True)
+total_ms = f"TOTAL {{total:.0f}} ms  preset={{preset}} bf16={{use_bf16}}"
+print(total_ms, flush=True)
+print(f"  stft   {{sum(s.elapsed_time(e) for s, e in stages['stft']):8.1f}} ms", flush=True)
+print(f"  istft  {{sum(s.elapsed_time(e) for s, e in stages['istft']):8.1f}} ms", flush=True)
+print("  --- by module, depth 2 ---", flush=True)
 shown = 0
 for elapsed, count, name in rows:
-    depth = name.count(".")
-    if depth > 2:
+    if name.count(".") > 2:
         continue
-    print(f"  {name:44s} {elapsed:8.1f} ms {100.0 * elapsed / total:5.1f}%  x{count}", flush=True)
+    print(f"  {{name:44s}} {{elapsed:8.1f}} ms {{100.0 * elapsed / total:5.1f}}%  x{{count}}", flush=True)
     shown += 1
     if shown >= 18:
         break
