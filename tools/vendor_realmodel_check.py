@@ -35,11 +35,11 @@ WORKER = r'''
 import json, sys, time, traceback
 import numpy as np
 
-name, model_dir = sys.argv[1], sys.argv[2]
+name, model_dir, device_alias = sys.argv[1], sys.argv[2], (sys.argv[3] if len(sys.argv) > 3 else "biren")
 result = {"name": name, "ok": False}
 try:
     from pymss_core.device import prepare_device_alias
-    prepare_device_alias("biren")
+    prepare_device_alias(device_alias)
     import torch
     import torch.nn.functional as F
     _linear = F.linear
@@ -60,7 +60,7 @@ try:
         torch.nn.Module.__call__ = traced_call
     from pymss import MSSeparator
     separator = MSSeparator.from_model_name(
-        name, model_dir=model_dir, download=True, source="modelscope", device="biren")
+        name, model_dir=model_dir, download=True, source="modelscope", device=device_alias)
     model = getattr(separator, "model", None)
     device = str(next(p.device for p in model.parameters())) if model is not None and hasattr(model, "parameters") else "n/a"
     result["device"] = device
@@ -122,6 +122,7 @@ def main():
     parser.add_argument('--model-dir', default='/tmp/code/pymss_models')
     parser.add_argument('--output', default='.tmp/br-realmodels.json')
     parser.add_argument('--only', default=None, help='run a single model name')
+    parser.add_argument('--device', default='biren', help='device alias passed to MSSeparator')
     parser.add_argument('--timeout', type=int, default=900)
     args = parser.parse_args()
 
@@ -139,7 +140,7 @@ def main():
         print(f'REALMODEL_BEGIN {model_type} {name}', flush=True)
         start = time.perf_counter()
         try:
-            completed = subprocess.run([sys.executable, '-u', '-c', WORKER, name, args.model_dir],
+            completed = subprocess.run([sys.executable, '-u', '-c', WORKER, name, args.model_dir, args.device],
                                        capture_output=True, text=True, timeout=args.timeout, cwd=str(Path(__file__).resolve().parent.parent))
             payload = None
             extra = [line for line in completed.stdout.splitlines()
