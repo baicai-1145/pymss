@@ -51,6 +51,13 @@ try:
                   f"w={tuple(weight.shape)} wdtype={weight.dtype} err={str(error)[:120]}", flush=True)
             raise
     F.linear = debug_linear
+    import os
+    if os.environ.get("PYMSS_TRACE_LAYERS"):
+        _module_call = torch.nn.Module.__call__
+        def traced_call(self, *args, **kwargs):
+            print(f"LAYER {type(self).__name__} {getattr(self, '_traced_name', '')}".rstrip(), flush=True)
+            return _module_call(self, *args, **kwargs)
+        torch.nn.Module.__call__ = traced_call
     from pymss import MSSeparator
     separator = MSSeparator.from_model_name(
         name, model_dir=model_dir, download=True, source="modelscope", device="biren")
@@ -136,8 +143,9 @@ def main():
                                        capture_output=True, text=True, timeout=args.timeout, cwd=str(Path(__file__).resolve().parent.parent))
             payload = None
             extra = [line for line in completed.stdout.splitlines()
-                     if line.startswith(('LINEAR_FAIL', 'WORKER_TB'))]
-            for line in extra[:80]:
+                     if line.startswith(('LINEAR_FAIL', 'WORKER_TB', 'LAYER '))]
+            for line in extra[-100:]:
+                print(line, flush=True)
                 print(line, flush=True)
             for line in completed.stdout.splitlines():
                 if line.startswith('REALMODEL_SINGLE '):
