@@ -137,7 +137,7 @@ def main():
             payload = None
             extra = [line for line in completed.stdout.splitlines()
                      if line.startswith(('LINEAR_FAIL', 'WORKER_TB'))]
-            for line in extra[:24]:
+            for line in extra[:80]:
                 print(line, flush=True)
             for line in completed.stdout.splitlines():
                 if line.startswith('REALMODEL_SINGLE '):
