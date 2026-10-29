@@ -202,6 +202,56 @@ CPU 卷积的 im2col 会吃掉几十 GB 内存，会直接把宿主 OOM）。
 `repeat ≈ 1e-08` 说明卡上运算是**确定性**的 —— 这条必须测，因为早期版本里
 退化 FFT 路径会让同输入两次结果不同（0.272 vs 0.334），看起来像精度问题。
 
+### 五、SUDNN 的 JIT 编译器在本镜像里不可用（最重要的一条）
+
+厂商的 `PtOpFrontend` 会为**没有预编译内核**的形状现场生成并编译代码，它依赖一个内嵌的
+Python 环境，在本镜像里初始化失败：
+
+```
+[SUDNN] Failed to init python
+[SUDNN] Failed to build the assembly code
+[SUDNN] [Kernel] FAILED to compile, since initialize Kernel.
+ERROR (SUDNN): SudnnPlanBuilder.h:667 Failed to finalize engine config descriptor
+```
+
+调用栈（`/tmp/logs/torch_br-*.log`）：
+
+```
+at::supa::do_sudnn_matmul -> at::supa::PtOpFrontend::run -> SUDNNException
+```
+
+**判定方法**：同一个算子，用**预编译形状**能跑，用其它形状就报上面这串。最小复现：
+
+```python
+import torch, torch_br
+torch.supa.set_device(0)
+d = torch.device("supa:0")
+torch.bmm(torch.randn(1384, 62, 64, device=d), torch.randn(1384, 64, 62, device=d))
+```
+
+**已实测无效的尝试**（不要再浪费时间）：
+
+| 尝试 | 结果 |
+|---|---|
+| 把 batch 分块（8 / 64 / 173 / 256） | 无效 |
+| 操作数 `.contiguous()` | 无效 |
+| 4-D 批 matmul 折叠成 3-D bmm | 能改变命中的内核，但不能保证命中预编译库 |
+| bf16 autocast | 无效 |
+| `BRTB_KERNEL_CACHE_CAPACITY` / `..._DEVICE_MEMORY_MAX_SIZE_MB` | 无效 |
+| `BRTB_LOG_DIR` / `BRTB_LOG_LEVEL` / `BRTB_ENABLE_RUN_KERNEL` | 无效 |
+| 失败后重试 | 无效（与 scnet 的 D2H 不同） |
+| 重启 Jupyter 内核 | 无效 |
+
+**会随时间退化**：同一容器内，`bmm((1384,62,64),(1384,64,62))` 在 20:15 通过（batch
+173/346/692/1384/1385/2048/1024 全通过），20:32 起持续失败，且**不加载 pymss 的
+任何 shim 也失败**。同期 `8192³` 矩阵乘、`conv2d`、radix-2 FFT 全部正常 —— 说明卡本身
+没坏，坏的是需要现场编译的那条路径。**长跑测量必须在干净容器里做，退化后重启调试任务。**
+
+**后果**：生产规模的 roformer（`dim=384, depth=12`，10 秒音频 862 帧）做 attention 时
+需要 `bmm(6896, 62, 64)`，命中 JIT 路径，因此**无法稳定运行**；而正确性验收用的
+缩小模型（3k–23k 参数、64 个采样点）形状都在预编译库里，所以 15/15 全绿。
+**用小模型验收会完全掩盖这条问题。**
+
 ### 三、CPU 回退的取舍原则
 
 > **只有厂商"崩进程"或"算错结果"才允许回退 CPU；"慢"必须留在卡上解决。**
