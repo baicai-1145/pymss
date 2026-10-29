@@ -291,6 +291,24 @@ FFT 正常。此前把它归因于容器随时间退化，没有控制启动环�
   complex64）只打日志不报错，之后的卷积/FFT 静默返回全零。所以验收必须比对数值，
   不能只看"跑完没报错"。
 
+## 真实模型全类型验证（2026-10-29）
+
+工具 `tools/vendor_realmodel_check.py`：目录内 11 种模型类型各取一个
+真实 checkpoint（ModelScope 自动下载），10s 合成立体声推理，逐模型
+子进程隔离。**SUPA 可用 6/11**：mdx23c 28.7s、scnet 86.7s、apollo
+65.5s、bandit 372s、bandit_v2 112s、vr 17.8s（均输出有限、stem 正确）。
+本轮新增 shim 解锁：fold/col2im CPU 回退、conv1d dtype 对齐 +
+fp32 重试 + CPU 三级阶梯、`view_as_complex` bf16→fp32、SDPA 非
+bf16 回退 math、`F.linear` 全局 dtype 对齐、FFN 门放宽（eval 下
+忽略 dropout p）。
+
+未过 5 类（均已定位根因）：bs_roformer（LargeV1）/mel_band ——
+遮罩路径的 complex-GEMM 无后端（dim-512 配置触发；dim-384 优化
+路径不受影响）；htdemucs —— vendor 缺 Embedding 算子（待加 CPU
+回退）；legacy_tasnet —— scatter shim 内 one_hot 矩阵乘 SUBLAS
+ErrorCode 15（待重写为 index 形式）；legacy_demucs —— vendor conv
+裁剪语义 bug（800vs860）。
+
 ## 开卡验证清单
 
 在目标卡上按顺序执行（约 10 分钟）：
