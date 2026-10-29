@@ -66,7 +66,7 @@ try:
     result["device"] = device
     result["model_type"] = getattr(separator, "model_type", None) or getattr(getattr(separator, "config", None), "model_type", None)
     sr = 44100
-    seconds = 10
+    seconds = int(os.environ.get("PYMSS_TEST_SECONDS", "10"))
     t = np.arange(int(sr * seconds), dtype=np.float32) / sr
     mix = np.stack([0.4*np.sin(2*np.pi*220*t) + 0.2*np.sin(2*np.pi*880*t),
                     0.35*np.sin(2*np.pi*330*t) + 0.25*np.sin(2*np.pi*660*t)])
