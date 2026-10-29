@@ -44,8 +44,9 @@ try:
     separator = MSSeparator.from_model_name(
         name, model_dir=model_dir, download=True, source="modelscope", device="biren")
     import torch
-    device = next(p.device for p in separator.model.parameters()) if separator.model is not None else None
-    result["device"] = str(device)
+    model = getattr(separator, "model", None)
+    device = str(next(p.device for p in model.parameters())) if model is not None and hasattr(model, "parameters") else "n/a"
+    result["device"] = device
     result["model_type"] = getattr(separator, "model_type", None) or getattr(getattr(separator, "config", None), "model_type", None)
     sr = 44100
     seconds = 10
