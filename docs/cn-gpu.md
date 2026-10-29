@@ -519,6 +519,17 @@ rel_to_fp32 不变 1.5705%。q/k 合并单调用（`trio[:2]` 免费视图）后
 至 **1632.5 ms**。其他设备/dtype/训练态/PoPE/未 prepare 模型
 一律走原前向。
 
+**融合 FFN（同 shim 内置）**：rope shim 同时接管 `FeedForward.forward`
+（仅 SUPA+bf16+推理态+结构匹配：`RMSNorm→Linear→GELU→Dropout(0)→
+Linear→Dropout(0)`、双 Linear 带偏置）：两投影+GELU 整体换成单内核
+`torch_br.supa_fused_mlp_linear_act_linear_fwd(x, w_up, w_down, b_up,
+b_down, act_mode='gelu')`（**`act_mode` 必须小写 'gelu'**，其它拼写会静默
+禁用激活导致输出错误；返回 `[output, ...]` 需取首元素；2-D 输入会触发
+布局断言，须 3-D 调用）。隔离实测 2.82 ms vs eager 6.43（2.3×），对
+bf16 参考误差 0.41%（erf/tanh 不可分辨）。端到端：1823.6 → 1557.4 ms
+（叠加 rope+重排后，今日合计 -14.6%），rel_to_fp32 1.5464%（不劣反微升）。
+退出开关 `PYMSS_FFN_BACKEND=eager`。
+
 **后续优化线索（已探明未实施）**：freq 侧 (6896,62,64) 因 dim0≤1024
 被迫 7 块分块，实测算子在短序列形态效率仅为长序列的 1/4（同元素量
 12.4 ms vs 0.45 ms），构当前 rope 剩余成本。自定义 G-mode 内核工具链
