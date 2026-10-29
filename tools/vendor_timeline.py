@@ -115,7 +115,7 @@ for name, spans in records.items():
     rows.append((elapsed, len(spans), name))
 rows.sort(reverse=True)
 
-total_ms = f"TOTAL {{total:.0f}} ms  preset={{preset}} bf16={{use_bf16}}"
+total_ms = f"TOTAL {{total:.0f}} ms  preset={{{preset!r}}} bf16={{use_bf16}}"
 print(total_ms, flush=True)
 print(f"  stft   {{sum(s.elapsed_time(e) for s, e in stages['stft']):8.1f}} ms", flush=True)
 print(f"  istft  {{sum(s.elapsed_time(e) for s, e in stages['istft']):8.1f}} ms", flush=True)
