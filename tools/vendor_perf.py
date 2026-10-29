@@ -45,6 +45,7 @@ preset = {preset!r}
 seconds = {seconds}
 repeat = {repeat}
 use_bf16 = {use_bf16}
+profile = {profile}
 peak = {peak}
 
 # Published sizes: a real separation model, not the correctness harness's stand-in.
@@ -102,6 +103,31 @@ model = model.to(D)
 x = wave.to(D)
 amp = torch.supa.amp.autocast(dtype=torch.bfloat16) if use_bf16 else torch.no_grad()
 
+# Optional per-stage profile: sync around each top-level child module so the report
+# says where the time goes instead of guessing.
+profile = {profile}
+stage_times = {{}}
+if profile:
+    def make_timer(name):
+        def hook(module, inputs, output):
+            try:
+                torch.supa.synchronize()
+            except Exception:
+                return
+            stage_times.setdefault(name, []).append(time.perf_counter() - getattr(module, "_perf_start", time.perf_counter()))
+        return hook
+    def make_pre(name):
+        def hook(module, inputs):
+            try:
+                torch.supa.synchronize()
+            except Exception:
+                pass
+            module._perf_start = time.perf_counter()
+        return hook
+    for child_name, child in model.named_children():
+        child.register_forward_pre_hook(make_pre(child_name))
+        child.register_forward_hook(make_timer(child_name))
+
 totals = []
 outputs = []
 with torch.inference_mode():
@@ -131,6 +157,14 @@ print(
        tflops, 100.0 * tflops / peak, spread, seconds / total),
     flush=True,
 )
+if profile and stage_times:
+    ranked = sorted(
+        ((statistics.median(v), k) for k, v in stage_times.items() if v), reverse=True
+    )
+    budget = total * 1000
+    for stage_ms, stage in ranked[:8]:
+        print("STAGE %-28s %8.1f ms %5.1f%%" % (stage, stage_ms * 1000, 100.0 * stage_ms / total),
+              flush=True)
 """
 
 
@@ -141,6 +175,7 @@ def main() -> int:
     parser.add_argument("--seconds", type=float, default=10.0)
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--bf16", action="store_true")
+    parser.add_argument("--profile", action="store_true", help="per-stage timing")
     parser.add_argument("--peak", type=float, default=0.0,
                         help="measured peak TFLOPS for MFU; 284.62 bf16 / 115.74 fp32")
     parser.add_argument("--tests-dir", default="/tmp/pc/tests")
@@ -157,6 +192,7 @@ def main() -> int:
         code = textwrap.dedent(CHILD).format(
             tests_dir=args.tests_dir, preset=preset, seconds=args.seconds,
             repeat=args.repeat, use_bf16=args.bf16, peak=peak,
+            profile=args.profile,
         )
         try:
             proc = subprocess.run(
@@ -169,6 +205,8 @@ def main() -> int:
         lines = [ln for ln in proc.stdout.splitlines() if ln.startswith("PERF")]
         if lines:
             print(lines[-1], flush=True)
+            for stage in [ln for ln in proc.stdout.splitlines() if ln.startswith("STAGE")]:
+                print("  " + stage[6:], flush=True)
             continue
         err = [ln for ln in proc.stderr.splitlines()
                if ln.strip() and "Warning" not in ln and "REGISTER_GENERATOR" not in ln]
