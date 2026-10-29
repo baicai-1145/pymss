@@ -62,7 +62,23 @@ try:
     separator = MSSeparator.from_model_name(
         name, model_dir=model_dir, download=True, source="modelscope", device=device_alias)
     model = getattr(separator, "model", None)
-    device = str(next(p.device for p in model.parameters())) if model is not None and hasattr(model, "parameters") else "n/a"
+    device = "n/a"
+    for candidate in (model, getattr(model, "model_run", None)):
+        if candidate is not None and hasattr(candidate, "parameters"):
+            try:
+                device = str(next(candidate.parameters()).device)
+                break
+            except StopIteration:
+                pass
+    if device == "n/a" and model is not None:
+        for child in model.modules() if hasattr(model, "modules") else []:
+            params = getattr(child, "parameters", None)
+            if params is not None:
+                try:
+                    device = str(next(params()).device)
+                    break
+                except StopIteration:
+                    continue
     result["device"] = device
     result["model_type"] = getattr(separator, "model_type", None) or getattr(getattr(separator, "config", None), "model_type", None)
     sr = 44100
