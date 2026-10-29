@@ -515,5 +515,14 @@ seq 实测至 4096 均可；表精度沿 seq 无漂移（单算子相对 fp32 �
 `.contiguous()`）；rotary 与 FMHA 适配器此后全部零拷贝视图。与原前向
 **逐位一致**（探针 `tools/vendor_attention_chain_probe.py`，rel_to_current
 =0.0）。端到端叠加：1823.0 → 1647.1 ms（rope+重排合计 -9.7%），
-rel_to_fp32 不变 1.5705%。其他设备/dtype/训练态/PoPE/未 prepare 模型
+rel_to_fp32 不变 1.5705%。q/k 合并单调用（`trio[:2]` 免费视图）后再降
+至 **1632.5 ms**。其他设备/dtype/训练态/PoPE/未 prepare 模型
 一律走原前向。
+
+**后续优化线索（已探明未实施）**：freq 侧 (6896,62,64) 因 dim0≤1024
+被迫 7 块分块，实测算子在短序列形态效率仅为长序列的 1/4（同元素量
+12.4 ms vs 0.45 ms），构当前 rope 剩余成本。自定义 G-mode 内核工具链
+已走通（SRTC 运行时编译 + 驱动启动，见
+`tools/vendor_rope_srtc_kernel.py`），但 fp32 表指针语义、bf16 向量化、
+NUMA 16 区域寻址三题未解。另有 SDK 内置融合算子
+`supa_norm_rope_uma_bf16_infer`（RMSNorm+RoPE）未探索。
