@@ -85,7 +85,8 @@ except SystemExit as exit_error:
     result["error"] = f"SystemExit: {exit_error}"
 except Exception as error:
     result["error"] = "".join(traceback.format_exception_only(type(error), error))[:300]
-    result["traceback_tail"] = traceback.format_exc().splitlines()[-3:]
+    for tb_line in traceback.format_exc().splitlines():
+        print("WORKER_TB " + tb_line, flush=True)
 print("REALMODEL_SINGLE " + json.dumps(result), flush=True)
 '''
 
@@ -123,7 +124,8 @@ def main():
         catalog = root / 'pymss' / 'resources' / 'model_catalog.json'
     chosen = resolve_candidates(catalog)
     if args.only:
-        chosen = [(t, n) for t, n in chosen if n == args.only or t == args.only]
+        wanted = {piece.strip() for piece in args.only.split(',')}
+        chosen = [(t, n) for t, n in chosen if n in wanted or t in wanted]
 
     results = []
     for model_type, name in chosen:
@@ -133,6 +135,10 @@ def main():
             completed = subprocess.run([sys.executable, '-u', '-c', WORKER, name, args.model_dir],
                                        capture_output=True, text=True, timeout=args.timeout, cwd=str(Path(__file__).resolve().parent.parent))
             payload = None
+            extra = [line for line in completed.stdout.splitlines()
+                     if line.startswith(('LINEAR_FAIL', 'WORKER_TB'))]
+            for line in extra[:24]:
+                print(line, flush=True)
             for line in completed.stdout.splitlines():
                 if line.startswith('REALMODEL_SINGLE '):
                     payload = json.loads(line[len('REALMODEL_SINGLE '):])
