@@ -124,7 +124,8 @@ def main() -> int:
 
     env = dict(os.environ)
     env.setdefault("BRTB_ENABLE_SUBLAS_API", "1")
-    env["PYTHONPATH"] = args.tests_dir
+    # Preserve SDK compiler modules (e.g. Biren br_generator) in child processes.
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, (args.tests_dir, env.get("PYTHONPATH", ""))))
 
     families = args.families.split(",") if args.families else [args.family]
     for family in families:

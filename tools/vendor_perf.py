@@ -195,7 +195,8 @@ def main() -> int:
     peak = args.peak or (284.62 if args.bf16 else 115.74)
     env = dict(os.environ)
     env.setdefault("BRTB_ENABLE_SUBLAS_API", "1")
-    env["PYTHONPATH"] = args.tests_dir
+    # Preserve SDK compiler modules (e.g. Biren br_generator) in child processes.
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, (args.tests_dir, env.get("PYTHONPATH", ""))))
 
     presets = args.presets.split(",") if args.presets else [args.preset]
     for preset in presets:

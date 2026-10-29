@@ -202,10 +202,10 @@ CPU 卷积的 im2col 会吃掉几十 GB 内存，会直接把宿主 OOM）。
 `repeat ≈ 1e-08` 说明卡上运算是**确定性**的 —— 这条必须测，因为早期版本里
 退化 FFT 路径会让同输入两次结果不同（0.272 vs 0.334），看起来像精度问题。
 
-### 五、SUDNN 的 JIT 编译器在本镜像里不可用（最重要的一条）
+### 五、JIT 启动环境问题（原“编译器不可用”结论已撤回）
 
-厂商的 `PtOpFrontend` 会为**没有预编译内核**的形状现场生成并编译代码，它依赖一个内嵌的
-Python 环境，在本镜像里初始化失败：
+早期探针以 `PYTHONPATH=/tmp/pc` 覆盖 SDK 环境，导致 JIT 所需的
+`br_generator` 模块不可见。以下错误来自该启动环境，不能据此认定编译器损坏：
 
 ```
 [SUDNN] Failed to init python
@@ -220,7 +220,8 @@ ERROR (SUDNN): SudnnPlanBuilder.h:667 Failed to finalize engine config descripto
 at::supa::do_sudnn_matmul -> at::supa::PtOpFrontend::run -> SUDNNException
 ```
 
-**判定方法**：同一个算子，用**预编译形状**能跑，用其它形状就报上面这串。最小复现：
+**历史复现**：以下形状在 SDK 路径被移除时失败。这不是其支持上限；
+重现时必须记录并保留原始 `PYTHONPATH`：
 
 ```python
 import torch, torch_br
@@ -229,7 +230,7 @@ d = torch.device("supa:0")
 torch.bmm(torch.randn(1384, 62, 64, device=d), torch.randn(1384, 64, 62, device=d))
 ```
 
-**已实测无效的尝试**（不要再浪费时间）：
+**历史尝试（SDK 路径修复前）**：以下结果不能用于排除厂商能力，需在正确环境重测。
 
 | 尝试 | 结果 |
 |---|---|
@@ -242,15 +243,14 @@ torch.bmm(torch.randn(1384, 62, 64, device=d), torch.randn(1384, 64, 62, device=
 | 失败后重试 | 无效（与 scnet 的 D2H 不同） |
 | 重启 Jupyter 内核 | 无效 |
 
-**会随时间退化**：同一容器内，`bmm((1384,62,64),(1384,64,62))` 在 20:15 通过（batch
-173/346/692/1384/1385/2048/1024 全通过），20:32 起持续失败，且**不加载 pymss 的
-任何 shim 也失败**。同期 `8192³` 矩阵乘、`conv2d`、radix-2 FFT 全部正常 —— 说明卡本身
-没坏，坏的是需要现场编译的那条路径。**长跑测量必须在干净容器里做，退化后重启调试任务。**
+**历史观察**：同一容器曾出现某些 bmm 尺寸成功、后来持续失败，而大 GEMM、卷积和
+FFT 正常。此前把它归因于容器随时间退化，没有控制启动环境；这一因果结论已撤回。
 
-**后果**：生产规模的 roformer（`dim=384, depth=12`，10 秒音频 862 帧）做 attention 时
-需要 `bmm(6896, 62, 64)`，命中 JIT 路径，因此**无法稳定运行**；而正确性验收用的
-缩小模型（3k–23k 参数、64 个采样点）形状都在预编译库里，所以 15/15 全绿。
-**用小模型验收会完全掩盖这条问题。**
+**已验证修复**：保留 SDK 路径后，完全相同的 3-D bf16 FMHA 最小复现成功，
+预热后三次为 0.686 / 0.407 / 0.386 ms。生产规模 bf16 roformer 的显式 FMHA
+也成功执行，三轮每轮 24 次厂商调用，零失败、零回退。
+启动方式应使用 `PYTHONPATH="/tmp/pc:${PYTHONPATH:-}"`；各工具创建子进程时也必须追加
+测试路径而不是覆盖环境。详细数据见文末“环境修复后的验证”。
 
 ### 三、CPU 回退的取舍原则
 
@@ -321,6 +321,9 @@ pymss infer --model <name> --input test.wav --device <alias>
 
 ## 性能：生产规模 roformer 的实测数据
 
+本节先保留环境修复前的历史数据。分块失败、bf16 无收益、MFU 天花板等早期推断均已撤回；
+正确环境下的 bf16、SUPAGraph 与显式 FMHA 对照见文末“环境修复后的验证”。
+
 测量口径：`pymss/tools/vendor_perf.py`，`BSRoformer(dim=384, depth=12, stereo=True,
 num_stems=1, dim_head=64, heads=8)`，10 秒 44.1 kHz 立体声，fp32，3 次取中位数。
 FLOPs 由 `torch.utils.flop_counter` 在 CPU 上对同一输入统计。
@@ -345,16 +348,17 @@ FLOPs 由 `torch.utils.flop_counter` 在 CPU 上对同一输入统计。
 | rotary：交错写入 → `[偶数半|奇数半]` 连续写入 | 2428 ms | 4.12× | 1.83% |
 | sdpa：单块不再 `cat` | 2403 ms | 4.16× | 1.85% |
 
-**累计 3.67 倍**，15 家族数值不变（`rel` 1.45e-05 ~ 1.34e-04）。
+历史同配置累计加速 3.67 倍。14 个家族 `rel` 为 1.45e-05 ~ 1.34e-04；
+SCNet 为 5.79e-02，是未解决的精度偏差，不能称为 15 家族全部通过精度验收。
 
 三笔主要优化的依据：
 
 1. **rotary 122 → 35 ms/次**：消融显示它占 5602 ms（63.6%）。复数乘法要经过
    `view_as_complex`/`view_as_real`，而厂商 shim 必须拆成实部/虚部平面，在
    `(62, 862, 8, 64)`（2740 万元素）上反复读写。改成逐元素后降到 35 ms。
-   CUDA/MPS 上复数路径实测快 4.7 倍，所以按设备选择，不是一刀切。
-2. **attention 分块 256 → 1024**：折叠后 53444 行，256 一块要 209 次 bmm，
-   1024 一块只要 52 次。1024 是仍能命中预编译内核的最大值（2048 会触发 JIT 失败）。
+   CUDA/MPS 保留原路径，本轮 BR 结果不代表其他设备的性能对照。
+2. **attention 分块 256 → 1024**：freq attention 折叠后为 862×8=6896 个 batch，
+   每块 256 需 27 块，每块 1024 需 7 块。旧环境下更大 batch 失败，不能作为当前支持上限。
 3. **rotary 35 → 9.4 ms/次**：交错布局需要跨步写入。只有 q 和 k 被旋转，且用同一个
    维度置换，点积不变，所以可以改成两段连续写入。算术下限实测 2.5 ms，
    单纯换布局就拿到 3.8 倍。
@@ -371,15 +375,13 @@ FLOPs 由 `torch.utils.flop_counter` 在 CPU 上对同一输入统计。
 | stft + istft | 106 ms | 4% |
 | RMSNorm | 56 ms | 2% |
 
-**这个模型在这张卡上是内存带宽受限，不是算力受限。** 5.14 TFLOP 的计算背后，
-单是 attention 的 scores 张量就有 `496 × 862 × 862 = 1.47 GB`，每次 attention 至少
-4 遍读写（写 scores → softmax 读 → 写 probs → bmm 读）≈ 5.9 GB。按实测带宽
-~200 GB/s 算，29 ms 是物理下限，实测纯计算 25 ms、模型内 38 ms —— **已经贴着下限**。
+这些模块计时存在包含关系：rotary 是 Attention 的一部分，不能把表中所有行相加。
+显式 attention 的 time scores 张量大小确为 `496×862×862×4≈1.47 GB`，但据此不能
+断言整个模型已经到达带宽下限，也不能推导 MFU 永远低于某个比例。此前计算还混用了
+单次与 12 层的流量/算量。新验证发现了 SDK 路径问题、标准 SDPA 的 CPU 回退，以及
+可用的厂商 FMHA；应先排除这些实现与环境问题，再进行 roofline 分析。
 
-这正是 MFU 只有 1.85% 的原因：算力利用率低不是因为适配没做好，而是因为
-`scores` 的搬运量（24 次 attention 合计约 108 GB）远超计算量。
-
-### 被实测否决的优化（不要再试）
+### 旧实验（不代表厂商能力上限）
 
 | 尝试 | 结果 |
 |---|---|
@@ -390,9 +392,128 @@ FLOPs 由 `torch.utils.flop_counter` 在 CPU 上对同一输入统计。
 
 ### 测量纪律
 
-- **必须在干净的调试任务里测。** 容器退化后同样的 `stft_npu` 从 39 ms 变成 765 ms
-  （20 倍），曾据此错误地得出"DFT 矩阵比厂商 FFT 快 12 倍"的结论，方向完全相反。
+- **控制并记录启动环境。** 曾观察到同一 STFT 的 39 ms 与 765 ms 差异，但不能仅据此
+  判断容器退化。确认了 `br_generator` 缺失来自探针覆盖 SDK Python 路径；应先核对环境，
+  再研究内核选择与性能变化。
 - **关键数字取中位数。** 厂商栈有偶发非确定性：`bandit_v2` 出现过一次
   `repeat=1.84e-03`（正常 `1.1e-07`），复测三次不再现。
 - **分模块归因不要用 `synchronize()`。** 同步会串行化流水线，曾把 RMSNorm 报成
   20.8%（消融实测 0.6%）。用 GPU 事件（`tools/vendor_timeline.py`）或消融法。
+
+### 环境修复后的验证
+
+硬件环境为 BR106M / SUPA 1.9.0.0.rc1、torch 2.7.0+cpu、torch-br
+1.7.0.20700+br1xx。模型仍为 9819 万参数的 BS-RoFormer，输入为 10 秒、44.1 kHz
+立体声；使用随机权重测性能，不能据此宣称真实音源分离质量合格。
+
+**启动环境修复**：工具原先覆盖 `PYTHONPATH`，清掉了 SDK 的 tensor-engine、sulib/lib
+等路径。JIT 最早的错误是 `ModuleNotFoundError: No module named 'br_generator'`。
+单变量 A/B 验证：保留路径后，相同 3-D bf16 FMHA 复现成功。8 个工具的子进程均改为追加
+测试目录并保留继承路径。不要用覆盖环境的旧启动命令。
+
+```sh
+export PYTHONPATH="/tmp/pc:${PYTHONPATH:-}"
+python -c "import importlib.util; print(importlib.util.find_spec('br_generator'))"
+```
+
+**bf16**：频谱保持 fp32，进入 band_split 时匹配网络权重 dtype；rotary 的逆频率、
+位置和三角函数计算保持 fp32，最终表转为激活 dtype，转换模型时清空缓存。
+新建模型、相同权重、独立预热后的三轮 AB/BA 对照：
+
+| 路径 | 中位数 | 对照说明 |
+|---|---:|---|
+| fp32 手工 attention | 2418.1 ms | bf16 修复后的同进程对照 |
+| bf16 手工 attention | 2234.3 ms | 加速 1.082×，相对 fp32 的输出 L2 误差 1.64% |
+
+**SUPAGraph**：用新输入验证 replay 确实重新计算，且与 eager 输出一致。
+以下图数据测于 SDK 路径修复前的 bf16 手工 attention，不能外推到 FMHA。
+
+| ZERO_WS | eager host / 总耗时 | replay host / 总耗时 |
+|---|---:|---:|
+| 0 | 2168.9 / 2233.7 ms | 4.3 / 2233.4 ms |
+| 1 | 2169.9 / 2234.9 ms | 4.2 / 2225.0 ms |
+
+图捕获有效，显著释放 host；这个配置的单次总延迟收益小。不能说图模式“无对应能力”或
+“完全无收益”。安装版 graph 上下文已经自动使用捕获 stream。
+
+环境修复后，bf16 + 显式 FMHA + ZERO_WS=1 的三轮交错测量为：eager host / 总耗时
+中位数 1771.4 / 1834.5 ms，replay 为 1.59 / 1824.0 ms。更换输入后 replay 与
+同输入 eager 输出逐值一致（相对 L2=0）。此组合主要降低 host 提交成本，单次总耗时
+约改善 0.6%；没有据此断言其他配置的上限。
+
+**标准 F.sdpa 与厂商 FMHA 是不同路径**：profiler 显示标准入口选择
+`aten::_scaled_dot_product_attention_math`，其 `_safe_softmax` 的 `isneginf` / `where`
+触发 CPU 回退。对 isneginf 的进程内试验减少了回退，但没有作为全局补丁安装。
+SDK 的 `torch.supa.enable_flash_sdp` 源码明确只设置全局变量，不能控制设备算子。
+实际融合入口为 `supa::sudnn_scaled_dot_product_attention_fwd(..., algorithm="FMHA")`，
+描述符只接受 2-D/3-D 输入。适配器把 batch/head 折叠成 3-D，再恢复输出形状。
+
+**完整模型 FMHA**：保留 SDK 路径，bf16，同一模型、相同权重和输入，分别预热后交错三轮：
+
+| 路径 | 三轮耗时 | 中位数 |
+|---|---|---:|
+| 手工 attention | 2214.6 / 2215.8 / 2215.4 ms | 2215.4 ms |
+| 显式 suDNN FMHA | 1826.2 / 1827.6 / 1824.3 ms | 1826.2 ms |
+
+加速 **1.213×**，10 秒输入的前向速度约 **5.48× 实时**。计时阶段两种实际形状各调用
+厂商算子 36 次，共 72 次，零失败、零回退。输出有限；相对 bf16 手工路径的 L2 误差为
+1.26%，尚需真实 checkpoint 验证质量。以上是模型前向，未包含产品级解码、分块拼接及文件 I/O。
+
+新后端显式选择：在 `prepare_device_alias` 安装 shim **之前**设置
+`PYMSS_SDPA_BACKEND=sudnn`，并把网络转为 bf16。默认仍为 `manual`；原生算子异常会直接
+上报，不静默回退。当前限定为 SUPA 上的无 mask、非 causal、dropout=0、无 GQA 的 bf16
+自注意力。其他设备继续原有路径。早期 `PYMSS_SDPA_VENDOR_CHUNK` 的标准 math 实验已移除。
+
+可复用探针：`vendor_bf16_probe.py`、`vendor_graph_probe.py`、
+`vendor_native_sdpa_probe.py`、`vendor_safe_softmax_probe.py`、`vendor_fmha_probe.py`、
+`vendor_fmha_model_probe.py`，均位于 `tools/`。原始日志保存在任务的 `.tmp/` 目录。
+
+**MFU 口径**：FP32 与 BF16 必须分别使用匹配精度的 GEMM 参考值；还需说明 TF32 等
+matmul 设置。不能用不同分母下的百分比直接判断速度，更不能据历史访存估算宣称性能已到上限。
+
+### 原生 RoPE 内核（supa_rope_apply）
+
+**启用方式**：加载 checkpoint 之后、首次前向之前，调用
+`pymss_core.vendor_shims.prepare_model_for_vendor_rope(model)`。设备准备
+（`prepare_device_alias("biren")`）会经 BIREN profile 自动安装 rope shim；
+`PYMSS_ROPE_BACKEND=manual` 可随时退回原路径。未调用 prepare 的模型完全不
+受影响（shim 只加速破标记的 rotary，其余设备/模型走原路径，始终安全）。
+
+**为什么需要权重置换**：厂商算子按分半配对旋转（第 i 与第 i+d/2 分量），
+而 BS-Roformer 的 q/k 通道是交错对（2i, 2i+1）。prepare 把每个 `to_qkv`
+的 q/k 输出行按每头 `[evens|odds]` 重排，让投影本身零成本地发射算子要的
+配对；运行时再做 cat 解包反而比原路径更慢（实测 1913 vs 1858 ms）。算子
+输出保持 `[even|odd]` 半分布局，与 `apply_rotary_emb_fast` 输出一致，下游
+代码零改动。置换后的 checkpoint 保存/重载不适用；重载原始 checkpoint 时
+已注册的 `load_state_dict` post-hook 会自动重新置换。
+
+**算子契约（实测）**：x 必须是 bf16 `(batch*heads, seq, head_dim)` 且
+dim0 ≤ 1024（超出报 invalid parameter 甚至挂死，rotate 内部按 dim0 分块）；
+表必须 fp32（bf16 被 schema 拒绝）`(1, seq, head_dim)`，取 `concat([half, half], -1)`；
+seq 实测至 4096 均可；表精度沿 seq 无漂移（单算子相对 fp32 参考误差
+约 0.167%，17→1024 平稳）。
+
+**端到端（10 s 立体声，dim=384，depth=12，bf16+FMHA 基线）**：
+
+| 配置 | 中位耗时 | 相对 fp32 锚点 |
+|---|---:|---:|
+| 原 rotary（未 prepare，回退路径） | 1825.1 ms | 1.5714% |
+| prepare + 原生 RoPE | 1728.4 ms | 1.5705% |
+| 重载 raw checkpoint + post-hook | 1732.9 ms | 1.5705% |
+
+加速 -96.7 ms（5.3%），精度与原路径等价（两者到 fp32 错距一致，1.24% 为
+两条 bf16 舍入路径的正常互差）。定位过程与陷阱见
+`tools/vendor_rope_shape_sweep2.py`、`tools/vendor_rope_seq_accuracy.py`、
+`tools/vendor_rope_model_probe.py`、`tools/vendor_rope_integration_check.py`；
+配套 CPU 测试 `pymss-core/tests/test_vendor_rope.py`（置换代数等价、
+幂等、load-hook、env 覆盖、分块上限、mock 算子数值对齐）。
+
+**qkv 单次重排（同 shim 内置）**：rope shim 同时接管已 prepare 模型的
+`Attention.forward`（仅 SUPA+bf16+推理态+无 PoPE）：qkv 投影一次
+`view(b,n,3,h,d).permute(2,0,3,1,4).contiguous()` 重排为 `(3,B,H,S,D)`，
+取代原先三次分散拷贝（q/k 各一次 permute + SDPA shim 里 v 的
+`.contiguous()`）；rotary 与 FMHA 适配器此后全部零拷贝视图。与原前向
+**逐位一致**（探针 `tools/vendor_attention_chain_probe.py`，rel_to_current
+=0.0）。端到端叠加：1823.0 → 1647.1 ms（rope+重排合计 -9.7%），
+rel_to_fp32 不变 1.5705%。其他设备/dtype/训练态/PoPE/未 prepare 模型
+一律走原前向。
