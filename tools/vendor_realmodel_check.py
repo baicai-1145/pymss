@@ -40,10 +40,21 @@ result = {"name": name, "ok": False}
 try:
     from pymss_core.device import prepare_device_alias
     prepare_device_alias("biren")
+    import torch
+    import torch.nn.functional as F
+    _linear = F.linear
+    def debug_linear(input, weight, bias=None, *args, **kwargs):
+        try:
+            return _linear(input, weight, bias, *args, **kwargs)
+        except RuntimeError as error:
+            print(f"LINEAR_FAIL shape={tuple(input.shape)} dtype={input.dtype} "
+                  f"w={tuple(weight.shape)} wdtype={weight.dtype} err={str(error)[:120]}", flush=True)
+            raise
+    F.linear = debug_linear
     from pymss import MSSeparator
     separator = MSSeparator.from_model_name(
         name, model_dir=model_dir, download=True, source="modelscope", device="biren")
-    import torch
+    F.linear = _linear
     model = getattr(separator, "model", None)
     device = str(next(p.device for p in model.parameters())) if model is not None and hasattr(model, "parameters") else "n/a"
     result["device"] = device
