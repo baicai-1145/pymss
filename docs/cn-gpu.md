@@ -309,6 +309,28 @@ bf16 回退 math、`F.linear` 全局 dtype 对齐、FFN 门放宽（eval 下
 ErrorCode 15（待重写为 index 形式）；legacy_demucs —— vendor conv
 裁剪语义 bug（800vs860）。
 
+## 真实模型全类型验证（2026-10-30，全部通过）
+
+工具 `tools/vendor_realmodel_check.py`：目录内 11 种模型类型各取一个
+真实 checkpoint（ModelScope 自动下载），10s 合成立体声推理，逐模型
+子进程隔离。**SUPA 全部 11/11 可用**（输出有限、stem 数正确）：
+mdx23c 28.7s、scnet 86.7s、apollo 65.5s、bandit 372s、bandit_v2 112s、
+vr 17.8s、bs_roformer(LargeV1) 40.1s、mel_band 102s、htdemucs 39.7s、
+legacy_demucs 9.8s、legacy_tasnet 23.6s（首轮均为未优化回退路径）。
+
+修复链（详见 `.tmp/BR_OPTIMIZATION_STATE.md`，14 项）：F.linear
+dtype 对齐 + 2D 拍平重试、fold/col2im CPU 回退、view_as_complex
+升精度、SDPA 非 bf16 回退与跨长度 q/kv、scatter 换 index_add、
+embedding 换 one-hot 矩阵乘（aten 钩子设备盲）、matmul 复数分解
+守卫、band 分组逐组 2D、FFN 融合算子回退、LayerNorm 类补丁还原、
+conv_transpose 阶梯、BLSTM 手写参考循环（含上游分帧丢尾 bug 修复）、
+legacy 注意力 CPU 回退、htdemucs 频率嵌入广播加固。
+
+关键平台规律：torch_br 对 nn.LSTM/nn.LayerNorm 类级打补丁且
+aten::lstm/mm/embedding 设备盲路由（CPU 张量也进 SUPA IR）——
+对这些算子只能参考实现重写；异步内核崩溃会以 SIGABRT 迟到暴露；
+深层 stride 下 conv/slice 长度语义漂移需正索引切片+显式补齐。
+
 ## 开卡验证清单
 
 在目标卡上按顺序执行（约 10 分钟）：
