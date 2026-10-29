@@ -54,7 +54,6 @@ try:
     from pymss import MSSeparator
     separator = MSSeparator.from_model_name(
         name, model_dir=model_dir, download=True, source="modelscope", device="biren")
-    F.linear = _linear
     model = getattr(separator, "model", None)
     device = str(next(p.device for p in model.parameters())) if model is not None and hasattr(model, "parameters") else "n/a"
     result["device"] = device
