@@ -103,30 +103,41 @@ model = model.to(D)
 x = wave.to(D)
 amp = torch.supa.amp.autocast(dtype=torch.bfloat16) if use_bf16 else torch.no_grad()
 
-# Optional per-stage profile: sync around each top-level child module so the report
-# says where the time goes instead of guessing.
+# Optional per-stage profile.  Hooking only the top-level children misses the
+# transformer stack (a ModuleList is iterated, its forward is never called), so leaf
+# modules are timed and aggregated by class: that names the stage that actually
+# costs instead of guessing.
 profile = {profile}
 stage_times = {{}}
 if profile:
-    def make_timer(name):
-        def hook(module, inputs, output):
+    def leaf_hooks(leaf):
+        cls = type(leaf).__name__
+
+        def before(_module, _inputs):
             try:
                 torch.supa.synchronize()
             except Exception:
                 return
-            stage_times.setdefault(name, []).append(time.perf_counter() - getattr(module, "_perf_start", time.perf_counter()))
-        return hook
-    def make_pre(name):
-        def hook(module, inputs):
+            leaf._perf_start = time.perf_counter()
+
+        def after(_module, _inputs, _output):
+            start = getattr(leaf, "_perf_start", None)
+            if start is None:
+                return
             try:
                 torch.supa.synchronize()
             except Exception:
-                pass
-            module._perf_start = time.perf_counter()
-        return hook
-    for child_name, child in model.named_children():
-        child.register_forward_pre_hook(make_pre(child_name))
-        child.register_forward_hook(make_timer(child_name))
+                return
+            stage_times.setdefault(cls, []).append(time.perf_counter() - start)
+
+        leaf.register_forward_pre_hook(before)
+        leaf.register_forward_hook(after)
+
+    for module in model.modules():
+        if not list(module.children()):
+            leaf_hooks(module)
+    # the model's own forward (stft, istft, band split assembly) is timed separately
+    model.register_forward_pre_hook(lambda m, i: setattr(m, "_perf_start", time.perf_counter()))
 
 totals = []
 outputs = []
@@ -158,12 +169,11 @@ print(
     flush=True,
 )
 if profile and stage_times:
-    ranked = sorted(
-        ((statistics.median(v), k) for k, v in stage_times.items() if v), reverse=True
+    rows = sorted(
+        ((sum(v), len(v), k) for k, v in stage_times.items() if v), reverse=True
     )
-    budget = total * 1000
-    for stage_ms, stage in ranked[:8]:
-        print("STAGE %-28s %8.1f ms %5.1f%%" % (stage, stage_ms * 1000, 100.0 * stage_ms / total),
+    for stage_ms, count, stage in rows[:14]:
+        print("STAGE %-30s %8.1f ms %5.1f%%  x%d" % (stage, stage_ms * 1000, 100.0 * stage_ms / total, count),
               flush=True)
 """
 
