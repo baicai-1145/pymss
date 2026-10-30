@@ -1021,6 +1021,9 @@ class MSSeparator:
 
         self.model, self.config = self.load_model()
 
+        if self.torch_device.type != "cpu" and self.config.inference.get("warmup", False):
+            self._warmup_model()
+
         if isinstance(self.store_dirs, str):
             self.store_dirs = {k: self.store_dirs for k in self.config.training.instruments}
 
@@ -1166,6 +1169,26 @@ class MSSeparator:
             self.logger.debug(f"FFmpeg installed: {first_line}")
         except FileNotFoundError:
             self.logger.warning("FFmpeg is not installed. Please install FFmpeg to use this package.")
+
+    def _warmup_model(self, seconds: float = 1.0) -> None:
+        """Run one throwaway separation to pay JIT/compile costs at load time.
+
+        Domestic accelerator stacks (DTK/hipFFT, MACA, corex) compile kernels
+        per shape on first use, so the first real ``separate`` call can pay
+        seconds-to-minutes of one-time latency.  A one-second silent pass at
+        load time moves that cost where it belongs (startup) when
+        ``inference.warmup`` is enabled.
+        """
+        import numpy as np
+
+        frames = int(44100 * max(seconds, 0.1))
+        silence = np.zeros((2, frames), dtype=np.float32)
+        try:
+            with torch.inference_mode():
+                self.separate(silence, pbar=False)
+            self.logger.info(f"Warmup pass complete ({seconds:.1f}s silence)")
+        except Exception as error:  # pragma: no cover - diagnostic path only
+            self.logger.warning(f"Warmup pass skipped: {error}")
 
     def load_model(self):
         """Load model weights and build the runtime config.
