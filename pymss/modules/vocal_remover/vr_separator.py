@@ -8,7 +8,10 @@ except ImportError:  # py3.8
         import importlib
 
         module = importlib.import_module(package)
-        return pathlib.Path(module.__file__).parent
+        root = getattr(module, "__file__", None)
+        if root is None:  # namespace package: __path__ is a list
+            return pathlib.Path(list(module.__path__)[0])
+        return pathlib.Path(root).parent
 from pathlib import Path
 
 import numpy as np
