@@ -266,6 +266,25 @@ def _prefer_mlx_for_auto(requested_device, selected_device, inference_params, lo
     return inference_params
 
 
+def _torch_load_compat(path, *, map_location="cpu", weights_only=None, mmap=None):
+    """torch.load shim tolerating torch<1.13 (no weights_only/mmap kwargs)."""
+    kwargs = {"map_location": map_location}
+    if weights_only is not None:
+        kwargs["weights_only"] = weights_only
+    if mmap is not None:
+        kwargs["mmap"] = mmap
+    for _ in range(3):
+        try:
+            return torch.load(path, **kwargs)
+        except TypeError:
+            if "mmap" in kwargs:
+                kwargs.pop("mmap")
+            elif "weights_only" in kwargs:
+                kwargs.pop("weights_only")
+            else:
+                raise
+    return torch.load(path, map_location=map_location)
+
 def _unwrap_state_dict(state_dict):
     """Implement the unwrap state dict helper.
 
@@ -315,17 +334,17 @@ def _load_state_dict(model_type, model_path, device):
     if model_type == "htdemucs":
         stubbed_modules = _install_demucs_pickle_stubs()
         try:
-            state_dict = torch.load(model_path, map_location=map_location, weights_only=False)
+            state_dict = _torch_load_compat(model_path, map_location=map_location, weights_only=False)
         finally:
             _restore_modules(stubbed_modules)
         return _unwrap_state_dict(state_dict)
     if model_type == "apollo":
         model_path = _apollo_state_dict_path(model_path)
-        return _unwrap_state_dict(torch.load(model_path, map_location=map_location, weights_only=False))
+        return _unwrap_state_dict(_torch_load_compat(model_path, map_location=map_location, weights_only=False))
     try:
-        return _unwrap_state_dict(torch.load(model_path, map_location=map_location, weights_only=True, mmap=True))
+        return _unwrap_state_dict(_torch_load_compat(model_path, map_location=map_location, weights_only=True, mmap=True))
     except (TypeError, ValueError, RuntimeError):
-        return _unwrap_state_dict(torch.load(model_path, map_location=map_location, weights_only=True))
+        return _unwrap_state_dict(_torch_load_compat(model_path, map_location=map_location, weights_only=True))
 
 
 @contextmanager

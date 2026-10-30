@@ -159,6 +159,17 @@ class VRSeparator(CommonSeparator):
         x_mx = mx.array(x_batch_cpu.to(dtype=self.mps_model_compute_dtype).numpy())
         return mlx_predict_mask_vr_mx(self.model_run, x_mx, self.mps_model_compute_dtype)
 
+    @staticmethod
+    def _torch_load_compat(path, *, weights_only=None):
+        kwargs = {"map_location": "cpu"}
+        if weights_only is not None:
+            kwargs["weights_only"] = weights_only
+        try:
+            return torch.load(path, **kwargs)
+        except TypeError:
+            kwargs.pop("weights_only", None)
+            return torch.load(path, **kwargs)
+
     def load_model(self):
         nn_arch_sizes = [31191, 33966, 56817, 123821, 123812, 129605, 218409, 537238, 537227]
         vr_5_1_models = [56817, 218409]
@@ -178,11 +189,11 @@ class VRSeparator(CommonSeparator):
             self.model_run = determine_model_capacity(self.model_params.param["bins"] * 2, nn_arch_size)
 
         try:
-            state_dict = torch.load(self.model_path, map_location="cpu", weights_only=True)
+            state_dict = self._torch_load_compat(self.model_path, weights_only=True)
         except TypeError:
             state_dict = torch.load(self.model_path, map_location="cpu")
         except Exception:
-            state_dict = torch.load(self.model_path, map_location="cpu", weights_only=False)
+            state_dict = self._torch_load_compat(self.model_path, weights_only=False)
         self.model_run.load_state_dict(state_dict)
         self.model_run.eval()
         if self.fuse_conv_bn:
