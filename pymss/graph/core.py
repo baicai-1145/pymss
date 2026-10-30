@@ -22,6 +22,7 @@ register through :func:`pymss.plugins.register_node` with an optional
 ``signature`` factory and the executor reads them back via
 :func:`get_node_type`.
 """
+from __future__ import annotations
 
 from __future__ import annotations
 

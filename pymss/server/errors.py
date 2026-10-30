@@ -1,3 +1,4 @@
+from __future__ import annotations
 class APIError(Exception):
     """Structured HTTP API error used by the pymss server.
 

@@ -27,6 +27,7 @@ ComfyUI built-ins
   - ``PreviewAudio`` (no-op passthrough; output = its input)
   - ``StringConcatenate`` (string join used to build save filenames)
 """
+from __future__ import annotations
 
 from __future__ import annotations
 

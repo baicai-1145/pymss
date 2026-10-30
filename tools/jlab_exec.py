@@ -74,7 +74,13 @@ def api(path: str, payload: dict | None = None, method: str = "GET", retries: in
             with OPENER.open(request, timeout=30) as response:
                 body = response.read()
             return json.loads(body) if body else None
-        except urllib.error.HTTPError:
+        except urllib.error.HTTPError as herr:
+            if herr.code == 404:
+                try:
+                    body = herr.read()[:300]
+                except Exception:
+                    body = b"?"
+                print(f"DBG404 {method} {path} url={request.full_url} body={body!r}", file=sys.stderr)
             raise
         except Exception as exc:  # noqa: BLE001 - linux ingress resets TLS often
             last = exc

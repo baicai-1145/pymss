@@ -14,6 +14,7 @@ were optional).
 The format reference is the comfy-mss example graphs under
 ``comfy-mss/examples/`` and the node definitions in ``comfy-mss/nodes.py``.
 """
+from __future__ import annotations
 
 from __future__ import annotations
 

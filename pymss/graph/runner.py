@@ -13,6 +13,7 @@ The difference is that each per-file execution now goes through
 :func:`pymss.dag.run_dag`, sharing the single :class:`SeparatorCache` across
 the whole batch. Models are evicted before a different model is loaded.
 """
+from __future__ import annotations
 
 from __future__ import annotations
 

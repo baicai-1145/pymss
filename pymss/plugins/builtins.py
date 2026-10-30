@@ -27,6 +27,7 @@ Capability registry (flat, no categories):
 All audio arrays are numpy float32, channel-first: shape (channels, samples)
 or (samples,) for mono. This matches pymss's internal convention.
 """
+from __future__ import annotations
 
 from __future__ import annotations
 

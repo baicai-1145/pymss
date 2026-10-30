@@ -26,6 +26,7 @@ Folder batching is handled one layer up in :class:`LegacyWorkflowRunner`:
 each input file is run as its own DAG execution, with separator caching shared
 across files so the same model is loaded once for the whole batch.
 """
+from __future__ import annotations
 
 from __future__ import annotations
 

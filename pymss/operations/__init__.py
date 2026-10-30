@@ -15,6 +15,7 @@ Design (round 2 of the plugin redesign, docs/plugin-redesign-plan.md):
   full JSON-Schema implementation; specs that use unsupported keywords are
   rejected at register time rather than silently mis-validated.
 """
+from __future__ import annotations
 
 from __future__ import annotations
 

@@ -12,6 +12,7 @@ Round 3 of docs/plugin-redesign-plan.md. The resample service is first:
 - Same-rate inputs short-circuit before any provider runs, matching
   ``resample_audio`` semantics.
 """
+from __future__ import annotations
 
 from __future__ import annotations
 

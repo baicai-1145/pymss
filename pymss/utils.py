@@ -1,3 +1,4 @@
+from __future__ import annotations
 from contextlib import contextmanager, nullcontext
 
 import numpy as np
