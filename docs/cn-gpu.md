@@ -598,3 +598,12 @@ NUMA 16 区域寻址三题未解。另有 SDK 内置融合算子
 ### 半精度 FFT 结论
 
 hipFFT / MACA cuFFT / ixFFT 三家**均不支持** half 变换（16 点小探针会误判通过，真实 stft 才暴露）。`fft_dtype_shim` 保持无条件升 fp32（hygon/metax/iluvatar profile 已启用）；懒探测方案已证伪回滚（`b5dce0a`）。
+
+## ENFLAME T20 判决（2026-10-30，TopsRider 2.5.115 / torch 1.10.0+cu102 / py3.8）
+
+**结论：当前镜像不可用（vendor 运行时级 SIGILL），需换新版 TopsRider 镜像（torch 2.x 线）重测。**
+
+- 硬件与运行时初始化正常（xla:0 可见、8 卡、4GB MC），34/38 常用算子隔离测试通过（含 conv/LSTM/einsum/attention 基础件）。
+- 已实证 SIGILL 的原生 kernel：`torch.stft`（设备侧）、`complex mul/reshape/cat`、`unfold`、原生 `as_strided`、autograd `_to_copy` 某些布局。已全部落地垫片（stft→CPU 往返、complex→BIREN 同款实虚分流、unfold/as_strided→gather 物化），但完整模型仍在前向早期 SIGILL，且燧原信号处理器吞掉 faulthandler，无法继续归因。
+- Python 层兼容成果（对任何停留在此栈的用户有效，全部已推送）：py3.8 语法/注解（22+63 文件 future import）、with 语句、importlib.resources 双重回退、`torch.load` weights_only/mmap 梯子、`itertools.pairwise`、`F.rms_norm` backport、`_apply(recurse)`、`torch.backends.mps` 守卫、`inference_ctx`（<1.12 用 no_grad）、xla 设备类型→ENFLAME vendor 映射。
+- 升级路径：OpenI 建任务时选用较新 TopsRider（≥3.x，torch 2.x）镜像；容器内 pip 升级不可行（wheel 必须与宿主机 /opt/tops runtime 精确匹配）。
