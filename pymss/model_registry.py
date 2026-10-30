@@ -109,11 +109,9 @@ def load_model_catalog():
 
     Returns:
         Any: Computed result."""
-    if sys.version_info >= (3, 9):
-        catalog_file = resources.files("pymss.resources").joinpath("model_catalog.json").open(encoding="utf-8")
-    else:  # py3.8: importlib.resources lacks files()
-        catalog_file = resources.open_text("pymss.resources", "model_catalog.json")
-    with catalog_file as f:
+    from pathlib import Path as _Path
+    catalog_path = _Path(__file__).resolve().parent / "resources" / "model_catalog.json"
+    with catalog_path.open(encoding="utf-8") as f:
         data = json.load(f)
     models = [ModelEntry.from_dict(item) for item in data["models"]]
     return {**data, "models": models}
