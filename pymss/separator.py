@@ -113,7 +113,7 @@ def _resolve_public_device(device, inference_params, logger):
     inference_params = dict(inference_params or {})
     requested_device = device
     if requested_device == "mlx":
-        if not torch.backends.mps.is_available():
+        if not getattr(getattr(torch.backends, "mps", None), "is_available", lambda: False)():
             raise RuntimeError("device='mlx' requires Apple Silicon MPS support")
         inference_params.setdefault("mps_model_backend", "mlx_full")
         inference_params.setdefault("mps_model_compute_dtype", "float16")
@@ -237,7 +237,7 @@ def _select_device(device, device_ids, logger):
             if callable(available) and available():
                 logger.debug(f"auto device selected {alias} accelerator through torch.{device_type}")
                 return f"{device_type}:{device_ids[0]}"
-        if torch.backends.mps.is_available():
+        if getattr(getattr(torch.backends, "mps", None), "is_available", lambda: False)():
             logger.debug("Apple Silicon MPS/CoreML is available in Torch, setting Torch device to MPS")
             return "mps"
         return "cpu"
