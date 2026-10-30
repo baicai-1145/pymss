@@ -577,3 +577,24 @@ bf16 参考误差 0.41%（erf/tanh 不可分辨）。端到端：1823.6 → 1557
 `tools/vendor_rope_srtc_kernel.py`），但 fp32 表指针语义、bf16 向量化、
 NUMA 16 区域寻址三题未解。另有 SDK 内置融合算子
 `supa_norm_rope_uma_bf16_infer`（RMSNorm+RoPE）未探索。
+
+## 四卡实测终局（2026-10-30，11 类型真实模型全矩阵）
+
+| 卡 | 结果 | 首轮通过 | 关键适配 |
+|---|---|---|---|
+| 海光 Z100L (DTK/ROCm) | 11/11 | 8/11 | fft_dtype shim（hipFFT 拒 Half→fp32 全路径提升，含 istft/complex32）；BLSTM 分帧丢尾修复推广全设备 |
+| 沐曦 N260 (MACA/torch 2.10) | 11/11 | 6/11 | fft_dtype shim 复用（cuFFT NOT_IMPLEMENTED 同症）；环境极简（无 git、ffmpeg 缺库）但卡稳 |
+| 天数 MR-V100 (corex/torch 2.7) | 11/11 | 11/11 零修复 | 预防性 fft_dtype shim；兼容性最佳 |
+| 天数 BI-V100 | 0/11 | - | 卡级 wedge（首个 GPU 操作死锁），容器重启无效，宿主机故障 |
+
+### 性能要点：JIT 首调税与热态真值（MR-V100 实测）
+
+国产栈按形状现编 kernel，**首次调用含巨额编译税**：scnet 23.9s→热态 3.2s（−87%）、mdx23c 8.2→2.6s、vr 36.8→0.43s（batch16）。单进程 CLI 每次都付；对策：
+
+- `MSSeparator(..., inference_params={"warmup": True})`：加载时静音空跑一遍预编译（`efe781c`）；
+- VR 类 launch-bound 模型建议 `batch_size: 16`（热态再 −13%）；
+- apollo/bandit 热态无改善，为真算力瓶颈，优化需模型侧手段。
+
+### 半精度 FFT 结论
+
+hipFFT / MACA cuFFT / ixFFT 三家**均不支持** half 变换（16 点小探针会误判通过，真实 stft 才暴露）。`fft_dtype_shim` 保持无条件升 fp32（hygon/metax/iluvatar profile 已启用）；懒探测方案已证伪回滚（`b5dce0a`）。
