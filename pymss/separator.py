@@ -144,6 +144,18 @@ def _resolve_public_device(device, inference_params, logger):
     return requested_device, inference_params
 
 
+def _vendor_device_module(vendor):
+    """Find the extension module that owns a vendor's device (e.g. torch_gcu for xla)."""
+    try:
+        from pymss_core.device import profile_for_alias
+        profile = profile_for_alias(str(vendor).lower())
+        if profile is not None and profile.plugin:
+            return __import__(profile.plugin)
+    except Exception:
+        pass
+    return None
+
+
 def _select_private_device(device, device_ids, logger, profile):
     """Resolve a device index for a non-CUDA accelerator device type.
 
@@ -155,7 +167,7 @@ def _select_private_device(device, device_ids, logger, profile):
 
     Returns:
         str: ``"<device_type>:<index>"``."""
-    module = getattr(torch, profile.device_type, None)
+    module = getattr(torch, profile.device_type, None) or _vendor_device_module(profile.vendor)
     counter = getattr(module, "device_count", None)
     device_count = int(counter()) if callable(counter) else 1
     if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
