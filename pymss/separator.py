@@ -1681,10 +1681,8 @@ class MSSeparator:
 
         progress = tqdm(all_mixtures_path, desc="Total progress") if not self.debug else None
         try:
-            with (
-                ThreadPoolExecutor(max_workers=1, thread_name_prefix="pymss-load") as load_executor,
-                ThreadPoolExecutor(max_workers=2, thread_name_prefix="pymss-save") as save_executor,
-            ):
+            with ThreadPoolExecutor(max_workers=1, thread_name_prefix="pymss-load") as load_executor, \
+                    ThreadPoolExecutor(max_workers=2, thread_name_prefix="pymss-save") as save_executor:
                 load_future = self._submit_load(load_executor, all_mixtures_path, 0, sample_rate, downmix_stereo)
 
                 for index, path in enumerate(all_mixtures_path):
