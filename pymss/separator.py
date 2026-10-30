@@ -1041,7 +1041,7 @@ class MSSeparator:
 
         self.model, self.config = self.load_model()
 
-        if self.torch_device.type != "cpu" and self.config.inference.get("warmup", False):
+        if torch.device(self.device).type != "cpu" and self.config.inference.get("warmup", False):
             self._warmup_model()
 
         if isinstance(self.store_dirs, str):
