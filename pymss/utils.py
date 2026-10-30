@@ -3,6 +3,8 @@ from contextlib import contextmanager, nullcontext
 
 import numpy as np
 import torch
+
+from pymss.torch_compat import inference_ctx
 import torch.nn as nn
 from numpy.typing import NDArray
 from typing import Dict
@@ -1110,7 +1112,7 @@ def demix_track(config, model, mix, device, pbar=False, source_indices=None, pro
     mix_device = _model_mix(mix, device)
 
     with _autocast(device, _resolve_use_amp(config)):
-        with torch.inference_mode():
+        with inference_ctx():
             result, counter = _init_overlap_buffers(config, mix, device, use_complete_fast_path, source_indices)
             progress = _ProgressContext(pbar, mix.shape[1], progress_callback, sample_rate=sample_rate)
 
@@ -1187,7 +1189,7 @@ def demix_track_demucs(config, model, mix, device, pbar=False, source_indices=No
     step = _get_inference_step(config, C)
 
     with _autocast(device, _resolve_use_amp(config)):
-        with torch.inference_mode():
+        with inference_ctx():
             req_shape = (_source_count(config, source_indices),) + tuple(mix.shape)
             result = torch.zeros(req_shape, dtype=torch.float32)
             counter = torch.zeros(req_shape, dtype=torch.float32)
@@ -1260,7 +1262,7 @@ def demix(
         )
         progress.emit(0)
         with _autocast(device, _resolve_use_amp(config)):
-            with torch.inference_mode():
+            with inference_ctx():
                 estimates = (
                     apply_legacy_model(
                         model,

@@ -7,6 +7,8 @@ from contextlib import contextmanager, nullcontext
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import torch
+
+from pymss.torch_compat import inference_ctx
 import numpy as np
 from yaml import YAMLError
 import platform
@@ -1216,7 +1218,7 @@ class MSSeparator:
         frames = int(44100 * max(seconds, 0.1))
         silence = np.zeros((2, frames), dtype=np.float32)
         try:
-            with torch.inference_mode():
+            with inference_ctx():
                 self.separate(silence, pbar=False)
             self.logger.info(f"Warmup pass complete ({seconds:.1f}s silence)")
         except Exception as error:  # pragma: no cover - diagnostic path only

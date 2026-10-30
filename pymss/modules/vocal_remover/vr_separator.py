@@ -1,12 +1,22 @@
 import math
 import os
-from importlib.resources import files
+try:
+    from importlib.resources import files
+except ImportError:  # py3.8
+    def files(package):
+        """Minimal py3.8 stand-in returning a pathlib to the package dir."""
+        import importlib
+
+        module = importlib.import_module(package)
+        return pathlib.Path(module.__file__).parent
 from pathlib import Path
 
 import numpy as np
 import torch
 from torch import nn
 from torch.nn.utils.fusion import fuse_conv_bn_eval
+import pathlib
+
 from tqdm import tqdm
 
 from pymss_core.modules.vocal_remover import ModelParameters, determine_model_capacity
