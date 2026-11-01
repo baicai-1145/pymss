@@ -27,6 +27,7 @@ from .._identifiers import OPERATION_ID_RE
 
 if TYPE_CHECKING:
     from ..plugins.lifecycle import PluginState
+    from .host_services import HostRequest
 
 __all__ = [
     "OperationError",
@@ -157,15 +158,16 @@ def _matches_type(ptype: str, value: Any) -> bool:
 class OperationContext:
     """Execution context handed to every operation run.
 
-    Round 2 keeps this minimal (progress, cancel, logger); later rounds add
-    audio-service access. ``cancelled`` is checked by long-running operations
-    cooperatively via ``ctx.check_cancelled()``.
+    ``cancelled`` is checked cooperatively via ``ctx.check_cancelled()``.
+    An optional ``host_request`` supplies task-scoped services to RPC peers;
+    absence means services are unavailable, never implicit user approval.
     """
 
     workdir: str | None = None
     progress: Callable[[float, str, dict[str, Any] | None], None] | None = None
     cancelled: Callable[[], bool] | None = None
     logger: Any = None
+    host_request: Callable[[HostRequest], Any] | None = None
 
     def report_progress(self, fraction: float, message: str = "", *, event: Mapping[str, Any] | None = None) -> None:
         """Report progress; ``event`` carries optional structured host data (``{"type", "payload"}``)."""
@@ -398,7 +400,7 @@ class _RuntimePluginHandle:
 
         register_capability(name, func, source=self.source, description=description)
 
-    def register_node(self, node_type, func, *, description="", signature=None):
+    def register_node(self, node_type, func, *, description="", signature=None, saves_output=False):
         from functools import wraps
 
         from pymss.plugins import register_node
@@ -418,7 +420,10 @@ class _RuntimePluginHandle:
                 return func(ctx, inputs)
         else:
             execute = func
-        register_node(node_type, execute, source=self.source, description=description, signature=signature)
+        register_node(
+            node_type, execute, source=self.source, description=description,
+            signature=signature, saves_output=saves_output,
+        )
         self.registered_nodes.append(node_type)
 
     def register_cli(self, path, func, *, help="", add_arguments=None):

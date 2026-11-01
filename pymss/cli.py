@@ -396,6 +396,17 @@ def cmd_ops(args):
     from .operations import OperationContext, OperationError, default_runtime
     from .plugins import ensure_plugins_loaded
 
+    if getattr(args, "ops_command", None) == "prepare-python":
+        from .operations.python_profiles import prepare_python_environment
+
+        try:
+            profile = prepare_python_environment(args.directory, args.profiles_dir)
+        except (OperationError, OSError, ValueError) as exc:
+            print(f"pymss ops prepare-python: error: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps({"profile": str(profile)}, ensure_ascii=False))
+        return 0
+
     # The global loader imports plugin modules; their setup() registers
     # operations into the process default runtime. Using it here (instead of
     # an isolated runtime) means each plugin loads exactly once per process.
@@ -423,6 +434,7 @@ def cmd_ops(args):
         return 0
 
     if cmd == "run":
+        from .operations.host_services import ReadonlyHost
         params = _parse_key_value(args.param)
         inputs = {}
         for entry in args.input or []:
@@ -435,12 +447,17 @@ def cmd_ops(args):
                 args.operation,
                 inputs=inputs,
                 params=params,
-                context=OperationContext(),
+                context=OperationContext(workdir=getattr(args, "output_dir", None), host_request=ReadonlyHost("cli", args.operation)),
             )
         except OperationError as exc:
             print(f"pymss ops run: error: {exc}", file=sys.stderr)
+            detail = getattr(exc, "extra", {}).get("stderr")
+            if isinstance(detail, str) and detail.strip():
+                print(detail.strip()[-4000:], file=sys.stderr)
             return 1
-        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+        from .operations.files import FileArtifact
+
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=lambda value: value.to_dict() if isinstance(value, FileArtifact) else str(value)))
         return 0
 
     print(f"pymss ops: unknown subcommand {cmd!r}", file=sys.stderr)
@@ -548,12 +565,14 @@ def cmd_comfy_run(args):
 
     ensure_plugins_loaded()
     from .graph import load_comfy_file, run_dag
+    from .operations.host_services import ReadonlyHost
 
     logger = get_separation_logger()
     dag = load_comfy_file(args.config)
     saved = run_dag(
         dag,
         output_dir=args.output,
+        host_request=ReadonlyHost("cli-graph"),
         input_path=args.input,
         inputs=_parse_named_inputs(getattr(args, "named_input", None)),
         logger=logger,
@@ -1036,10 +1055,14 @@ def build_parser():
     )
     ops_subparsers = ops_parser.add_subparsers(dest="ops_command", required=False)
     ops_subparsers.add_parser("list", help="List registered operations (default).")
+    prepare_parser = ops_subparsers.add_parser("prepare-python", help="Prepare an isolated Python process plugin from its local wheel lock.")
+    prepare_parser.add_argument("directory", help="Plugin package directory.")
+    prepare_parser.add_argument("--profiles-dir", required=True, help="Stable environment store outside the plugin directory.")
     describe_parser = ops_subparsers.add_parser("describe", help="Print one operation's spec as JSON.")
     describe_parser.add_argument("operation", help="Operation id, e.g. pymss.loudnorm.normalize.")
     run_parser = ops_subparsers.add_parser("run", help="Run an operation.")
     run_parser.add_argument("operation", help="Operation id.")
+    run_parser.add_argument("--output-dir", help="Output directory for file-producing operations.")
     run_parser.add_argument(
         "--input",
         action="append",

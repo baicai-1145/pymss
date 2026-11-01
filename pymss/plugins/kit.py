@@ -251,7 +251,7 @@ def publish_export_path(temporary: Path, path: Path) -> Path:
     raise FileExistsError(f"Failed to publish a unique export filename: {path}")
 
 
-def render_output(path: Path, render: Callable[[Path], None]) -> Path:
+def render_output(path: Path, render: Callable[[Path], None], *, allow_empty: bool = False) -> Path:
     """Render into a private partial next to ``path``, then publish it atomically.
 
     Hosts that sweep orphaned partials set ``PYMSS_STUDIO_AUDIO_TEMP_TOKEN`` and
@@ -289,7 +289,7 @@ def render_output(path: Path, render: Callable[[Path], None]) -> Path:
     temporary = Path(value)
     try:
         render(temporary)
-        if not temporary.stat().st_size:
+        if not allow_empty and not temporary.stat().st_size:
             raise RuntimeError("No audio data was written")
         return publish_export_path(temporary, path)
     finally:
@@ -332,6 +332,20 @@ def subprocess_detail(error: subprocess.CalledProcessError) -> str:
     return detail[-2000:] if detail else f"FFmpeg exited with status {error.returncode}"
 
 
+def register_commands(plugin, directory: str | Path) -> None:
+    """Register declarative native commands without importing the runner at startup."""
+    from ..operations.command import register_commands as register
+
+    register(plugin, directory)
+
+
+def register_rpc_processes(plugin, directory: str | Path) -> None:
+    """Register task-scoped native JSON-RPC operations through the v2 handle."""
+    from ..operations.rpc_process import register_rpc_processes as register
+
+    register(plugin, directory)
+
+
 __all__ = [
     "SUPPORTED_AUDIO_SUFFIXES",
     "ToolError",
@@ -343,6 +357,8 @@ __all__ = [
     "operation_context",
     "publish_export_path",
     "register_tool",
+    "register_commands",
+    "register_rpc_processes",
     "render_output",
     "require_directory",
     "require_file",
