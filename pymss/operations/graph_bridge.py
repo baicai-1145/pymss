@@ -16,6 +16,7 @@ a graph node type from an ``OperationSpec``:
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from ..graph.core import (
@@ -44,9 +45,11 @@ def register_operation_node(
     spec: OperationSpec,
     run: Callable[..., Any],
     source: str = "operation",
+    node_type: str | None = None,
+    plugin: Any = None,
 ) -> str:
     """Register one operation as a graph node type; returns the node type."""
-    node_type = operation_node_type(spec.id)
+    node_type = node_type or operation_node_type(spec.id)
 
     param_names = list(spec.params.get("properties", {}).keys())
     audio_inputs = list(spec.inputs.keys())
@@ -79,20 +82,37 @@ def register_operation_node(
         from . import OperationContext
 
         op_ctx = OperationContext(
-            workdir=str(ctx.output_dir),
+            workdir=str(ctx.output_dir) if ctx.output_dir is not None else None,
             progress=lambda fraction, message="", event=None: ctx.report_progress(
                 node, float(fraction), message or f"operation {spec.id}"
             ) if node is not None else None,
             logger=ctx.logger,
+            cancelled=getattr(ctx, "cancelled", None),
+            host_request=getattr(ctx, "host_request", None),
         )
         result = _invoke_operation(spec, run, op_inputs, params, op_ctx)
+        from .files import FileArtifact
+        from ..graph.core import DAGOutputRecord
+
         outputs: dict[int, Any] = {}
         for slot, name in enumerate(output_names):
             if name in result:
                 outputs[slot] = result[name]
-        return NodeResult(outputs=outputs)
+        files = [value for value in outputs.values() if isinstance(value, FileArtifact)]
+        return NodeResult(outputs=outputs, saved_paths=[value.path for value in files], saved_records=[
+            DAGOutputRecord(path=value.path, stem=Path(value.path).stem,
+                            node_id=node.id if node is not None else ctx.current_node_id, node_type=node_type,
+                            kind="file", media_type=value.media_type)
+            for value in files
+        ])
 
-    get_registry().register_node(node_type, _execute, signature=_signature, source=source)
+    saves_output = any(port.get("type") == "file" for port in spec.outputs.values())
+    if plugin is None:
+        get_registry().register_node(
+            node_type, _execute, signature=_signature, source=source, saves_output=saves_output,
+        )
+    else:
+        plugin.register_node(node_type, _execute, signature=_signature, saves_output=saves_output)
     return node_type
 
 
