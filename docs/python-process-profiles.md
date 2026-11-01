@@ -77,10 +77,13 @@ A successful preparation atomically writes `.pymss-python.json` in the package.
 The binding records the stable profile and a plan digest that includes the full
 lock, target, Python version/build, base interpreter identity and runtime package
 resources. Peer code/resources are copied into `profile/package` before the
-binding is published. Registered operations pin that profile and digest, so
-updates cannot change imports underneath a running peer. Runtime resources are
+binding is published. Snapshot copies retain POSIX file permissions so bundled
+executable helpers remain runnable. Registered operations pin that profile and
+digest, so updates cannot change imports underneath a running peer. Runtime resources are
 limited to 10,000 files and 256 MiB; wheel payloads, UI/views, caches, environment
-files and managed receipts are excluded from this code snapshot. A failure before atomic binding publication keeps the old binding. If an
+files and managed receipts are excluded from this code snapshot. Declared Python
+entry points must be part of the snapshot; excluded paths are rejected before
+environment preparation. A failure before atomic binding publication keeps the old binding. If an
 interruption happens after publication, the committed environment is retained
 to avoid leaving a dangling binding. Moving installed plugin code between an
 installed and disabled directory does not move its environment. Moving the

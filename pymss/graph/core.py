@@ -547,6 +547,10 @@ def string_value(artifact: Artifact) -> str:
         return artifact
     if artifact is None:
         return ""
+    from ..operations.files import FileArtifact
+
+    if isinstance(artifact, FileArtifact):
+        return artifact.path
     raise DAGError(f"expected a STRING input, got {type(artifact).__name__}")
 
 

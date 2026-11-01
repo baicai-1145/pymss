@@ -156,6 +156,15 @@ def read_python_plan(directory: str | Path) -> PythonPlan | None:
                 "cacheTag": sys.implementation.cache_tag, "platform": sysconfig.get_platform(),
                 "base": str(base), "size": stamp.st_size, "mtime": stamp.st_mtime_ns}
     files, digest = tuple(_runtime_files(root)), hashlib.sha256(_canonical(identity))
+    runtime_files = set(files)
+    for adapter in ("commands", "rpc_process"):
+        declarations = project["tool"]["pymss"].get(adapter, {})
+        if not isinstance(declarations, dict) or not isinstance(declarations.get("operations", []), list):
+            continue
+        for operation in declarations.get("operations", []):
+            if isinstance(operation, dict) and operation.get("python") is not None:
+                if package_file(root, operation["python"]) not in runtime_files:
+                    raise OperationError("Python process entry points must be included in the runtime snapshot")
     for path in files:
         digest.update(path.relative_to(root).as_posix().encode("utf-8") + b"\0")
         with path.open("rb") as stream:
@@ -262,6 +271,8 @@ def prepare_python_environment(directory: str | Path, profiles: str | Path, *,
                 target = package / path.relative_to(plan.root)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(path, target)
+                if os.name != "nt":
+                    shutil.copymode(path, target)
             # A prepared binding also pins peer code/resources, so an update
             # cannot change imports underneath an already running process.
             current = read_python_plan(plan.root)

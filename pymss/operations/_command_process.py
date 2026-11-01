@@ -198,6 +198,13 @@ def run_command_process(
     readers: list[threading.Thread] = []
     buffers = [bytearray(), bytearray()]
     failed_read = threading.Event()
+    protocol_error: OperationError | None = None
+
+    def enrich_protocol_error(error):
+        stderr = bytes(buffers[1]).decode("utf-8", errors="replace")[-4000:]
+        extra = getattr(error, "extra", {})
+        error.extra = {**(extra if isinstance(extra, dict) else {}), "exitCode": process.returncode,
+                       **({"stderr": stderr} if stderr else {})}
 
     def drain(stream, buffer):
         try:
@@ -235,7 +242,11 @@ def run_command_process(
             if failed_read.is_set():
                 raise CommandProcessError("COMMAND_IO_FAILED", "Plugin command output could not be read")
             if protocol is not None:
-                protocol.update()
+                try:
+                    protocol.update()
+                except OperationError as error:
+                    protocol_error = error
+                    raise
             if observer.exited():
                 exit_observed = True
                 break
@@ -294,6 +305,8 @@ def run_command_process(
                 stream.close()
         if cleanup_error is not None:
             raise CommandProcessError("COMMAND_CLEANUP_FAILED", "Plugin command scope could not be closed") from cleanup_error
+        if protocol_error is not None:
+            enrich_protocol_error(protocol_error)
     context.check_cancelled()
     if failed_read.is_set():
         raise CommandProcessError("COMMAND_IO_FAILED", "Plugin command output could not be read")
@@ -302,10 +315,7 @@ def run_command_process(
         try:
             protocol.finish(process_failed=bool(process.returncode))
         except OperationError as error:
-            if process.returncode:
-                extra = getattr(error, "extra", {})
-                error.extra = {**(extra if isinstance(extra, dict) else {}), "exitCode": process.returncode,
-                               **({"stderr": stderr[-4000:]} if stderr else {})}
+            enrich_protocol_error(error)
             raise
     if process.returncode:
         raise CommandProcessError("COMMAND_FAILED", f"Plugin command exited with status {process.returncode}", detail=stderr[-4000:])

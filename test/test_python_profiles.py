@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sys
 import threading
 import zipfile
@@ -113,6 +114,63 @@ def test_unprepared_python_entry_does_not_fall_back_to_host(tmp_path):
     root = make_package(tmp_path / "plugin")
     with pytest.raises(OperationError, match="prepared"):
         run(root, tmp_path)
+
+
+@pytest.mark.parametrize("adapter", ["command", "rpc-process"])
+@pytest.mark.parametrize("entry", ["ui/peer.py", "views/peer.py", ".env_peer.py"])
+def test_process_declarations_reject_entries_outside_the_runtime_snapshot(tmp_path, entry, adapter):
+    root = make_package(tmp_path / "plugin")
+    target = root / entry
+    target.parent.mkdir(parents=True, exist_ok=True)
+    (root / "main.py").rename(target)
+    manifest = root / "pyproject.toml"
+    text = manifest.read_text(encoding="utf-8").replace('python = "main.py"', f'python = "{entry}"')
+    if adapter == "rpc-process":
+        text = text.replace("[tool.pymss.commands", "[tool.pymss.rpc_process")
+        text = text.replace('arguments = [{input="source"}, {output="document"}]',
+                            'arguments = []\nprotocol_version = 1')
+    manifest.write_text(text, encoding="utf-8")
+    with pytest.raises(OperationError, match="runtime snapshot"):
+        read_commands(root, adapter=adapter)
+
+
+@pytest.mark.parametrize("entry", ["ui/peer.py", "views/peer.py", ".env_peer.py"])
+def test_preparation_rejects_excluded_entries_before_changing_the_binding(tmp_path, monkeypatch, entry):
+    root = make_package(tmp_path / "plugin")
+    target = root / entry
+    target.parent.mkdir(parents=True, exist_ok=True)
+    (root / "main.py").rename(target)
+    manifest = root / "pyproject.toml"
+    manifest.write_text(manifest.read_text(encoding="utf-8").replace('python = "main.py"', f'python = "{entry}"'), encoding="utf-8")
+    binding = root / ".pymss-python.json"
+    binding.write_bytes(b"previous binding")
+
+    def unexpected_provisioning(*_args, **_kwargs):
+        pytest.fail("Invalid entry points must be rejected before provisioning")
+
+    monkeypatch.setattr("pymss.operations.python_profiles.run_command_process", unexpected_provisioning)
+    with pytest.raises(OperationError, match="runtime snapshot"):
+        prepare_python_environment(root, tmp_path / "profiles")
+    assert binding.read_bytes() == b"previous binding"
+    assert not (tmp_path / "profiles").exists()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Requires POSIX executable permissions")
+def test_prepared_python_peer_can_execute_a_bundled_helper(tmp_path):
+    root = make_package(tmp_path / "plugin")
+    helper = root / "bin/helper"
+    helper.parent.mkdir()
+    helper.write_text("#!/bin/sh\nprintf 'Helper completed'\n", encoding="utf-8")
+    helper.chmod(0o755)
+    (root / "main.py").write_text('''import json, subprocess, sys
+from pathlib import Path
+helper = Path(__file__).parent / "bin/helper"
+result = subprocess.run([str(helper)], capture_output=True, text=True, check=True)
+Path(sys.argv[2]).write_text(json.dumps({"helper": result.stdout}), encoding="utf-8")
+''', encoding="utf-8")
+    profile = prepare_python_environment(root, tmp_path / "profiles")
+    assert (profile / "package/bin/helper").stat().st_mode & 0o111 == 0o111
+    assert run(root, tmp_path) == {"helper": "Helper completed"}
 
 
 def test_profile_cleanup_waits_for_active_execution_lease(tmp_path):

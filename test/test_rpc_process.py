@@ -177,6 +177,24 @@ def test_remote_error_is_preserved_when_the_process_exits_before_the_last_update
     assert caught.value.code == "RPC_REMOTE_ERROR"
     assert str(caught.value) == "Input format is invalid"
     assert caught.value.extra["exitCode"] == 1
+    assert caught.value.extra["stderr"].strip().endswith("Backend diagnostic marker")
+    assert len(caught.value.extra["stderr"]) <= 4000
+
+
+@pytest.mark.parametrize("scenario,code", [
+    ("run_error_wait", "RPC_REMOTE_ERROR"),
+    ("bad_json_diagnostics", "RPC_INVALID_MESSAGE"),
+])
+def test_loop_protocol_errors_preserve_drained_bounded_diagnostics(tmp_path, scenario, code):
+    before = set(threading.enumerate())
+    with pytest.raises(RpcProcessError) as caught:
+        run(session(tmp_path), scenario, tmp_path)
+    assert caught.value.code == code
+    assert type(caught.value.extra["exitCode"]) is int
+    assert caught.value.extra["stderr"].strip().endswith("Backend diagnostic marker")
+    assert len(caught.value.extra["stderr"]) <= 4000
+    assert set(threading.enumerate()) <= before
+    assert not (tmp_path / "output.txt").exists()
 
 
 def test_a_failed_start_without_protocol_frames_preserves_exit_diagnostics(tmp_path):

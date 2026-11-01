@@ -27,7 +27,9 @@ initialize = read()
 if scenario == "exit_nonzero":
     print("Backend initialization failed", file=sys.stderr, flush=True)
     raise SystemExit(7)
-if scenario == "bad_json":
+if scenario in {"bad_json", "bad_json_diagnostics"}:
+    if scenario == "bad_json_diagnostics":
+        print("x" * 5000 + "Backend diagnostic marker", file=sys.stderr, flush=True)
     print('{"jsonrpc":"2.0","jsonrpc":"2.0"}', flush=True)
     time.sleep(5)
 if scenario == "oversized":
@@ -59,8 +61,11 @@ if scenario == "early_exit":
 if scenario == "stdout_eof":
     os.close(1)
     time.sleep(5)
-if scenario == "run_error":
+if scenario in {"run_error", "run_error_wait"}:
+    print("x" * 5000 + "Backend diagnostic marker", file=sys.stderr, flush=True)
     send({"jsonrpc": "2.0", "id": run["id"], "error": {"code": 12, "message": "Input format is invalid"}})
+    if scenario == "run_error_wait":
+        time.sleep(5)
     raise SystemExit(1)
 if scenario == "bad_progress":
     send({"jsonrpc": "2.0", "method": "task.progress", "params": {"fraction": 2, "message": "invalid"}})
