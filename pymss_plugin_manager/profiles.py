@@ -61,6 +61,11 @@ def collect_python_profiles(root: Path) -> None:
     store = root / "python-profiles"
     if not store.is_dir():
         return
+    transactions = root / "transactions"
+    # A preparing installer can publish a new journal after a receipt snapshot.
+    # The root writer lock prevents new transactions while this scan is idle.
+    if transactions.is_dir() and any(path.is_dir() for path in transactions.glob("install-*")):
+        return
     # A downgraded kernel can still inspect the old installation. It must not
     # guess how to remove a profile owned by a newer kernel.
     try:
@@ -75,9 +80,6 @@ def collect_python_profiles(root: Path) -> None:
         directory = root / name
         if directory.is_dir():
             receipts.extend(directory.glob("*/" + BINDING))
-    transactions = root / "transactions"
-    if transactions.is_dir():
-        receipts.extend(transactions.glob("install-*/python-profile-*.json"))
     for receipt in receipts:
         try:
             if receipt.is_symlink() or receipt.stat().st_size > 256 * 1024:

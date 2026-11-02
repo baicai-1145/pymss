@@ -13,7 +13,7 @@ import sys
 import tempfile
 import time
 import tomllib
-from contextlib import ExitStack, contextmanager, nullcontext, redirect_stdout
+from contextlib import ExitStack, contextmanager, nullcontext
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -46,12 +46,6 @@ def _root():
 @contextmanager
 def _plugin_registry():
     yield
-
-
-@contextmanager
-def isolate_protocol_stdout():
-    with redirect_stdout(sys.stderr):
-        yield
 
 
 def _deferred_dependency_operations(plugin):
@@ -961,9 +955,8 @@ def _install(root: Path, payload: dict, task_id: str | None, *, intent_revision:
             raise ValueError('Plugin subpath must be a string')
         if action == 'update' and current and (not _uses_default_source(_manifest(current))):
             subpath = _manifest(current).get('subpath')
-        with isolate_protocol_stdout():
-            with _plugin_registry():
-                result = _acquire_source(target, work / 'sources', subpath)
+        with _plugin_registry():
+            result = _acquire_source(target, work / 'sources', subpath)
         name = _name(result.name)
         if prepared_source is not None:
             if _read_manifest(result.path)['version'] != prepared_binding.get('version') or _plugin_content_digest(result.path) != prepared_binding['content']:
@@ -1088,6 +1081,8 @@ def _check_updates(root: Path, task_id: str | None, *, names: set[str] | None=No
                         else:
                             meta = {**meta, 'url': entry['url'], 'subpath': entry.get('subpath')}
                             catalog_ref = entry.get('ref')
+                            if catalog_ref is not None and (not isinstance(catalog_ref, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./-]*", catalog_ref) or ".." in catalog_ref):
+                                raise ValueError("Invalid plugin repository ref")
                             if isinstance(entry.get('version'), str) and entry['version'].strip():
                                 catalog_version = entry['version']
                     elif meta.get('source') == 'path':
@@ -1117,7 +1112,7 @@ def _check_updates(root: Path, task_id: str | None, *, names: set[str] | None=No
                         directory = view / name
                         directory.mkdir(parents=True)
                         (directory / '.pymss-install.json').write_text(json.dumps(meta), encoding='utf-8')
-                        update = check_update(name, plugins_dir=view)
+                        update = check_update(name, plugins_dir=view, ref=catalog_ref)
                 if update.get('remote_version') is None:
                     raise ValueError('The update source does not declare a version')
                 updates[name] = update

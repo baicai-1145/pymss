@@ -97,6 +97,8 @@ def _clone(url: str, dest: Path, subpath: str | None = None, ref: str | None = N
     Public HTTPS GitHub repositories use commit-pinned archives. Other hosts
     and SSH sources use Git, with the same default-branch or explicit-ref policy.
     """
+    if ref is not None and (not isinstance(ref, str) or not ref or ref.startswith("-")):
+        raise InstallError("Repository ref must be a non-empty string and must not start with '-'")
     try:
         if github_repository(url):
             return download_github_source(url, dest, subpath=subpath, ref=ref,
@@ -494,13 +496,15 @@ def list_installed(plugins_dir: Path | None = None) -> list[dict]:
     return out
 
 
-def check_update(name: str, plugins_dir: Path | None = None) -> dict:
+def check_update(name: str, plugins_dir: Path | None = None, *, ref: str | None = None) -> dict:
     """Check if an installed plugin has a newer version available.
 
     Returns versions, commits, content_changed, and up_to_date. A changed
     commit is an update even when the plugin version is unchanged.
     Works for both registry and url/path-installed plugins: reads the local
-    .pymss-install.json for the source url/subpath, fetches remote meta.
+    .pymss-install.json for the source url/subpath, fetches remote meta. An
+    explicit ref follows a managed catalog pin; otherwise check the default
+    branch, even if the original installation used a pinned ref.
     """
     plugins_dir = plugins_dir or get_plugins_dir()
     dest = plugins_dir / name
@@ -515,9 +519,7 @@ def check_update(name: str, plugins_dir: Path | None = None) -> dict:
         raise InstallError(
             f"plugin '{name}' has no url in its install manifest; cannot check for updates"
         )
-    # Fetch remote meta from the default branch (no ref) so we detect new
-    # releases even when the plugin was installed at a pinned ref.
-    remote_meta = _fetch_remote_meta(url, subpath, ref=None)
+    remote_meta = _fetch_remote_meta(url, subpath, ref=ref)
     remote_version = remote_meta.get("version")
     remote_commit = remote_meta.get("resolved_commit")
     content_changed = remote_commit is not None and local_commit != remote_commit

@@ -164,6 +164,58 @@ def test_parallel_installs_wait_for_slow_candidate_verification(tmp_path):
     assert {row["name"] for row in manager.list()["installed"]} == {"author.provider", "author.slow", "author.fast"}
 
 
+def test_parallel_source_acquisition_preserves_protocol_stdout(tmp_path, capsys):
+    manager = service(tmp_path / "plugins/cpu")
+    manager.install(str(source(tmp_path)))
+    packages = [source(tmp_path / name, "author." + name) for name in ("first", "second")]
+    entered = [threading.Event(), threading.Event()]
+    proceed = [threading.Event(), threading.Event()]
+    original_acquire, original_stdout = _engine._acquire_source, sys.stdout
+
+    def acquire(target, *args, **options):
+        index = [str(package) for package in packages].index(target)
+        entered[index].set()
+        assert proceed[index].wait(10), "Source acquisition was not released"
+        return original_acquire(target, *args, **options)
+
+    try:
+        with mock.patch.object(_engine, "_acquire_source", acquire), ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(manager.install, str(packages[0]))
+            assert entered[0].wait(10)
+            second = pool.submit(manager.install, str(packages[1]))
+            assert entered[1].wait(10)
+            print('{"event":"host-protocol"}')
+            proceed[0].set()
+            first.result(timeout=15)
+            proceed[1].set()
+            second.result(timeout=15)
+        assert sys.stdout is original_stdout
+        assert '{"event":"host-protocol"}' in capsys.readouterr().out
+    finally:
+        for event in proceed:
+            event.set()
+        sys.stdout = original_stdout
+
+
+def test_profile_collection_waits_for_installation_transactions(tmp_path):
+    from pymss_plugin_manager.profiles import collect_python_profiles
+
+    root = tmp_path / "plugins/cpu"
+    profile = root / "python-profiles" / ("python-" + "a" * 32)
+    profile.mkdir(parents=True)
+    transaction = root / "transactions/install-active"
+    transaction.mkdir(parents=True)
+    with mock.patch("pymss.operations.python_profiles.remove_python_environment") as remove:
+        with runtime_lock(root / ".lock"):
+            collect_python_profiles(root)
+        remove.assert_not_called()
+        assert profile.is_dir()
+        transaction.rmdir()
+        with runtime_lock(root / ".lock"):
+            collect_python_profiles(root)
+        remove.assert_called_once_with(profile)
+
+
 def test_cancelled_install_leaves_the_publication_queue_without_waiting_for_gc(tmp_path):
     manager = service(tmp_path / "plugins/cpu")
     manager.install(str(source(tmp_path)))
@@ -332,6 +384,50 @@ def test_check_updates_is_read_only_while_an_execution_uses_the_binding(tmp_path
     assert receipt.read_bytes() == previous
 
 
+@pytest.mark.parametrize("ref", ["stable", "--upload-pack=untrusted", "../main", 123])
+def test_catalog_ref_without_a_version_is_used_for_update_checks(tmp_path, ref):
+    manager = PluginService(PluginContext(tmp_path / "plugins/cpu", registry_url="https://example.invalid/registry.json"),
+                            service(tmp_path / "unused").policy)
+    manager.install(str(source(tmp_path)))
+    receipt = manager.context.root / "installed/author.provider/.pymss-install.json"
+    metadata = json.loads(receipt.read_text(encoding="utf-8"))
+    url, commit = "https://github.com/example/plugins", "a" * 40
+    metadata.update(defaultRepository=True, url=url, resolved_commit=commit)
+    receipt.write_text(json.dumps(metadata), encoding="utf-8")
+    entry = {"name": "author.provider", "url": url, "ref": ref, "subpath": "plugins/provider"}
+
+    def remote(_url, _subpath, ref):
+        return {"version": "1.0" if ref == "stable" else "2.0", "resolved_commit": commit if ref == "stable" else "b" * 40}
+
+    with mock.patch("pymss.plugins.install.list_available", return_value=[entry]), \
+         mock.patch("pymss.plugins.install._fetch_remote_meta", side_effect=remote) as fetch:
+        result = manager.check_updates()
+    if ref == "stable":
+        assert result["author.provider"]["up_to_date"]
+        fetch.assert_called_once_with(url, "plugins/provider", ref="stable")
+    else:
+        assert "Invalid plugin repository ref" in result["author.provider"]["error"]
+        fetch.assert_not_called()
+
+
+def test_cli_check_updates_renders_statuses_and_errors(tmp_path, capsys):
+    from pymss_plugin_manager.cli import run
+
+    updates = {
+        "author.current": {"local_version": "1.0", "remote_version": "1.0", "up_to_date": True},
+        "author.changed": {"local_version": "1.0", "remote_version": "2.0", "up_to_date": False},
+        "author.failed": {"error": "Source is unavailable"},
+    }
+    with mock.patch("pymss_plugin_manager.cli.PluginService") as factory:
+        factory.return_value.list.return_value = {"installed": []}
+        factory.return_value.manage.return_value = {"updates": updates}
+        assert run(SimpleNamespace(plugin_store=str(tmp_path / "cpu"), plugins_command="check_updates", json=False)) == 0
+    output = capsys.readouterr().out
+    assert "author.current: up to date (1.0)" in output
+    assert "author.changed: update available (1.0 -> 2.0)" in output
+    assert "author.failed: check failed: Source is unavailable" in output
+
+
 def test_bad_inventory_blocks_managed_code_without_losing_builtin_operations(tmp_path):
     from pymss.operations import create_runtime
     manager = service(tmp_path / "plugins/cpu")
@@ -390,6 +486,39 @@ def test_another_host_retains_the_installations_local_catalog(tmp_path):
         manager.update("author.provider")
         assert manager.check_updates()["author.provider"]["up_to_date"]
     assert manager.list()["installed"][0]["version"] == "2.0"
+
+
+def test_native_command_keeps_its_lease_until_descendant_cleanup(tmp_path):
+    from pymss.operations import OperationContext
+    from pymss.operations import _command_process
+    from pymss_plugin_manager.leases import hold_runtime
+
+    root = tmp_path / "plugins/cpu"
+    hold_runtime(root)
+    cleanup_entered, finish_cleanup = threading.Event(), threading.Event()
+    target, method = (_command_process._WindowsJob, "close") if os.name == "nt" else (_command_process, "_terminate_posix_group")
+    original_cleanup = getattr(target, method)
+
+    def cleanup(*args, **kwargs):
+        cleanup_entered.set()
+        assert finish_cleanup.wait(10), "Descendant cleanup was not released"
+        return original_cleanup(*args, **kwargs)
+
+    native = "import subprocess,sys;subprocess.Popen([sys.executable,'-c','import time;time.sleep(30)'])"
+    with mock.patch.object(target, method, cleanup), ThreadPoolExecutor(max_workers=1) as pool:
+        running = pool.submit(_command_process.run_command_process, [sys.executable, "-c", native],
+                              cwd=tmp_path, context=OperationContext(), timeout=15)
+        try:
+            assert cleanup_entered.wait(10), "Native command did not reach cleanup"
+            release_runtime()
+            with pytest.raises(RuntimeLockBusy):
+                with binding_lease(root, exclusive=True):
+                    pass
+        finally:
+            finish_cleanup.set()
+        running.result(timeout=15)
+    with binding_lease(root, exclusive=True):
+        pass
 
 
 def test_native_gate_retains_lease_after_the_parent_releases_it(tmp_path):

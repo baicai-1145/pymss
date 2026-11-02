@@ -131,6 +131,13 @@ def run(args, *, action=None):
         for row in result.get("installed", []):
             print(f"{row['name']} {row.get('version') or '?'} {row['state']} "
                   f"{'prepared' if row['prepared'] else 'not prepared'}")
+        for name, update in sorted(result.get("updates", {}).items()):
+            if update.get("error"):
+                print(f"{name}: check failed: {update['error']}")
+            elif update.get("up_to_date"):
+                print(f"{name}: up to date ({update.get('remote_version') or '?'})")
+            else:
+                print(f"{name}: update available ({update.get('local_version') or '?'} -> {update.get('remote_version') or '?'})")
     return exit_code
 
 
