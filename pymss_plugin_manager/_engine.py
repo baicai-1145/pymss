@@ -1100,7 +1100,9 @@ def _check_updates(root: Path, task_id: str | None, *, names: set[str] | None=No
                     elif catalog_version is not None:
                         from pymss.plugins.sources import github_repository, resolve_github_commit
                         remote_commit = None
-                        if github_repository(meta['url']):
+                        if catalog_ref and re.fullmatch(r"[0-9a-f]{40,64}", catalog_ref):
+                            remote_commit = catalog_ref
+                        elif github_repository(meta['url']):
                             key = (meta['url'], catalog_ref)
                             if key not in commit_cache:
                                 commit_cache[key] = resolve_github_commit(*key)

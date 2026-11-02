@@ -410,6 +410,26 @@ def test_catalog_ref_without_a_version_is_used_for_update_checks(tmp_path, ref):
         fetch.assert_not_called()
 
 
+@pytest.mark.parametrize("host", ["github.com", "gitcode.com"])
+@pytest.mark.parametrize("remote_commit", ["a" * 40, "b" * 40])
+def test_immutable_catalog_commits_detect_same_version_updates_on_both_hosts(tmp_path, host, remote_commit):
+    manager = PluginService(PluginContext(tmp_path / "plugins/cpu", registry_url="https://example.invalid/registry.json"),
+                            service(tmp_path / "unused").policy)
+    manager.install(str(source(tmp_path)))
+    receipt = manager.context.root / "installed/author.provider/.pymss-install.json"
+    metadata = json.loads(receipt.read_text(encoding="utf-8"))
+    url = f"https://{host}/pymss-project/pymss-plugins"
+    metadata.update(defaultRepository=True, url=url, resolved_commit="a" * 40)
+    receipt.write_text(json.dumps(metadata), encoding="utf-8")
+    entry = {"name": "author.provider", "url": url, "version": "1.0", "ref": remote_commit}
+    with mock.patch("pymss.plugins.install.list_available", return_value=[entry]), \
+         mock.patch("pymss.plugins.sources.resolve_github_commit", side_effect=AssertionError("Already pinned")):
+        result = manager.check_updates()["author.provider"]
+    assert result["remote_commit"] == remote_commit
+    assert result["up_to_date"] == (remote_commit == "a" * 40)
+    assert result["content_changed"] == (remote_commit != "a" * 40)
+
+
 def test_cli_check_updates_renders_statuses_and_errors(tmp_path, capsys):
     from pymss_plugin_manager.cli import run
 

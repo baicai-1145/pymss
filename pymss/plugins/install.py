@@ -77,6 +77,9 @@ def _fetch_registry(registry_url: str | None = None) -> dict[str, str]:
     """Fetch and parse the registry JSON. Raises InstallError on failure."""
     url = _registry_url(registry_url)
     try:
+        from .marketplace import fetch_official_catalog, is_official_registry
+        if is_official_registry(url):
+            return fetch_official_catalog(url)
         req = urllib.request.Request(url, headers={"User-Agent": "pymss"})
         with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310
             data = json.loads(resp.read().decode("utf-8"))

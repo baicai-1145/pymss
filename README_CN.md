@@ -206,6 +206,8 @@ pymss serve --webui
 
 ### 插件系统
 
+官方插件市场支持 GitHub 和 GitCode，默认比较可用源并选择响应更快且已同步的来源。可通过 `PYMSS_PLUGINS_SOURCE=github` 或 `PYMSS_PLUGINS_SOURCE=gitcode` 显式指定来源。GitCode 获取需要 Git；没有 Git 时，自动模式使用 GitHub。目录与安装的插件代码固定到同一个提交。
+
 pymss 有插件系统，用于扩展能力——音频 DSP 操作、音频编解码器、以及工作流节点。内置功能（23 个能力：15 个 DSP/声道操作 + 8 个编解码器）和插件用的是同一套注册机制，核心与扩展共用同一个能力池。
 
 **安装插件** —— 使用 pymss 2.2 或更新版本，通过官方目录中的完整插件 id、仓库 URL 或本地路径安装。在 URL 后加 `#子目录` 可从 monorepo 子目录安装：

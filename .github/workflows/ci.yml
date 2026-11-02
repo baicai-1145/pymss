@@ -43,5 +43,5 @@ jobs:
           python -m pytest -q test/test_plugin_protocol.py test/test_plugin_protocol_posix.py \
             test/test_plugins.py test/test_operations.py test/test_operation_graph_bridge.py \
             test/test_kit_builtins.py test/test_model_download_progress.py test/test_plugin_kit.py \
-            test/test_plugin_sources.py test/test_audio_materialization.py \
+            test/test_plugin_sources.py test/test_plugin_marketplace.py test/test_plugin_management.py test/test_audio_materialization.py \
             test/test_operation_invocation.py test/test_plugin_node_contract.py test/test_graph.py

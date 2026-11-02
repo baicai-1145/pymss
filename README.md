@@ -214,6 +214,8 @@ See [server CLI docs](./docs/server/cli.md), [server API docs](./docs/server/api
 
 ### Plugin system
 
+The official marketplace supports GitHub and GitCode. By default it compares usable sources and selects the faster synchronized source. Set `PYMSS_PLUGINS_SOURCE` to `github` or `gitcode` to select one explicitly. GitCode acquisition requires Git; without Git, automatic mode uses GitHub. Catalog entries and downloaded packages use the same immutable commit.
+
 pymss has a plugin system for extending capabilities — audio DSP operations, audio codecs, and workflow nodes. Built-in functionality (23 capabilities: 15 DSP/channel ops + 8 codecs) is registered through the same mechanism plugins use, so core and extensions share one pool.
 
 **Install a plugin** — use pymss 2.2 or later and specify a full plugin id from the official registry, a repository URL, or a local path. Append `#subdir` to install from a monorepo subdirectory:
