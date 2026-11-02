@@ -147,6 +147,25 @@ class PluginManager:
             str(state.directory.resolve()): state for state in self._active_plugins.values()
         }
         for root in self.roots:
+            validate_binding = None
+            if root.name == "installed":
+                import os
+                binding = root.parent
+                from pymss_plugin_manager.leases import is_candidate
+                selected = os.environ.get("PYMSS_PLUGIN_BINDING")
+                if not is_candidate(binding) and ((binding / ".pymss-binding.json").exists() or (
+                    selected and Path(selected).expanduser().absolute() == binding.absolute()
+                )):
+                    from pymss_plugin_manager import PluginContext, PluginService
+                    from pymss_plugin_manager.context import current
+                    try:
+                        context, policy = current()
+                    except RuntimeError:
+                        context, policy = None, None
+                    if context is not None and context.root == binding.resolve():
+                        validate_binding = PluginService(context, policy).activation_validator()
+                    else:
+                        validate_binding = PluginService(PluginContext(binding)).activation_validator()
             if not root.exists():
                 continue
             for child in sorted(root.iterdir()):
@@ -163,7 +182,13 @@ class PluginManager:
                         directory=child, manifest=None, name=child.name, status="blocked", error=str(exc),
                     )
                     continue
-                self._states[key] = PluginState(directory=child, manifest=manifest, name=child.name)
+                state = PluginState(directory=child, manifest=manifest, name=child.name)
+                if validate_binding is not None:
+                    try:
+                        validate_binding(child)
+                    except Exception as error:
+                        state.status, state.error = "blocked", str(error)
+                self._states[key] = state
         return list(self._states.values())
 
     # ---- resolve ----

@@ -38,6 +38,7 @@ dependencies = [
     "av>=14",
     "librosa>=0.10.2",
     "numpy>=1.26",
+    "packaging>=24.0",
     "pymss-core==0.1.14",
     "pyyaml>=6.0.1",
     "torch>=2.7.1",
@@ -73,6 +74,7 @@ Documentation = "https://github.com/pymss-project/pymss/blob/main/README.md"
 include = ["pymss*"]
 
 [tool.setuptools.package-data]
+pymss_plugin_manager = ["NOTICE", "LICENSE"]
 pymss = [
     "resources/model_catalog.json",
     "resources/vr_modelparams/*.json",

@@ -90,7 +90,8 @@ def _fetch_registry(registry_url: str | None = None) -> dict[str, str]:
     return data
 
 
-def _clone(url: str, dest: Path, subpath: str | None = None, ref: str | None = None) -> dict:
+def _clone(url: str, dest: Path, subpath: str | None = None, ref: str | None = None,
+           temporary_root: Path | None = None) -> dict:
     """Acquire one plugin directory and record the actual source commit.
 
     Public HTTPS GitHub repositories use commit-pinned archives. Other hosts
@@ -98,7 +99,8 @@ def _clone(url: str, dest: Path, subpath: str | None = None, ref: str | None = N
     """
     try:
         if github_repository(url):
-            return download_github_source(url, dest, subpath=subpath, ref=ref)
+            return download_github_source(url, dest, subpath=subpath, ref=ref,
+                                          **({"temporary_root": temporary_root} if temporary_root is not None else {}))
     except SourceError as exc:
         raise InstallError(str(exc)) from exc
     if not _git_available():
@@ -107,7 +109,7 @@ def _clone(url: str, dest: Path, subpath: str | None = None, ref: str | None = N
         raise InstallError(f"destination already exists: {dest} (uninstall it first)")
     dest.parent.mkdir(parents=True, exist_ok=True)
 
-    with tempfile.TemporaryDirectory(prefix="pymss-git-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="pymss-git-", dir=temporary_root) as temporary:
         repo = Path(temporary) / "repo"
         try:
             def git(*args: str) -> str:
@@ -278,6 +280,7 @@ def install(
     registry_url: str | None = None,
     *,
     expected_plugin_id: str | None = None,
+    temporary_root: Path | None = None,
 ) -> InstallResult:
     """Install a plugin by registry id, URL, or local path.
 
@@ -320,7 +323,8 @@ def install(
                 if ref is None:
                     ref = url_ref
                 arg = urllib.parse.urlunsplit(parsed._replace(path=path)) if parsed else f"{remote}:{path}"
-            source_meta = _clone(arg, staged, subpath=subpath or None, ref=ref)
+            source_meta = _clone(arg, staged, subpath=subpath or None, ref=ref,
+                                 **({"temporary_root": temporary_root} if temporary_root is not None else {}))
             source, url = "url", arg
         elif local.exists() and local.is_dir():
             if subpath:
@@ -347,11 +351,16 @@ def install(
             if isinstance(entry, dict):
                 url = entry.get("url", "")
                 subpath = entry.get("subpath") or subpath
+                if ref is None and entry.get("ref") is not None:
+                    if not isinstance(entry["ref"], str) or not entry["ref"]:
+                        raise InstallError(f"registry entry for '{arg}' has an invalid ref")
+                    ref = entry["ref"]
                 if not url:
                     raise InstallError(f"registry entry for '{arg}' has no 'url' field")
             else:
                 url = str(entry)
-            source_meta = _clone(url, staged, subpath=subpath, ref=ref)
+            source_meta = _clone(url, staged, subpath=subpath, ref=ref,
+                                 **({"temporary_root": temporary_root} if temporary_root is not None else {}))
             source = "registry"
 
         try:

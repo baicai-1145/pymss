@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import sys
+import threading
+
 import pytest
 
 from pymss.operations import OperationContext, OperationError, Runtime, _RuntimePluginHandle
@@ -26,6 +29,40 @@ def test_emit_requires_a_context_and_honours_cancellation():
     context = OperationContext(progress=lambda *args: None, cancelled=lambda: True)
     with kit.operation_context(context), pytest.raises(OperationError, match="cancelled"):
         kit.emit("tool_progress", {})
+
+
+def test_native_process_uses_bound_cancellation_before_launch(tmp_path):
+    marker = tmp_path / "started"
+    context = OperationContext(cancelled=lambda: True)
+    with kit.operation_context(context), pytest.raises(OperationError, match="cancelled"):
+        kit.run_native_process([sys.executable, "-c", f"open({str(marker)!r}, 'w').close()"], cwd=tmp_path)
+    assert not marker.exists()
+
+
+def test_native_process_preserves_diagnostics_and_error_code(tmp_path):
+    with pytest.raises(kit.ToolError) as raised:
+        kit.run_native_process([sys.executable, "-c", "import sys;sys.stderr.write('native dependency missing');sys.exit(7)"],
+                               cwd=tmp_path)
+    assert raised.value.code == "COMMAND_FAILED"
+    assert raised.value.extra["stderr"] == "native dependency missing"
+    assert raised.value.recoverable
+
+
+def test_native_output_callback_runs_before_exit_on_the_calling_thread_and_cleans_up(tmp_path):
+    marker = tmp_path / "late"
+    caller = threading.get_ident()
+    events = []
+
+    def output(channel, text):
+        events.append((channel, text, threading.get_ident()))
+        if "ready" in text:
+            raise OperationError("stop after progress")
+
+    with pytest.raises(OperationError, match="stop after progress"):
+        kit.run_native_process([sys.executable, "-c", f"import time;print('ready',flush=True);time.sleep(10);open({str(marker)!r},'w').close()"],
+                               cwd=tmp_path, output_callback=output)
+    assert events and all(row[2] == caller for row in events)
+    assert not marker.exists()
 
 
 def test_register_tool_runs_the_handler_with_its_request():
