@@ -24,6 +24,9 @@ DEFAULT_PLUGINS_DIR = Path.home() / ".pymss" / "plugins"
 
 def get_plugins_dir() -> Path:
     """Resolve the default plugins directory from env var or default."""
+    binding = os.environ.get("PYMSS_PLUGIN_BINDING")
+    if binding:
+        return Path(binding).expanduser().absolute() / "installed"
     env = os.environ.get("PYMSS_PLUGINS_DIR")
     if env:
         return Path(env)
@@ -59,6 +62,7 @@ class PluginLoadReport:
 
 
 _LAST_REPORT: PluginLoadReport | None = None
+_LAST_CONTEXT: tuple[str, ...] | None = None
 
 
 def get_last_report() -> PluginLoadReport | None:
@@ -76,8 +80,11 @@ def bootstrap(
     Idempotent: subsequent calls return the cached report unless ``force=True``.
     Host validation and activation context must be supplied on the first load.
     """
-    global _LAST_REPORT
+    global _LAST_REPORT, _LAST_CONTEXT
+    context = tuple(str(Path(root).resolve()) for root in (roots if roots is not None else [get_plugins_dir()]))
     if _LAST_REPORT is not None and _LAST_REPORT.bootstrapped and not force:
+        if _LAST_CONTEXT is not None and _LAST_CONTEXT != context:
+            raise ValueError("PLUGIN_CONTEXT_CHANGED: Start a new process for a different plugin context")
         return _LAST_REPORT
 
     from ..operations import default_runtime
@@ -96,6 +103,7 @@ def bootstrap(
             plugin_id=row.get("plugin_id"),
         ))
     _LAST_REPORT = report
+    _LAST_CONTEXT = context
     return report
 
 
@@ -116,8 +124,9 @@ def ensure_plugins_loaded(
 
 def reset() -> None:
     """Clear the cached bootstrap report (mainly for tests)."""
-    global _LAST_REPORT
+    global _LAST_REPORT, _LAST_CONTEXT
     _LAST_REPORT = None
+    _LAST_CONTEXT = None
 
 
 __all__ = [

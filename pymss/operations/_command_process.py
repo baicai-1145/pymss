@@ -2,16 +2,19 @@
 from __future__ import annotations
 
 import json
+import codecs
+from contextlib import ExitStack
 import os
 from pathlib import Path
 import signal
 import select
+import queue
 import subprocess
 import sys
 import threading
 import time
 import uuid
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from . import OperationContext, OperationError
 
@@ -166,14 +169,35 @@ def run_command_process(
     arguments: Sequence[str], *, cwd: Path, context: OperationContext,
     timeout: float = 300, output_limit: int = 1024 * 1024,
     protocol: Any = None, environment: dict[str, str] | None = None,
+    output_callback: Callable[[str, str], None] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run argv without a shell; drain bounded pipes and reap normal descendants.
 
     stdin is a private lifetime channel, never the command's application input.
     A native command is trusted code with user permissions, not a sandbox.
     """
+    from pymss_plugin_manager.leases import binding_lease, runtime_roots
+
+    with ExitStack() as bindings:
+        roots = runtime_roots()
+        for root in roots:
+            # The gate can exit before the supervisor has reaped descendants.
+            # This lease is independent of both the gate and release_runtime().
+            bindings.enter_context(binding_lease(Path(root), _track_context=False))
+        return _run_command_process(arguments, cwd=cwd, context=context, timeout=timeout,
+                                    output_limit=output_limit, protocol=protocol, environment=environment,
+                                    output_callback=output_callback, binding_roots=roots)
+
+
+def _run_command_process(
+    arguments: Sequence[str], *, cwd: Path, context: OperationContext,
+    timeout: float, output_limit: int, protocol: Any, environment: dict[str, str] | None,
+    output_callback: Callable[[str, str], None] | None, binding_roots: Sequence[str],
+) -> subprocess.CompletedProcess[str]:
     if type(output_limit) is not int or not 1 <= output_limit <= 16 * 1024 * 1024:
         raise CommandProcessError("COMMAND_ARGUMENTS_INVALID", "Invalid command diagnostic buffer limit")
+    if output_callback is not None and not callable(output_callback):
+        raise CommandProcessError("COMMAND_ARGUMENTS_INVALID", "Invalid command output callback")
     if isinstance(timeout, bool) or not isinstance(timeout, (float, int)) or not 0 < timeout <= 86400:
         raise CommandProcessError("COMMAND_ARGUMENTS_INVALID", "Invalid command execution timeout")
     if getattr(sys, "frozen", False):
@@ -182,7 +206,9 @@ def run_command_process(
     if os.name != "nt" and not waitid and not hasattr(select, "kqueue"):
         raise CommandProcessError("COMMAND_HOST_UNSUPPORTED", "This host cannot supervise command process groups")
     job_name = "Local\\pymss-command-" + uuid.uuid4().hex if os.name == "nt" else None
-    request = json.dumps({"arguments": list(arguments), "jobName": job_name, "forwardStdin": protocol is not None}, ensure_ascii=True, allow_nan=False).encode("ascii") + b"\n"
+    request = json.dumps({"arguments": list(arguments), "jobName": job_name,
+                          "forwardStdin": protocol is not None, "pluginBindings": binding_roots},
+                         ensure_ascii=True, allow_nan=False).encode("ascii") + b"\n"
     if len(request) >= 256 * 1024:
         raise CommandProcessError("COMMAND_ARGUMENTS_INVALID", "Plugin command arguments exceed the size limit")
     context.check_cancelled()
@@ -199,6 +225,32 @@ def run_command_process(
     buffers = [bytearray(), bytearray()]
     failed_read = threading.Event()
     protocol_error: OperationError | None = None
+    # Reader threads never invoke host callbacks. A bounded queue delivers
+    # recent output on the calling thread without blocking pipe drainage.
+    pending_output = queue.Queue(maxsize=16)
+
+    def enqueue_output(channel, value):
+        if output_callback is None or not value:
+            return
+        try:
+            pending_output.put_nowait((channel, value))
+        except queue.Full:
+            try:
+                pending_output.get_nowait()
+            except queue.Empty:
+                pass
+            try:
+                pending_output.put_nowait((channel, value))
+            except queue.Full:
+                pass
+
+    def deliver_output():
+        for _ in range(16):
+            try:
+                channel, value = pending_output.get_nowait()
+            except queue.Empty:
+                break
+            output_callback(channel, value)
 
     def enrich_protocol_error(error):
         stderr = bytes(buffers[1]).decode("utf-8", errors="replace")[-4000:]
@@ -206,24 +258,29 @@ def run_command_process(
         error.extra = {**(extra if isinstance(extra, dict) else {}), "exitCode": process.returncode,
                        **({"stderr": stderr} if stderr else {})}
 
-    def drain(stream, buffer):
+    def drain(stream, buffer, channel):
+        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
         try:
             while chunk := stream.read1(65536):
                 buffer.extend(chunk)
                 if len(buffer) > output_limit:
                     del buffer[:-output_limit]
+                if output_callback is not None:
+                    enqueue_output(channel, decoder.decode(chunk))
         except OSError:
             failed_read.set()
         finally:
+            if output_callback is not None:
+                enqueue_output(channel, decoder.decode(b"", final=True))
             stream.close()
 
     try:
         if os.name == "nt":
             job = _WindowsJob(process, job_name)
         observer = _ExitObserver(process)
-        for stream, buffer in zip((process.stdout, process.stderr), buffers):
+        for channel, stream, buffer in zip(("stdout", "stderr"), (process.stdout, process.stderr), buffers):
             reader = threading.Thread(target=protocol.read_stdout if protocol is not None and stream is process.stdout else drain,
-                                      args=(stream,) if protocol is not None and stream is process.stdout else (stream, buffer), daemon=True)
+                                      args=(stream,) if protocol is not None and stream is process.stdout else (stream, buffer, channel), daemon=True)
             reader.start()
             readers.append(reader)
         try:
@@ -239,6 +296,7 @@ def run_command_process(
         deadline = time.monotonic() + timeout
         while True:
             context.check_cancelled()
+            deliver_output()
             if failed_read.is_set():
                 raise CommandProcessError("COMMAND_IO_FAILED", "Plugin command output could not be read")
             if protocol is not None:
@@ -308,6 +366,7 @@ def run_command_process(
         if protocol_error is not None:
             enrich_protocol_error(protocol_error)
     context.check_cancelled()
+    deliver_output()
     if failed_read.is_set():
         raise CommandProcessError("COMMAND_IO_FAILED", "Plugin command output could not be read")
     stdout, stderr = (bytes(value).decode("utf-8", errors="replace") for value in buffers)

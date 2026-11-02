@@ -101,6 +101,12 @@ def operation_context(context) -> Iterator[None]:
         _context.reset(token)
 
 
+def current_operation_context():
+    """Return the caller's bound Operation context, or None outside an operation."""
+    bound = _context.get()
+    return bound[0] if bound is not None else None
+
+
 def emit(event_type: str, payload: Mapping[str, Any]) -> None:
     """Report a structured tool event through the bound Operation context.
 
@@ -323,6 +329,25 @@ def run_process(arguments: list[str]) -> subprocess.CompletedProcess[str]:
     )
 
 
+def run_native_process(
+    arguments: list[str], *, cwd: Path, context=None, timeout: float = 300,
+    output_limit: int = 1024 * 1024,
+    output_callback: Callable[[str, str], None] | None = None,
+    environment: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
+    """Run a native tool with cancellation, bounded diagnostics and tree cleanup."""
+    from ..operations import OperationContext
+    from ..operations._command_process import CommandProcessError, run_command_process
+
+    if context is None:
+        context = current_operation_context() or OperationContext()
+    try:
+        return run_command_process(arguments, cwd=cwd, context=context, timeout=timeout, output_limit=output_limit,
+                                   output_callback=output_callback, environment=environment)
+    except CommandProcessError as error:
+        raise ToolError(error.code, str(error), recoverable=error.recoverable, extra=error.extra) from error
+
+
 def run_ffmpeg(arguments: list[str]) -> None:
     run_process([ffmpeg_path(), "-nostdin", "-hide_banner", "-loglevel", "error", *arguments])
 
@@ -355,6 +380,7 @@ __all__ = [
     "ffprobe_path",
     "isolate_stdout",
     "operation_context",
+    "current_operation_context",
     "publish_export_path",
     "register_tool",
     "register_commands",
@@ -364,5 +390,6 @@ __all__ = [
     "require_file",
     "run_ffmpeg",
     "run_process",
+    "run_native_process",
     "subprocess_detail",
 ]

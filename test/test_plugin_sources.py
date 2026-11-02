@@ -26,6 +26,16 @@ api_version = 2
 '''
 
 
+@pytest.mark.parametrize("ref", ["--upload-pack=untrusted", "", 123])
+def test_git_source_rejects_unsafe_refs_before_running_git(tmp_path, monkeypatch, ref):
+    run = Mock(side_effect=AssertionError("Unexpected Git execution"))
+    monkeypatch.setattr(install_mod.subprocess, "run", run)
+    monkeypatch.setattr(install_mod, "_git_available", lambda: True)
+    with pytest.raises(install_mod.InstallError, match="ref"):
+        install_mod._clone("ssh://example.invalid/plugins.git", tmp_path / "source", ref=ref)
+    run.assert_not_called()
+
+
 @pytest.fixture(autouse=True)
 def block_network(monkeypatch):
     monkeypatch.setattr(sources.urllib.request, "urlopen", Mock(side_effect=AssertionError("Unexpected network request")))

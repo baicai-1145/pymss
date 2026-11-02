@@ -46,27 +46,46 @@ Example:
     >>> save_ensemble_audio(["a.wav", "b.wav"], "ensemble.wav")
 """
 
-from .separator import MSSeparator
-from pymss_core import ModelTypeDetectionError, detect_model_type
-from .logger import get_separation_logger
-from .model_registry import create_separator, get_model_entry, list_models, register_model, resolve_model, unregister_model
-from .model_download import ProxyError, download_model
-from .user_models import list_user_models
-from .ensemble import ensemble_audios, save_ensemble_audio
-from .audio_io import load_audio, save_audio
-from .workflow import WorkflowRunner, load_workflow_file, run_workflow_file, validate_workflow
+from importlib import import_module as _import_module
 
-# Register built-in capabilities (DSP + channel ops + ensemble) into the plugin
-# registry so they can be consumed by nodes, CLI, and library code uniformly.
-# ensemble is registered as a side effect of importing .ensemble above.
-from .plugins.builtins import register_builtin_capabilities as _register_builtin_caps
+# Keep package initialization light so `python -m pymss` can select its core
+# before importing inference dependencies from the base installation.
+_EXPORT_MODULES = {
+    "MSSeparator": ".separator",
+    "ModelTypeDetectionError": "pymss_core",
+    "detect_model_type": "pymss_core",
+    "get_separation_logger": ".logger",
+    "create_separator": ".model_registry",
+    "get_model_entry": ".model_registry",
+    "list_models": ".model_registry",
+    "register_model": ".model_registry",
+    "resolve_model": ".model_registry",
+    "unregister_model": ".model_registry",
+    "ProxyError": ".model_download",
+    "download_model": ".model_download",
+    "list_user_models": ".user_models",
+    "ensemble_audios": ".ensemble",
+    "save_ensemble_audio": ".ensemble",
+    "load_audio": ".audio_io",
+    "save_audio": ".audio_io",
+    "WorkflowRunner": ".workflow",
+    "load_workflow_file": ".workflow",
+    "run_workflow_file": ".workflow",
+    "validate_workflow": ".workflow",
+}
 
-_register_builtin_caps()
-# Register built-in codec capabilities (wav/flac/mp3/m4a/aac/opus/vorbis/ogg)
-# so require_capability('opus_encode') etc. work without first calling save_audio.
-from .plugins.codecs import register_builtin_codecs as _register_builtin_codecs
 
-_register_builtin_codecs()
+def __getattr__(name: str):
+    if name not in _EXPORT_MODULES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(_import_module(_EXPORT_MODULES[name], __name__), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted(set(globals()) | _EXPORT_MODULES.keys())
+
 
 __all__ = (
     "MSSeparator",

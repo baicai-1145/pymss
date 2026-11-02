@@ -28,7 +28,7 @@ from .loader import (
 )
 from .registry import (
     CapabilityNotFound,
-    PluginRegistration,
+    PluginRegistration as PluginRegistration,
     PluginRegistry,
     get_registry,
     register_capability,
@@ -39,6 +39,16 @@ from .registry import (
 from .manifest import API_VERSION, ManifestError, OperationDecl, PluginManifest, read_manifest
 from .lifecycle import PluginManager, PluginState, satisfies
 from . import kit
+
+# Initialize capabilities when the plugin subsystem is first imported, rather
+# than while the CLI is still choosing its core. These calls are idempotent.
+from ..ensemble import _register_ensemble_capability
+from .builtins import register_builtin_capabilities as _register_builtin_caps
+from .codecs import register_builtin_codecs as _register_builtin_codecs
+
+_register_ensemble_capability()
+_register_builtin_caps()
+_register_builtin_codecs()
 
 __all__ = [
     # registration API (plugin authors)

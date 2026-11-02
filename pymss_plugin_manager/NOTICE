@@ -1,0 +1,13 @@
+Shared plugin management
+
+Portions of _engine.py, inventory.py, profiles.py and locks.py were migrated
+from pymss-studio/python/worker_plugins.py, worker_plugin_inventory.py,
+worker_plugin_python.py and worker_runtime_lock.py.
+
+Original project: https://github.com/pymss-project/pymss-studio
+Original contributors include baicai-1145 and TheSmallHanCat.
+The original contributors agreed to distribute these migrated portions
+under the MIT License, as confirmed by the project maintainer on 2026-11-01.
+See LICENSE in this directory for the applicable terms and attribution.
+This permission covers the migrated portions in pymss; it does not change
+the license of the pymss-studio project or any third-party dependencies.

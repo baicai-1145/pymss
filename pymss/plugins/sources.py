@@ -194,6 +194,7 @@ def _extract_archive(archive: Path, destination: Path, subpath: str | None) -> N
 
 def download_github_source(
     url: str, dest: Path, *, subpath: str | None = None, ref: str | None = None,
+    temporary_root: Path | None = None,
 ) -> dict[str, str | None]:
     """Download a commit-pinned ZIP and return metadata for the install record.
 
@@ -205,7 +206,7 @@ def download_github_source(
     if subpath:
         _relative_parts(subpath)
     commit = resolve_github_commit(url, ref)
-    with tempfile.TemporaryDirectory(prefix="pymss-github-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="pymss-github-", dir=temporary_root) as temporary:
         archive = Path(temporary) / "repository.zip"
         with archive.open("wb") as output:
             owner, repo = github_repository(url)

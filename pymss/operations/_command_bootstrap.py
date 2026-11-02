@@ -3,12 +3,16 @@ from __future__ import annotations
 
 import json
 from collections import deque
+from contextlib import ExitStack
+from pathlib import Path
 import os
 import select
 import signal
 import subprocess
 import sys
 import threading
+
+_BINDING_LEASES = ExitStack()
 
 
 def _relay_posix(source, sink, finished) -> None:
@@ -83,6 +87,14 @@ def main() -> int:
         return 125
     request = json.loads(request)
     arguments = request["arguments"]
+    bindings = request.get("pluginBindings", [])
+    if bindings:
+        # This is our own stdlib-only distribution module. -I/-S still keep
+        # the gate independent of the separation runtime and user site packages.
+        sys.path.append(str(Path(__file__).resolve().parents[2]))
+        from pymss_plugin_manager.leases import binding_lease
+        for root in bindings:
+            _BINDING_LEASES.enter_context(binding_lease(Path(root)))
     if os.name == "nt":
         import ctypes
         from ctypes import wintypes
@@ -164,4 +176,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    finally:
+        _BINDING_LEASES.close()
