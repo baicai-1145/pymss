@@ -63,7 +63,7 @@ dev = [
 ]
 
 [project.scripts]
-pymss = "pymss.cli:main"
+pymss = "pymss_plugin_manager.cli:main"
 
 [project.urls]
 "Bug Tracker" = "https://github.com/pymss-project/pymss/issues"

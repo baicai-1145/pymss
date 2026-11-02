@@ -1112,9 +1112,15 @@ def main(argv=None):
     selector = argparse.ArgumentParser(add_help=False)
     selector.add_argument("--plugin-store", "--plugin-binding", type=_plugin_binding_argument)
     selected, remaining = selector.parse_known_args(arguments)
+    from pymss_plugin_manager.cli import binding_from_args
+    try:
+        binding = binding_from_args(selected)
+    except (OSError, ValueError) as error:
+        print(f"pymss: {error}", file=sys.stderr)
+        return 1
     previous = os.environ.get("PYMSS_PLUGIN_BINDING")
-    if selected.plugin_store:
-        os.environ["PYMSS_PLUGIN_BINDING"] = selected.plugin_store
+    if binding is not None:
+        os.environ["PYMSS_PLUGIN_BINDING"] = str(binding)
     try:
         parser = build_parser()
         if not remaining or remaining[0] not in {"plugins", "install", "uninstall"}:
@@ -1123,11 +1129,11 @@ def main(argv=None):
                 ensure_plugins_loaded()
             except Exception as exc:
                 print(f"pymss: warning: plugin loading failed: {exc}", file=sys.stderr)
-                if selected.plugin_store or previous or "PLUGIN_CONTEXT_CHANGED" in str(exc):
+                if binding is not None or "PLUGIN_CONTEXT_CHANGED" in str(exc):
                     return 1
             _mount_plugin_cli_commands(parser)
         args = parser.parse_args(remaining)
-        args.plugin_store = selected.plugin_store or previous
+        args.plugin_store = str(binding) if binding is not None else None
         try:
             return args.func(args)
         except KeyboardInterrupt:

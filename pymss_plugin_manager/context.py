@@ -4,7 +4,29 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
+import os
+import platform
+import sys
 from typing import Callable, Iterator, Any
+
+
+def python_identity(executable: str | Path) -> str:
+    """Normalize path spelling while retaining POSIX virtual environment links."""
+    if not str(executable).strip():
+        raise ValueError("Environment Python path must not be empty")
+    value = os.path.abspath(os.path.expanduser(str(executable)))
+    if os.name == "nt":
+        if value.startswith("\\\\?\\UNC\\"):
+            value = "\\\\" + value[8:]
+        elif value.startswith("\\\\?\\"):
+            value = value[4:]
+    return os.path.normcase(value)
+
+
+def environment_identity() -> dict:
+    return {"python": python_identity(sys.executable), "prefix": python_identity(sys.prefix),
+            "pythonVersion": list(sys.version_info[:2]), "platform": sys.platform,
+            "architecture": platform.machine().lower()}
 
 
 @dataclass(frozen=True)

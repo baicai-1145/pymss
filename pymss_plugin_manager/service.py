@@ -6,10 +6,9 @@ from dataclasses import replace
 import json
 import os
 from pathlib import Path
-import platform
 import sys
 
-from .context import PluginContext, PluginPolicy, use, check_cancelled
+from .context import PluginContext, PluginPolicy, use, check_cancelled, environment_identity, python_identity
 from .leases import binding_lease, hold_runtime, release_binding, is_candidate
 from .locks import runtime_lock
 
@@ -27,15 +26,18 @@ class PluginService:
     def _identity(self, *, write=False):
         root = self.context.root
         path = root / ".pymss-binding.json"
-        actual = {"python": os.path.normcase(os.path.abspath(sys.executable)),
-                  "prefix": os.path.normcase(os.path.abspath(sys.prefix)),
-                  "pythonVersion": list(sys.version_info[:2]),
-                  "platform": sys.platform, "architecture": platform.machine().lower()}
+        actual = environment_identity()
         if path.exists():
             if path.is_symlink() or path.stat().st_size > 16384:
                 raise ValueError("PLUGIN_ENV_MISMATCH: Invalid plugin binding identity")
             recorded = json.loads(path.read_text(encoding="utf-8"))
-            if recorded.get("schemaVersion") != 1 or recorded.get("environment") != actual:
+            previous = recorded.get("environment")
+            if isinstance(previous, dict):
+                previous = {**previous}
+                for name in ("python", "prefix"):
+                    if isinstance(previous.get(name), str) and previous[name].strip():
+                        previous[name] = python_identity(previous[name])
+            if recorded.get("schemaVersion") != 1 or previous != actual:
                 raise ValueError("PLUGIN_ENV_MISMATCH: Use this plugin binding's Python interpreter")
         elif write:
             # The writer lock excludes competing initializers. Existing stores

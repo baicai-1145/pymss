@@ -143,7 +143,13 @@ python -B -X utf8 -m pymss --plugin-binding /data/plugins/cpu plugins check-upda
 python -B -X utf8 -m pymss --plugin-binding /data/plugins/cpu plugins recover --json
 ```
 
-`--plugin-store` 是同一参数的别名，`PYMSS_PLUGIN_BINDING` 可用于后续 CLI 运行。未显式选择绑定时，旧扁平目录及 `PYMSS_PLUGINS_DIR` 行为保持兼容。外部旧目录不会被受管上下文隐式加载。固定管理命令不会先执行插件的 `setup()`；`plugins probe` 才执行独立验证。
+`--plugin-store` 是同一参数的别名，`PYMSS_PLUGIN_BINDING` 可用于后续 CLI 运行。Studio 检查当前运行环境时，会通过共享 API 登记该解释器的插件绑定、内核位置和可选组件目录；在该环境里直接运行 `pymss install`、`pymss plugins` 或插件命令即可沿用相同绑定，内核更新目录也会随环境检查同步。其他宿主可在目标解释器内调用 `pymss_plugin_manager.environment.register_environment_binding()` 完成同样的关联。
+
+选择顺序为：命令行绑定参数、`PYMSS_PLUGIN_BINDING`、显式旧目录 `PYMSS_PLUGINS_DIR`、当前解释器的登记记录。没有登记的独立 CLI 环境继续使用旧默认目录。记录保存在用户目录 `~/.pymss/environments/`，不会写入 Python 安装目录或 macOS 应用包；`PYMSS_PLUGIN_ENVIRONMENTS_DIR` 可为隔离运行指定记录目录。解释器身份保留虚拟环境链接路径，不把不同 venv 合并为其基础 Python。已存在但损坏的记录会报错；显式指定绑定可以覆盖自动选择。
+
+自动选择内核时保留当前工作目录、解释器的隔离及编码等启动选项，输入文件和本地插件的相对路径含义不变。`python -m pymss` 同样先选择内核，再加载推理依赖；`-I` 或 `-E` 下仍可使用已登记的内核和组件目录。显式绑定参数及上述插件目录环境变量会跳过自动内核选择，适用于独立 CLI 和开发环境。
+
+外部旧目录不会被受管上下文隐式加载。固定管理命令不会先执行插件的 `setup()`；`plugins probe` 才执行独立验证。
 
 持久安装记录、启停意图和进程加载结果分别管理。加载和原生监督进程持有跨进程执行租约，管理操作不能覆盖正在使用的文件；Provider/codec 变更在新进程生效。库调用使用 `PluginPolicy` 传递事件、取消、依赖约束及可选组件事实，不依赖 Studio 模块。
 
