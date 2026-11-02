@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import stat
 from unittest.mock import Mock
 import zipfile
@@ -24,6 +25,16 @@ version = "1.2.3"
 id = "author.demo"
 api_version = 2
 '''
+
+
+@pytest.mark.parametrize("available", [False, True])
+def test_macos_git_shim_requires_developer_tools_without_running_the_installer(monkeypatch, available):
+    monkeypatch.setattr(install_mod, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(install_mod.shutil, "which", lambda name: "/usr/bin/git")
+    probe = Mock(return_value=SimpleNamespace(returncode=0 if available else 1))
+    monkeypatch.setattr(install_mod.subprocess, "run", probe)
+    assert install_mod._git_available() is available
+    assert probe.call_args.args[0] == ["xcode-select", "-p"]
 
 
 @pytest.mark.parametrize("ref", ["--upload-pack=untrusted", "", 123])

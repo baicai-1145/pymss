@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 from pymss.plugins import marketplace
+from pymss.plugins import install as install_mod
 from pymss.plugins.sources import SourceError
 
 
@@ -16,7 +17,7 @@ COMMIT = "a" * 40
 @pytest.fixture(autouse=True)
 def clear_source(monkeypatch):
     monkeypatch.delenv("PYMSS_PLUGINS_SOURCE", raising=False)
-    monkeypatch.setattr(marketplace.shutil, "which", lambda name: "/tools/git")
+    monkeypatch.setattr(install_mod, "_git_available", lambda: True)
     marketplace._SOURCE.set(None)
 
 
@@ -59,7 +60,7 @@ def test_explicit_source_does_not_silently_fall_back(monkeypatch):
 
 
 def test_gitcode_is_not_selected_without_git(monkeypatch):
-    monkeypatch.setattr(marketplace.shutil, "which", lambda name: None)
+    monkeypatch.setattr(install_mod, "_git_available", lambda: False)
     probe = mock.Mock(side_effect=lambda provider: result(provider))
     monkeypatch.setattr(marketplace, "_probe", probe)
     marketplace.fetch_official_catalog(marketplace.GITHUB_REGISTRY)

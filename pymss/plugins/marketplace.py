@@ -8,7 +8,6 @@ from http.client import HTTPException
 import json
 import os
 import re
-import shutil
 import time
 import urllib.parse
 import urllib.request
@@ -86,7 +85,8 @@ def fetch_official_catalog(url: str) -> dict:
     preference = "gitcode" if url == GITCODE_REGISTRY else os.environ.get("PYMSS_PLUGINS_SOURCE", "auto")
     if preference not in {"auto", "github", "gitcode"}:
         raise SourceError("Plugin source must be auto, github, or gitcode")
-    git_available = shutil.which("git") is not None
+    from .install import _git_available
+    git_available = _git_available()
     if preference == "gitcode" and not git_available:
         raise SourceError("GitCode plugin acquisition requires Git. Install Git or select GitHub.")
     providers = (["github", "gitcode"] if git_available else ["github"]) if preference == "auto" else [preference]

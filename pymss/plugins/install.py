@@ -70,7 +70,18 @@ def _is_url(arg: str) -> bool:
 
 
 def _git_available() -> bool:
-    return shutil.which("git") is not None
+    executable = shutil.which("git")
+    if executable is None:
+        return False
+    if sys.platform == "darwin" and Path(executable).resolve() == Path("/usr/bin/git").resolve():
+        # macOS ships a Git shim even without developer tools. Query their
+        # availability without invoking the shim's interactive installer.
+        try:
+            return subprocess.run(["xcode-select", "-p"], stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.DEVNULL, timeout=3).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
+    return True
 
 
 def _fetch_registry(registry_url: str | None = None) -> dict[str, str]:
