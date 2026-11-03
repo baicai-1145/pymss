@@ -21,7 +21,7 @@ pip install pymss
 
 使用 `--device xpu` 强制 Intel GPU，`--device-id` 指定设备编号；传入多个编号时仅使用第一项，目前不支持多 XPU 并行。`--device auto` 的优先级为 CUDA → XPU → NPU → Apple Silicon。XPU 硬件推理目前为实验性支持，显式使用 FP32，即使设置 `use_amp=True` 也不会启用混合精度。bf16 AMP 需要单独验证模型精度和性能。
 
-实测命令、CPU/XPU RTF、SI-SDR 和精度限制见 [英文验证记录](README.md#xpu-validation-sample)、[原始结果](docs/xpu-benchmark.json)与[基准脚本](test/manual/xpu_benchmark.py)。本次样本的人声输出接近静音，不能据此确认真实人声分离精度。
+可通过 `test/manual/xpu_benchmark.py` 在本地硬件上手动对比 FP32 CPU 与 XPU 的推理性能。
 
 ### 昇腾 NPU（Ascend）
 
