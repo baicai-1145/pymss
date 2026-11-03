@@ -128,6 +128,9 @@ def _resolve_public_device(device, inference_params, logger):
             raise RuntimeError("device='npu' requires the torch_npu package with an available Ascend device")
         logger.debug("Using Ascend NPU through torch_npu")
         return "npu", inference_params
+    if requested_device == "xpu":
+        logger.debug("Using Intel GPU through PyTorch XPU")
+        return "xpu", inference_params
     if requested_device in _VENDOR_ALIASES:
         plugin = requires_plugin(requested_device)
         try:
@@ -138,7 +141,7 @@ def _resolve_public_device(device, inference_params, logger):
         return device_type, inference_params
     if requested_device not in {"auto", "cpu", "cuda", "mps"}:
         raise ValueError(
-            "device must be 'auto', 'cpu', 'cuda', 'mps', 'rocm', 'npu', 'mlx', "
+            "device must be 'auto', 'cpu', 'cuda', 'mps', 'rocm', 'npu', 'xpu', 'mlx', "
             "'biren', 'iluvatar', 'metax', 'enflame', 'gcu', 'mlu', 'supa', or 'hygon'"
         )
     return requested_device, inference_params
@@ -1033,7 +1036,7 @@ class MSSeparator:
 
         self.model, self.config = self.load_model()
 
-        if self.torch_device.type != "cpu" and self.config.inference.get("warmup", False):
+        if self.config.inference.get("warmup", False) and torch.device(self.device).type != "cpu":
             self._warmup_model()
 
         if isinstance(self.store_dirs, str):
@@ -1964,3 +1967,6 @@ class MSSeparator:
         if "npu" in self.device:
             self.logger.debug("Clearing NPU cache...")
             torch.npu.empty_cache()
+        if "xpu" in self.device:
+            self.logger.debug("Clearing XPU cache...")
+            torch.xpu.empty_cache()

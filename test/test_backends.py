@@ -24,7 +24,7 @@ def _clean_state(monkeypatch):
 
 
 def test_supported_devices_covers_every_alias():
-    for alias in ("auto", "cpu", "cuda", "rocm", "mps", "mlx", "npu", "gcu", "mlu", "supa", "biren", "iluvatar", "metax", "enflame", "hygon"):
+    for alias in ("auto", "cpu", "cuda", "rocm", "mps", "mlx", "npu", "xpu", "gcu", "mlu", "supa", "biren", "iluvatar", "metax", "enflame", "hygon"):
         assert alias in SUPPORTED_DEVICES
 
 
@@ -78,3 +78,31 @@ def test_install_conv_fallback_patches_on_biren():
     """BIREN's SUDNN aborts the process on dilated convs, so the shim must load."""
     assert install_conv_fallback("supa:0") is True
     assert install_conv_fallback("supa:0") is True
+
+
+def test_warmup_model_runs_without_crashing():
+    from types import SimpleNamespace
+    from pymss.separator import MSSeparator
+
+    separated = []
+    logger = SimpleNamespace(info=lambda *a: None, warning=lambda *a: None)
+    separator = SimpleNamespace(
+        device="cuda:0",
+        separate=lambda silence, pbar=False: separated.append(silence.shape),
+        logger=logger,
+    )
+    MSSeparator._warmup_model(separator, seconds=0.1)
+    assert len(separated) == 1
+    assert separated[0] == (2, int(44100 * 0.1))
+
+
+def test_warmup_gate_evaluated_safely():
+    from pymss.config import AttrDict
+
+    device = "cpu"
+    config = AttrDict({"inference": {"warmup": False}})
+    assert not (config.inference.get("warmup", False) and torch.device(device).type != "cpu")
+    config.inference["warmup"] = True
+    assert not (config.inference.get("warmup", False) and torch.device(device).type != "cpu")
+    device = "cuda:0"
+    assert config.inference.get("warmup", False) and torch.device(device).type != "cpu"

@@ -8,8 +8,6 @@ plugins with unchanged behaviour.
 from __future__ import annotations
 
 import re
-
-import re
 try:  # Python 3.11+
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Chinese vendor images ship 3.10
