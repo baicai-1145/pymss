@@ -19,7 +19,7 @@ pip install torch --index-url https://download.pytorch.org/whl/xpu
 pip install pymss
 ```
 
-使用 `--device xpu` 强制 Intel GPU，`--device-id` 指定设备编号；传入多个编号时仅使用第一项，目前不支持多 XPU 并行。`--device auto` 的优先级为 CUDA → XPU → NPU → Apple Silicon。XPU 当前使用 FP32 推理路径。
+使用 `--device xpu` 强制 Intel GPU，`--device-id` 指定设备编号；传入多个编号时仅使用第一项，目前不支持多 XPU 并行。`--device auto` 的优先级为 CUDA → XPU → NPU → Apple Silicon。XPU 硬件推理目前为实验性支持，显式使用 FP32，即使设置 `use_amp=True` 也不会启用混合精度。bf16 AMP 需要单独验证模型精度和性能。
 
 ### 昇腾 NPU（Ascend）
 

@@ -12,6 +12,8 @@ from tqdm import tqdm
 from pymss_core.modules.vocal_remover import ModelParameters, determine_model_capacity
 from pymss_core.modules.vocal_remover.uvr_lib_v5.vr_network import nets_new
 
+from pymss.utils import _autocast
+
 from .common_separator import CommonSeparator
 from .uvr_lib_v5 import spec_utils
 
@@ -332,9 +334,7 @@ class VRSeparator(CommonSeparator):
                         if self.use_channels_last
                         else x_batch_cpu.to(device=device, non_blocking=True)
                     )
-                    device_type = torch.device(device).type
-                    use_amp = self.use_amp and device_type in ("cuda", "mps", "npu")
-                    with torch.amp.autocast(device_type, dtype=torch.float16, enabled=use_amp):
+                    with _autocast(device, self.use_amp):
                         pred = self.model_run.predict_mask(x_batch)
                     if not pred.size()[3] > 0:
                         raise ValueError("Window size error: h1_shape[3] must be greater than h2_shape[3]")

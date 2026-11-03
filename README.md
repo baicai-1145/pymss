@@ -20,7 +20,7 @@ pip install torch --index-url https://download.pytorch.org/whl/xpu
 pip install pymss
 ```
 
-Use `--device xpu` to force Intel GPU execution and `--device-id` to select a device. When multiple IDs are supplied, only the first is used; multi-XPU parallel execution is not supported. `--device auto` prefers CUDA, then XPU, NPU, and Apple Silicon. XPU currently uses the FP32 inference path.
+Use `--device xpu` to force Intel GPU execution and `--device-id` to select a device. When multiple IDs are supplied, only the first is used; multi-XPU parallel execution is not supported. `--device auto` prefers CUDA, then XPU, NPU, and Apple Silicon. XPU hardware inference is experimental and explicitly uses FP32, even when `use_amp=True`. bf16 AMP requires separate model accuracy and performance validation.
 
 ### AMD ROCm
 

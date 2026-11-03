@@ -11,6 +11,10 @@ from pymss_core import get_model_from_config as _core_get_model_from_config
 from .config import load_config
 from .progress import _ProgressContext
 
+# XPU deliberately stays in FP32 until bf16 AMP has model accuracy benchmarks.
+# Share this policy with the VR inference path; XPU must not inherit fp16 AMP.
+FP32_INFERENCE_DEVICE_TYPES = frozenset({"xpu"})
+
 
 def apply_msst_inference_compat(config, logger=None, *, user_set_chunk_size=False):
     """Normalize MSST-style ``num_overlap`` / ``inference.chunk_size`` for pymss.
@@ -305,6 +309,8 @@ def _autocast(device, enabled):
     Returns:
         Any: Computed result."""
     device_type = torch.device(device).type
+    if device_type in FP32_INFERENCE_DEVICE_TYPES:
+        return nullcontext()
     if enabled and device_type in ("cuda", "mps", "npu"):
         return torch.amp.autocast(device_type, dtype=torch.float16)
     return nullcontext()

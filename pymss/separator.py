@@ -89,6 +89,7 @@ def _npu_runtime_available():
 
 
 def _xpu_runtime_available():
+    """Return True when PyTorch reports an available Intel XPU runtime."""
     try:
         return torch.xpu.is_available()
     except Exception:
@@ -96,6 +97,7 @@ def _xpu_runtime_available():
 
 
 def _validate_device_ids(device_ids, device_count, backend):
+    """Raise ValueError unless all requested accelerator IDs exist and are integers."""
     if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
         isinstance(index, bool) or not isinstance(index, int) or index < 0 for index in device_ids
     ):

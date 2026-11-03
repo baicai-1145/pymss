@@ -982,13 +982,13 @@ def build_parser():
     )
     serve_parser.add_argument("--source", default="modelscope", choices=["modelscope", "huggingface", "hf-mirror"])
     serve_parser.add_argument("--endpoint", help="Custom resolve endpoint. It must serve files by relative path.")
-    serve_parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda", "rocm", "mps", "npu", "mlx"])
+    serve_parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda", "rocm", "mps", "npu", "xpu", "mlx"])
     serve_parser.add_argument(
         "--device-id",
         action="append",
         type=int,
         dest="device_ids",
-        help="CUDA device id. Can be repeated.",
+        help="Accelerator device id. Can be repeated; XPU/NPU use the first.",
     )
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", default=8000, type=int)
