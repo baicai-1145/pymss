@@ -142,20 +142,28 @@ def _clone(url: str, dest: Path, subpath: str | None = None, ref: str | None = N
 
     with tempfile.TemporaryDirectory(prefix="pymss-git-", dir=temporary_root) as temporary:
         repo = Path(temporary) / "repo"
+        git_repo = str(repo)
+        if sys.platform == "win32":
+            # Git directory arguments do not accept Win32 extended path prefixes.
+            if git_repo.startswith("\\\\?\\UNC\\"):
+                git_repo = "\\\\" + git_repo[8:]
+            elif git_repo.startswith("\\\\?\\") and git_repo[5:7] == ":\\":
+                git_repo = git_repo[4:]
+        git_command = ["git", "-c", "core.longpaths=true"] if sys.platform == "win32" else ["git"]
         try:
             def git(*args: str) -> str:
                 return subprocess.run(  # noqa: S603, S607
-                    ["git", *args], check=True, capture_output=True, text=True, timeout=180,
+                    [*git_command, *args], check=True, capture_output=True, text=True, timeout=180,
                 ).stdout.strip()
 
             if ref:
-                git("init", str(repo))
-                git("-C", str(repo), "remote", "add", "origin", url)
-                git("-C", str(repo), "fetch", "--depth", "1", "origin", ref)
-                git("-C", str(repo), "checkout", "--detach", "FETCH_HEAD")
+                git("init", git_repo)
+                git("-C", git_repo, "remote", "add", "origin", url)
+                git("-C", git_repo, "fetch", "--depth", "1", "origin", ref)
+                git("-C", git_repo, "checkout", "--detach", "FETCH_HEAD")
             else:
-                git("clone", "--depth", "1", url, str(repo))
-            commit = git("-C", str(repo), "rev-parse", "HEAD")
+                git("clone", "--depth", "1", url, git_repo)
+            commit = git("-C", git_repo, "rev-parse", "HEAD")
         except (subprocess.SubprocessError, OSError) as exc:
             detail = exc.stderr.strip() if isinstance(exc, subprocess.CalledProcessError) else str(exc)
             raise InstallError(f"git source acquisition failed: {detail}") from exc

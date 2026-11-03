@@ -1,10 +1,14 @@
-"""Offline coverage for GitHub plugin acquisition and archive validation."""
+"""Offline coverage for plugin source acquisition and archive validation."""
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 import io
 import json
 from pathlib import Path
+import shutil
+import subprocess
+import sys
 from types import SimpleNamespace
 import stat
 from unittest.mock import Mock
@@ -45,6 +49,80 @@ def test_git_source_rejects_unsafe_refs_before_running_git(tmp_path, monkeypatch
     with pytest.raises(install_mod.InstallError, match="ref"):
         install_mod._clone("ssh://example.invalid/plugins.git", tmp_path / "source", ref=ref)
     run.assert_not_called()
+
+
+@pytest.mark.skipif(sys.platform != "win32" or shutil.which("git") is None, reason="Requires Git for Windows")
+@pytest.mark.parametrize("pinned", [False, True])
+@pytest.mark.parametrize("long_path", [False, True])
+def test_windows_git_acquisition_handles_extended_paths_with_spaces(tmp_path, monkeypatch, pinned, long_path):
+    source = tmp_path / "source repository"
+    source.mkdir()
+    (source / "pyproject.toml").write_bytes(MANIFEST)
+    (source / "__init__.py").write_text("def setup(plugin): pass\n", encoding="utf-8")
+    payload = Path("runtime")
+    if long_path:
+        for index in range(5):
+            payload /= f"plugin storage directory {index}"
+    payload /= "engine.bin"
+    binary = source / payload
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"\x00\x01\xff")
+
+    def git(*args):
+        return subprocess.run(["git", "-c", "core.longpaths=true", *args],
+                              check=True, capture_output=True, text=True).stdout.strip()
+
+    git("init", str(source))
+    git("-C", str(source), "add", ".")
+    git("-C", str(source), "-c", "user.name=Plugin Test", "-c", "user.email=plugin@example.invalid",
+        "commit", "-m", "Add plugin")
+    commit = git("-C", str(source), "rev-parse", "HEAD")
+    store = Path("\\\\?\\" + str(tmp_path / "Studio install"))
+    transactions = store / "transactions"
+    transactions.mkdir(parents=True)
+    url = "https://gitcode.com/owner/plugin"
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", f"url.{source.as_uri()}.insteadOf")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", url)
+
+    result = install_mod.install(url, plugins_dir=store / "installed", no_deps=True,
+                                 ref=commit if pinned else None, temporary_root=transactions)
+
+    assert result.name == "author.demo"
+    assert (result.path / "pyproject.toml").read_text(encoding="utf-8") == MANIFEST.decode()
+    assert (result.path / payload).read_bytes() == b"\x00\x01\xff"
+    if long_path:
+        assert len(str(result.path / payload)) > 260
+    record = json.loads((result.path / ".pymss-install.json").read_text(encoding="utf-8"))
+    assert record["resolved_commit"] == commit
+    assert not (result.path / ".git").exists()
+    assert list(transactions.iterdir()) == []
+
+
+@pytest.mark.parametrize(("platform", "temporary", "expected"), [
+    ("win32", r"\\?\C:\plugin cache", r"C:\plugin cache"),
+    ("win32", r"\\?\UNC\server\plugin cache", r"\\server\plugin cache"),
+    ("win32", r"C:\plugin cache", r"C:\plugin cache"),
+    ("darwin", "/tmp/plugin cache", "/tmp/plugin cache"),
+    ("linux", "/tmp/plugin cache", "/tmp/plugin cache"),
+])
+def test_git_directory_arguments_use_platform_paths(tmp_path, monkeypatch, platform, temporary, expected):
+    class StopGit(RuntimeError):
+        pass
+
+    def run(command, **options):
+        assert command[-1] == str(Path(expected) / "repo")
+        assert command[:-1] == (["git", "-c", "core.longpaths=true", "clone", "--depth", "1",
+                                "ssh://example.invalid/plugins.git"] if platform == "win32" else
+                               ["git", "clone", "--depth", "1", "ssh://example.invalid/plugins.git"])
+        raise StopGit
+
+    monkeypatch.setattr(install_mod, "sys", SimpleNamespace(platform=platform))
+    monkeypatch.setattr(install_mod, "_git_available", lambda: True)
+    monkeypatch.setattr(install_mod.tempfile, "TemporaryDirectory", lambda **options: nullcontext(temporary))
+    monkeypatch.setattr(install_mod.subprocess, "run", run)
+    with pytest.raises(StopGit):
+        install_mod._clone("ssh://example.invalid/plugins.git", tmp_path / "plugin")
 
 
 @pytest.fixture(autouse=True)
