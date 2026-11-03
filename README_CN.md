@@ -21,6 +21,8 @@ pip install pymss
 
 使用 `--device xpu` 强制 Intel GPU，`--device-id` 指定设备编号；传入多个编号时仅使用第一项，目前不支持多 XPU 并行。`--device auto` 的优先级为 CUDA → XPU → NPU → Apple Silicon。XPU 硬件推理目前为实验性支持，显式使用 FP32，即使设置 `use_amp=True` 也不会启用混合精度。bf16 AMP 需要单独验证模型精度和性能。
 
+实测命令、CPU/XPU RTF、SI-SDR 和精度限制见 [英文验证记录](README.md#xpu-validation-sample)、[原始结果](docs/xpu-benchmark.json)与[基准脚本](test/manual/xpu_benchmark.py)。本次样本的人声输出接近静音，不能据此确认真实人声分离精度。
+
 ### 昇腾 NPU（Ascend）
 
 pymss 通过 `torch_npu` 支持华为昇腾 NPU。请先安装与 CANN 工具链及 torch 版本匹配的昇腾 PyTorch 适配器（参见 [Ascend torch_npu 兼容性矩阵](https://github.com/Ascend/pytorch/blob/master/COMPATIBILITY.en.md)），选择 PyTorch 2.7.1 或更高版本的组合，再安装 pymss：

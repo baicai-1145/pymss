@@ -22,6 +22,43 @@ pip install pymss
 
 Use `--device xpu` to force Intel GPU execution and `--device-id` to select a device. When multiple IDs are supplied, only the first is used; multi-XPU parallel execution is not supported. `--device auto` prefers CUDA, then XPU, NPU, and Apple Silicon. XPU hardware inference is experimental and explicitly uses FP32, even when `use_amp=True`. bf16 AMP requires separate model accuracy and performance validation.
 
+
+#### XPU validation sample
+
+Review validation on Ubuntu 26.04.1, Intel Core i7-12700H (4 Torch CPU threads),
+Arc A770M and PyTorch `2.10.0+xpu` used the locally cached
+`bs_roformer_voc_hyperacev2` model and the first 10 seconds of a local stereo
+44.1 kHz clip. Both devices used FP32, batch size 1, chunk size 132300 and
+overlap size 22050. Each device ran one warmup followed by one timed separation;
+model loading, decoding and output encoding are excluded. RTF is elapsed time
+divided by audio duration (lower is faster).
+
+```bash
+.venv/bin/python -c 'import torch; print(torch.xpu.is_available()); print(torch.xpu.get_device_name(0))'
+# True
+# Intel(R) Arc(TM) A770M Graphics
+.venv/bin/python -m test.manual.xpu_benchmark --input .tmp/input.wav
+```
+
+| Device | Separation time | RTF |
+| --- | ---: | ---: |
+| CPU | 25.8937 s | 2.58937 |
+| XPU | 1.34794 s | 0.13479 |
+
+`pymss.kit.sdr` with CPU as reference reported mean channel SI-SDR of
+13.3938 dB for vocals and 94.5146 dB for the instrumental output. The vocal
+output is nearly silent (CPU RMS `8.48e-7`, XPU RMS `8.51e-7`), so this clip
+is insufficient to establish vocal separation accuracy. These are output
+agreement measurements, not ground-truth separation quality or general model
+performance claims. More representative vocal material is needed before
+promoting XPU beyond experimental support or enabling bf16.
+
+Automatic selection returned `xpu:0`; the real XPU STFT/ISTFT round trip had
+maximum absolute error `7.15e-7`, and chunked model inference and cache cleanup
+completed. [Raw results and input PCM hash](docs/xpu-benchmark.json) and the
+[benchmark script](test/manual/xpu_benchmark.py) are included. The local input
+clip is not distributed; pass your own audio to reproduce the procedure.
+
 ### AMD ROCm
 
 
