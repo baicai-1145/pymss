@@ -56,6 +56,21 @@ class InstallError(Exception):
     """Raised when a plugin install fails."""
 
 
+def _clear_macos_attributes(plugin_dir: Path) -> None:
+    """Clear attributes on the acquired copy before it can be loaded or published."""
+    if sys.platform != "darwin":
+        return
+    try:
+        # -s operates on symlinks themselves so recursive cleanup stays in this copy.
+        subprocess.run(
+            ["/usr/bin/xattr", "-rc", "-s", str(plugin_dir.absolute())],
+            check=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        detail = (error.stderr or str(error)) if isinstance(error, subprocess.CalledProcessError) else str(error)
+        raise InstallError(f"macOS plugin attribute cleanup failed: {detail.strip()}") from error
+
+
 @dataclass
 class InstallResult:
     name: str
@@ -399,6 +414,7 @@ def install(
         _write_install_manifest(staged, name=name, source=source, url=url,
                                 subpath=subpath, ref=ref, meta=meta, registry_url=resolved_registry_url,
                                 resolved_commit=source_meta.get("resolved_commit"))
+        _clear_macos_attributes(staged)
         staged.rename(dest)
         return InstallResult(name=name, path=dest, source=source,
                              version=meta.get("version"), dependencies_installed=installed_deps)

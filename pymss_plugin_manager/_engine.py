@@ -828,7 +828,7 @@ def _verify_candidate(root: Path, candidate: Path, name: str, *, candidate_depen
 
 def _acquire_source(target: str, directory: Path, subpath: str | None = None):
     from datetime import datetime, timezone
-    from pymss.plugins.install import InstallResult, install, list_available
+    from pymss.plugins.install import InstallResult, install, list_available, _clear_macos_attributes
 
     local_root = _LOCAL_SOURCE.get()
     from_default = bool(local_root and _NAME.fullmatch(target))
@@ -888,6 +888,7 @@ def _acquire_source(target: str, directory: Path, subpath: str | None = None):
         "defaultRepository": from_default,
         **({"sourceContext": {"registryUrl": _REGISTRY_URL.get(), "localSource": str(local_root)}} if from_default else {}),
     }), encoding="utf-8")
+    _clear_macos_attributes(destination)
     return InstallResult(name=name, path=destination, source="path", version=version)
 
 

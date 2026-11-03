@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -43,6 +44,55 @@ def service(root):
 def release_leases():
     yield
     release_runtime()
+
+
+def test_macos_management_cleans_each_acquired_copy_before_verification(tmp_path, monkeypatch):
+    install_mod = importlib.import_module("pymss.plugins.install")
+    events = []
+    package = source(tmp_path)
+
+    def cleanup(command, **options):
+        assert command[:3] == ["/usr/bin/xattr", "-rc", "-s"]
+        candidate = Path(command[-1])
+        assert candidate.is_relative_to(tmp_path / "plugins")
+        assert candidate != package
+        events.append("cleanup")
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    def probe(root, paths):
+        events.append("probe")
+        return [{"name": path.name, "managed": True, "loaded": True} for path in (root / "installed").iterdir()]
+
+    monkeypatch.setattr(install_mod, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(install_mod.subprocess, "run", cleanup)
+    cpu = PluginService(PluginContext(tmp_path / "plugins/cpu"), PluginPolicy(probe=probe))
+    cuda = PluginService(PluginContext(tmp_path / "plugins/cuda"), PluginPolicy(probe=probe))
+    actions = [lambda: cpu.install(str(package)), lambda: cpu.update("author.provider"),
+               lambda: cpu.manage("repair", name="author.provider"), lambda: cuda.prepare("author.provider")]
+    for action in actions:
+        events.clear()
+        action()
+        assert events[0] == "cleanup"
+        assert events.count("cleanup") == 1
+        assert "probe" in events
+
+
+def test_failed_macos_cleanup_keeps_the_installed_binding_and_skips_verification(tmp_path, monkeypatch):
+    install_mod = importlib.import_module("pymss.plugins.install")
+    manager = service(tmp_path / "plugins/cpu")
+    package = source(tmp_path)
+    manager.install(str(package))
+    installed = manager.context.root / "installed/author.provider"
+    before = {p.relative_to(installed): p.read_bytes() for p in installed.rglob("*") if p.is_file()}
+    probe = mock.Mock(side_effect=AssertionError("The candidate must not be loaded"))
+    manager.policy.probe = probe
+    monkeypatch.setattr(install_mod, "sys", SimpleNamespace(platform="darwin"))
+    monkeypatch.setattr(install_mod.subprocess, "run", mock.Mock(side_effect=
+        subprocess.CalledProcessError(1, "xattr", stderr="Operation not permitted")))
+    with pytest.raises(install_mod.InstallError, match="Operation not permitted"):
+        manager.update("author.provider")
+    assert {p.relative_to(installed): p.read_bytes() for p in installed.rglob("*") if p.is_file()} == before
+    probe.assert_not_called()
 
 
 def test_inventory_api_import_and_query_do_not_initialize_the_core(tmp_path):
