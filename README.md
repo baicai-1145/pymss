@@ -13,6 +13,19 @@ If you want the CUDA build of PyTorch, install it first:
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
 
+### Intel XPU (Arc)
+
+Linux requires working Level Zero and OpenCL drivers. Install the official PyTorch XPU wheel before pymss:
+
+```sh
+pip install torch --index-url https://download.pytorch.org/whl/xpu
+pip install pymss
+```
+
+Use `--device xpu` to force Intel GPU execution and `--device-id` to select a device. When multiple IDs are supplied, only the first is used; multi-XPU parallel execution is not supported. `--device auto` prefers CUDA, then XPU, NPU, and Apple Silicon. XPU hardware inference is experimental and explicitly uses FP32, even when `use_amp=True`. bf16 AMP requires separate model accuracy and performance validation.
+
+A manual benchmark script is available at `test/manual/xpu_benchmark.py` to compare FP32 CPU and XPU inference performance on local hardware.
+
 ### AMD ROCm
 
 
@@ -40,7 +53,7 @@ Choose a combination with PyTorch 2.7.1 or later, then install pymss:
 pip install pymss
 ```
 
-Use `--device npu` (or `device="auto"`, which prefers CUDA, then NPU, then Apple Silicon).
+Use `--device npu` (or `device="auto"`, which prefers CUDA, then XPU, NPU, and Apple Silicon).
 `--device-id` selects the NPU index; if multiple IDs are supplied, only the first is used.
 Multi-NPU parallel execution is not supported. On NPU, STFT/ISTFT uses `torch.fft` primitives.
 RNN/LSTM/GRU layers use a CPU inference fallback for affected `torch_npu` builds, with results
@@ -113,7 +126,7 @@ pymss infer bs_roformer_voc_hyperacev2 \
   --format wav     # wav | flac | mp3 | m4a | aac | opus | vorbis | ogg
 ```
 
-`--device auto` uses CUDA first when an NVIDIA GPU is available, then Ascend NPU (`torch_npu`), then Apple Silicon MLX. Use `--device npu` to force Ascend NPU, `--device mlx` to force MLX, or `--device mps` to force PyTorch MPS.
+`--device auto` prefers CUDA, then Intel XPU, Ascend NPU (`torch_npu`), and Apple Silicon MLX. Use `--device xpu` to force Intel GPU, `--device npu` to force Ascend NPU, `--device mlx` to force MLX, or `--device mps` to force PyTorch MPS.
 `--save-as-folder` writes each input audio file's stems under a subfolder named after that audio file, for example `results/song/song_vocals.wav`.
 
 The default download source is ModelScope. You can choose another source or model directory:
@@ -420,7 +433,7 @@ For a detailed explanation of every `MSSeparator` argument, see the [MSSeparator
     'vr']
 - model_path: The path to the model file.
 - config_path: The path to the configuration file.
-- device: The type of device, default is 'auto'. Must be one of ['auto', 'cuda', 'npu', 'mps', 'cpu']
+- device: The type of device, default is 'auto'. Must be one of ['auto', 'cuda', 'rocm', 'npu', 'xpu', 'mps', 'mlx', 'cpu']
 - device_ids: List of device IDs, default is [0].
 - output_format: The output audio format, default is 'wav'. One of wav, flac, mp3, m4a, aac, opus, vorbis, ogg.
 - use_tta: Whether to use TTA, default is False. Using TTA will triple the processing time with a little bit improvement in quality.

@@ -11,6 +11,10 @@ from pymss_core import get_model_from_config as _core_get_model_from_config
 from .config import load_config
 from .progress import _ProgressContext
 
+# XPU deliberately stays in FP32 until bf16 AMP has model accuracy benchmarks.
+# Share this policy with the VR inference path; XPU must not inherit fp16 AMP.
+FP32_INFERENCE_DEVICE_TYPES = frozenset({"xpu"})
+
 
 def apply_msst_inference_compat(config, logger=None, *, user_set_chunk_size=False):
     """Normalize MSST-style ``num_overlap`` / ``inference.chunk_size`` for pymss.
@@ -305,6 +309,8 @@ def _autocast(device, enabled):
     Returns:
         Any: Computed result."""
     device_type = torch.device(device).type
+    if device_type in FP32_INFERENCE_DEVICE_TYPES:
+        return nullcontext()
     if enabled and device_type in ("cuda", "mps", "npu"):
         return torch.amp.autocast(device_type, dtype=torch.float16)
     return nullcontext()
@@ -648,7 +654,7 @@ def _finalize_overlap(result, counter, length_init, border):
     counter = counter[..., start:end]
     output_shape = result.shape[:-1] + (end - start,)
 
-    if torch.device(result.device).type not in ("cuda", "npu"):
+    if torch.device(result.device).type not in ("cuda", "npu", "xpu"):
         estimated_sources = (result / counter).cpu().numpy()
         np.nan_to_num(estimated_sources, copy=False, nan=0.0)
         return estimated_sources
@@ -1098,7 +1104,7 @@ def demix_track(config, model, mix, device, pbar=False, source_indices=None, pro
     mix, length_init = _prepare_mix_for_chunks(mix, border)
     chunk_starts, chunk_windows = _build_chunk_plan(mix.shape[1], C, step, fade_size)
     device_type = torch.device(device).type
-    use_complete_fast_path = device_type in ("cuda", "cpu", "npu")
+    use_complete_fast_path = device_type in ("cuda", "cpu", "npu", "xpu")
     mix_device = _model_mix(mix, device)
 
     with _autocast(device, _resolve_use_amp(config)):

@@ -88,6 +88,25 @@ def _npu_runtime_available():
         return False
 
 
+def _xpu_runtime_available():
+    """Return True when PyTorch reports an available Intel XPU runtime."""
+    try:
+        return torch.xpu.is_available()
+    except Exception:
+        return False
+
+
+def _validate_device_ids(device_ids, device_count, backend):
+    """Raise ValueError unless all requested accelerator IDs exist and are integers."""
+    if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
+        isinstance(index, bool) or not isinstance(index, int) or index < 0 for index in device_ids
+    ):
+        raise ValueError(f"{backend} device_ids must be a non-empty list of non-negative integers")
+    invalid_ids = [index for index in device_ids if index >= device_count]
+    if invalid_ids:
+        raise ValueError(f"{backend} device ID(s) {invalid_ids} are outside the available range [0, {device_count})")
+
+
 def _resolve_public_device(device, inference_params, logger):
     """Resolve public device.
 
@@ -117,8 +136,13 @@ def _resolve_public_device(device, inference_params, logger):
             raise RuntimeError("device='npu' requires the torch_npu package with an available Ascend device")
         logger.debug("Using Ascend NPU through torch_npu")
         return "npu", inference_params
+    if requested_device == "xpu":
+        if not _xpu_runtime_available():
+            raise RuntimeError("device='xpu' requires an XPU-enabled PyTorch build with a visible Intel GPU")
+        logger.debug("Using Intel GPU through PyTorch XPU")
+        return "xpu", inference_params
     if requested_device not in {"auto", "cpu", "cuda", "mps"}:
-        raise ValueError("device must be 'auto', 'cpu', 'cuda', 'mps', 'rocm', 'npu', or 'mlx'")
+        raise ValueError("device must be 'auto', 'cpu', 'cuda', 'mps', 'rocm', 'npu', 'xpu', or 'mlx'")
     return requested_device, inference_params
 
 
@@ -134,42 +158,33 @@ def _select_device(device, device_ids, logger):
         Any: Computed result."""
     if device == "npu":
         device_count = torch.npu.device_count()
-        if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
-            isinstance(index, bool) or not isinstance(index, int) or index < 0 for index in device_ids
-        ):
-            raise ValueError("NPU device_ids must be a non-empty list of non-negative integers")
-        invalid_ids = [index for index in device_ids if index >= device_count]
-        if invalid_ids:
-            raise ValueError(f"NPU device ID(s) {invalid_ids} are outside the available range [0, {device_count})")
+        _validate_device_ids(device_ids, device_count, "NPU")
         logger.debug("Ascend NPU is available through torch_npu, setting Torch device to NPU")
         return f"npu:{device_ids[0]}"
+    if device == "xpu":
+        _validate_device_ids(device_ids, torch.xpu.device_count(), "XPU")
+        logger.debug("Intel GPU is available through PyTorch XPU")
+        return f"xpu:{device_ids[0]}"
     if device not in ["cpu", "mps"]:
         cuda_available = torch.cuda.is_available()
         if device == "cuda" and not cuda_available:
             raise RuntimeError("device='cuda' requires a CUDA or ROCm-enabled PyTorch build with an available GPU")
         if cuda_available:
-            if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
-                isinstance(index, bool) or not isinstance(index, int) or index < 0 for index in device_ids
-            ):
-                raise ValueError("CUDA device_ids must be a non-empty list of non-negative integers")
             device_count = torch.cuda.device_count()
-            invalid_ids = [index for index in device_ids if index >= device_count]
-            if invalid_ids:
-                raise ValueError(f"CUDA device ID(s) {invalid_ids} are outside the available range [0, {device_count})")
+            _validate_device_ids(device_ids, device_count, "CUDA")
             if getattr(torch.version, "hip", None):
                 logger.debug("ROCm/HIP device is available in Torch, setting Torch device to CUDA device (backed by ROCm)")
             else:
                 logger.debug("CUDA is available in Torch, setting Torch device to CUDA")
             return f"cuda:{device_ids[0]}"
+        if _xpu_runtime_available():
+            xpu_count = torch.xpu.device_count()
+            _validate_device_ids(device_ids, xpu_count, "XPU")
+            logger.debug("auto device selected Intel GPU through PyTorch XPU")
+            return f"xpu:{device_ids[0]}"
         if _npu_runtime_available():
             npu_count = torch.npu.device_count()
-            if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
-                isinstance(index, bool) or not isinstance(index, int) or index < 0 for index in device_ids
-            ):
-                raise ValueError("NPU device_ids must be a non-empty list of non-negative integers")
-            invalid_ids = [index for index in device_ids if index >= npu_count]
-            if invalid_ids:
-                raise ValueError(f"NPU device ID(s) {invalid_ids} are outside the available range [0, {npu_count})")
+            _validate_device_ids(device_ids, npu_count, "NPU")
             logger.debug("auto device selected Ascend NPU through torch_npu")
             return f"npu:{device_ids[0]}"
         if torch.backends.mps.is_available():
@@ -739,15 +754,16 @@ class MSSeparator:
             VR models use built-in metadata instead of an MSS YAML config.
             Defaults to None.
         device (str, optional): Runtime device. Valid values are ``auto``,
-            ``cpu``, ``cuda``, ``rocm``, ``mps``, and ``mlx``. ``auto`` chooses CUDA
-            first, then Apple MPS, then CPU. ``rocm`` is a public shortcut for
-            AMD ROCm GPUs and maps to the ``cuda`` device path (ROCm PyTorch
-            exposes HIP devices as ``cuda``). ``mlx`` is a public shortcut for
-            Apple Silicon MLX execution through the MPS device path. Defaults
-            to ``"auto"``.
-        device_ids (list[int], optional): CUDA device IDs. Multiple IDs can
-            enable ``torch.nn.DataParallel`` for supported Torch models. This
-            does not select multiple MPS or MLX devices. Defaults to ``[0]``.
+            ``cpu``, ``cuda``, ``rocm``, ``npu``, ``xpu``, ``mps``, and ``mlx``.
+            ``auto`` chooses CUDA, XPU, NPU, Apple MPS, then CPU. ``rocm`` is a
+            public shortcut for AMD ROCm GPUs and maps to the ``cuda`` device
+            path (ROCm PyTorch exposes HIP devices as ``cuda``). ``mlx`` is a
+            public shortcut for Apple Silicon MLX execution through the MPS
+            device path. Defaults to ``"auto"``.
+        device_ids (list[int], optional): Accelerator device IDs. Multiple IDs
+            can enable ``torch.nn.DataParallel`` for supported Torch models on
+            CUDA. XPU and NPU use only the first ID. This does not select
+            multiple MPS or MLX devices. Defaults to ``[0]``.
         output_format (str, optional): Format used by ``process_folder()`` and
             ``save_audio()``. Supported values are ``wav``, ``flac``, ``mp3``,
             and ``m4a``. Defaults to ``"wav"``.
@@ -853,10 +869,11 @@ class MSSeparator:
             config_path (str | os.PathLike | None, optional): YAML config path.
                 If omitted, pymss tries ``model_path + ".yaml"``. Defaults to
                 None.
-            device (str, optional): ``auto``, ``cpu``, ``cuda``, ``rocm``, ``mps``, or
-                ``mlx``. Defaults to ``"auto"``.
-            device_ids (list[int], optional): CUDA device IDs used when CUDA
-                and DataParallel are available. Defaults to ``[0]``.
+            device (str, optional): ``auto``, ``cpu``, ``cuda``, ``rocm``,
+                ``npu``, ``xpu``, ``mps``, or ``mlx``. Defaults to ``"auto"``.
+            device_ids (list[int], optional): Accelerator device IDs. CUDA can
+                use multiple IDs with DataParallel; XPU and NPU use the first.
+                Defaults to ``[0]``.
             output_format (str, optional): Saved audio format: ``wav``,
                 ``flac``, ``mp3``, or ``m4a``. Defaults to ``"wav"``.
             use_tta (bool, optional): Enables test-time augmentation. Defaults
@@ -1853,7 +1870,7 @@ class MSSeparator:
             None: This callable does not accept user-provided arguments.
 
         Returns:
-            None: Python garbage collection runs, and CUDA or MPS/MLX caches are
+            None: Python garbage collection runs, and accelerator caches are
             emptied for the active device."""
         self.logger.debug("Running garbage collection...")
         gc.collect()
@@ -1867,3 +1884,6 @@ class MSSeparator:
         if "npu" in self.device:
             self.logger.debug("Clearing NPU cache...")
             torch.npu.empty_cache()
+        if "xpu" in self.device:
+            self.logger.debug("Clearing XPU cache...")
+            torch.xpu.empty_cache()

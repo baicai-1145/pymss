@@ -201,7 +201,7 @@ def wave_to_spectrogram(wave, hop_length, n_fft, mp, band, is_v51_model=False, t
 
 def _torch_stft(wave, n_fft, hop_length, device):
     device_type = None if device is None else torch.device(device).type
-    if device_type not in ("cuda", "npu"):
+    if device_type not in ("cuda", "npu", "xpu"):
         return None
     wave_t = torch.from_numpy(np.ascontiguousarray(wave)).to(device)
     if device_type == "npu":
@@ -234,7 +234,7 @@ def _torch_stft(wave, n_fft, hop_length, device):
 
 def _torch_istft(spec, hop_length, device):
     device_type = None if device is None else torch.device(device).type
-    if device_type not in ("cuda", "npu"):
+    if device_type not in ("cuda", "npu", "xpu"):
         return None
     n_fft = (spec.shape[1] - 1) * 2
     spec_t = torch.from_numpy(np.ascontiguousarray(spec)).to(device)

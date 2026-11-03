@@ -11,6 +11,7 @@ from test.test_separator_device_defaults import DummyLogger
 
 def _available_npu(monkeypatch):
     monkeypatch.setattr(separator_module, "_npu_runtime_available", lambda: True)
+    monkeypatch.setattr(separator_module, "_xpu_runtime_available", lambda: False)
     monkeypatch.setattr(torch, "npu", SimpleNamespace(device_count=lambda: 3), raising=False)
 
 
