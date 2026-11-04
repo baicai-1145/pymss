@@ -9,6 +9,7 @@ import torch
 import numpy as np
 from yaml import YAMLError
 import platform
+import sys
 import subprocess
 from time import time
 from tqdm import tqdm
@@ -1097,8 +1098,12 @@ class MSSeparator:
 
         Returns:
             None: Operating system, Python, and PyTorch versions are logged."""
-        os_name = platform.system()
-        os_version = platform.version()
+        if sys.platform == "win32":
+            os_name = "Windows"
+            os_version = ".".join(map(str, sys.getwindowsversion()[:3]))
+        else:
+            os_name = platform.system()
+            os_version = platform.version()
         self.logger.debug(f"Operating System: {os_name} {os_version}")
 
         python_version = platform.python_version()

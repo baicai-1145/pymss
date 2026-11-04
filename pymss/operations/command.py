@@ -11,13 +11,14 @@ from contextlib import contextmanager
 import math
 import os
 from pathlib import Path, PurePosixPath
-import platform
 import re
 import shutil
 import stat
 import tempfile
 import tomllib
 from typing import Any, Mapping
+
+from pymss_plugin_manager._platform import machine as platform_machine
 
 from . import OperationContext, OperationError, OperationSpec
 from ._command_process import run_command_process
@@ -57,7 +58,7 @@ def _executable(root: Path, value: str) -> Path:
 def current_target() -> str:
     import sys
 
-    machine = platform.machine().lower()
+    machine = platform_machine().lower()
     architecture = {"amd64": "x86_64", "aarch64": "arm64"}.get(machine, machine)
     return f"{sys.platform}-{architecture}"
 

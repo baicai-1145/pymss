@@ -5,9 +5,10 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 import os
-import platform
 import sys
 from typing import Callable, Iterator, Any
+
+from ._platform import machine
 
 
 def python_identity(executable: str | Path) -> str:
@@ -26,7 +27,7 @@ def python_identity(executable: str | Path) -> str:
 def environment_identity() -> dict:
     return {"python": python_identity(sys.executable), "prefix": python_identity(sys.prefix),
             "pythonVersion": list(sys.version_info[:2]), "platform": sys.platform,
-            "architecture": platform.machine().lower()}
+            "architecture": machine().lower()}
 
 
 @dataclass(frozen=True)

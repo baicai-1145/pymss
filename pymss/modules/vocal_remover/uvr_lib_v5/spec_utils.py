@@ -1,5 +1,6 @@
 import math
 import platform
+import sys
 import traceback
 
 import librosa
@@ -9,7 +10,7 @@ import torch
 
 ARM = "arm"
 wav_resolution = (
-    "polyphase" if platform.system() == "Darwin" and (platform.processor() == ARM or ARM in platform.platform()) else "soxr_hq"
+    "polyphase" if sys.platform == "darwin" and (platform.processor() == ARM or ARM in platform.platform()) else "soxr_hq"
 )
 
 
