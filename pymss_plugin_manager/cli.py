@@ -136,6 +136,14 @@ def run(args, *, action=None):
                 print(f"{name}: check failed: {update['error']}")
             elif update.get("up_to_date"):
                 print(f"{name}: up to date ({update.get('remote_version') or '?'})")
+            elif update.get("status") == "older":
+                print(f"{name}: source version is older ({update.get('local_version') or '?'} -> {update.get('remote_version') or '?'})")
+            elif update.get("status") == "incomparable":
+                print(f"{name}: versions cannot be compared ({update.get('local_version') or '?'} -> {update.get('remote_version') or '?'})")
+            elif update.get("status") == "source_changed":
+                print(f"{name}: source repository has new commits; plugin content is unconfirmed")
+            elif update.get("status") == "content":
+                print(f"{name}: plugin content has changed ({update.get('remote_version') or '?'})")
             else:
                 print(f"{name}: update available ({update.get('local_version') or '?'} -> {update.get('remote_version') or '?'})")
     return exit_code

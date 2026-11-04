@@ -63,7 +63,7 @@ class PluginService:
                     _engine.application_inventory.merge(self.context.root, [], set())
                     self._identity(write=True)
             if action == "check_updates":
-                updates = self._check_sources(payload.get("taskId"))
+                updates = self._check_sources(payload.get("taskId"), name=payload.get("name"))
             elif action == "install":
                 updates = _engine.manage({**payload, "action": action})
             else:
@@ -97,18 +97,20 @@ class PluginService:
             raise ValueError("Invalid recorded plugin source context")
         return replace(self.context, registry_url=registry, local_source=Path(local) if local else None)
 
-    def _check_sources(self, task_id):
+    def _check_sources(self, task_id, *, name=None):
         from . import _engine
         groups, updates = {}, {}
         intents = _engine._application_state(self.context.root)[0]["plugins"]
         for plugin in [*_engine._installed(self.context.root), *_engine._installed(self.context.root, disabled=True)]:
+            if name is not None and plugin.name != name:
+                continue
             if intents.get(plugin.name, {}).get("state") == "removed":
                 continue
             try:
                 context = self._origin_context(plugin.name)
                 groups.setdefault(context, set()).add(plugin.name)
             except ValueError as error:
-                updates[plugin.name] = {"error": str(error)}
+                updates[plugin.name] = _engine._update_check_error(error)
         for context, names in groups.items():
             with use(context, self.policy):
                 updates.update(_engine._check_updates(self.context.root, task_id, names=names))

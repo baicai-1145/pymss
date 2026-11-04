@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import os
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
@@ -473,11 +474,398 @@ def test_immutable_catalog_commits_detect_same_version_updates_on_both_hosts(tmp
     receipt.write_text(json.dumps(metadata), encoding="utf-8")
     entry = {"name": "author.provider", "url": url, "version": "1.0", "ref": remote_commit}
     with mock.patch("pymss.plugins.install.list_available", return_value=[entry]), \
+         mock.patch("pymss.plugins.install._fetch_remote_meta", side_effect=AssertionError("Already pinned")), \
          mock.patch("pymss.plugins.sources.resolve_github_commit", side_effect=AssertionError("Already pinned")):
         result = manager.check_updates()["author.provider"]
     assert result["remote_commit"] == remote_commit
     assert result["up_to_date"] == (remote_commit == "a" * 40)
-    assert result["content_changed"] == (remote_commit != "a" * 40)
+    assert not result["content_changed"]
+    assert result["status"] == ("latest" if remote_commit == "a" * 40 else "source_changed")
+
+
+@pytest.mark.parametrize("ref", [None, "stable"])
+def test_unpinned_non_github_catalog_resolves_a_reviewed_update_target(tmp_path, ref):
+    manager = PluginService(PluginContext(tmp_path / "plugins/cpu", registry_url="https://example.invalid/registry.json"),
+                            service(tmp_path / "unused").policy)
+    manager.install(str(source(tmp_path)))
+    receipt = manager.context.root / "installed/author.provider/.pymss-install.json"
+    metadata = json.loads(receipt.read_text(encoding="utf-8"))
+    metadata.update(defaultRepository=True)
+    receipt.write_text(json.dumps(metadata), encoding="utf-8")
+    url, commit = "https://gitcode.com/example/plugins", "b" * 40
+    entry = {"name": "author.provider", "url": url, "subpath": "plugins/provider", "version": "2.0", "ref": ref}
+    with mock.patch("pymss.plugins.install.list_available", return_value=[entry]), \
+         mock.patch("pymss.plugins.install._fetch_remote_meta", return_value={
+             "version": "2.0", "resolved_commit": commit,
+         }) as fetch:
+        result = manager.check_updates()["author.provider"]
+    fetch.assert_called_once_with(url, "plugins/provider", ref=ref)
+    assert result["status"] == "update"
+    assert result["target"]["candidate"] == {"version": "2.0", "commit": commit}
+
+
+@pytest.mark.parametrize("remote_version, status", [
+    ("2.0", "update"), ("0.9", "older"), ("1.0rc1", "older"), ("nightly", "incomparable"),
+])
+def test_update_checks_compare_versions_without_offering_downgrades(tmp_path, remote_version, status):
+    from datetime import datetime
+
+    package = source(tmp_path)
+    manager = service(tmp_path / "plugins/cpu")
+    manager.install(str(package))
+    project = package / "pyproject.toml"
+    project.write_text(project.read_text(encoding="utf-8").replace('version="1.0"', f'version="{remote_version}"'), encoding="utf-8")
+    result = manager.check_updates()["author.provider"]
+    assert result["status"] == status
+    assert not result["up_to_date"]
+    assert ("target" in result) == (status == "update")
+    assert datetime.fromisoformat(result["checked_at"]).tzinfo is not None
+
+
+def test_same_version_local_content_is_reviewed_and_published_with_dependencies_preserved(tmp_path):
+    package = source(tmp_path)
+    manager = service(tmp_path / "plugins/cpu")
+    manager.install(str(package))
+    installed = manager.context.root / "installed/author.provider"
+    sidecar = installed / ".studio-deps"
+    sidecar.mkdir()
+    (sidecar / "dependency.txt").write_text("retained", encoding="utf-8")
+    assert manager.check_updates()["author.provider"]["status"] == "latest"
+    code = package / "__init__.py"
+    code.write_text(code.read_text(encoding="utf-8") + "# updated content\n", encoding="utf-8")
+    result = manager.check_updates()["author.provider"]
+    assert result["status"] == "content"
+    assert result["content_changed"]
+    manager.update("author.provider", expectedUpdate=result)
+    assert (installed / "__init__.py").read_bytes() == code.read_bytes()
+    assert (sidecar / "dependency.txt").read_text(encoding="utf-8") == "retained"
+    assert manager.check_updates()["author.provider"]["status"] == "latest"
+
+
+@pytest.mark.parametrize("changed", ["installed", "source", "receipt"])
+def test_reviewed_update_rejects_modified_installation_or_local_source(tmp_path, changed):
+    package = source(tmp_path)
+    manager = service(tmp_path / "plugins/cpu")
+    manager.install(str(package))
+    (package / "change.txt").write_text("checked", encoding="utf-8")
+    result = manager.check_updates()["author.provider"]
+    installed = manager.context.root / "installed/author.provider"
+    receipt = installed / ".pymss-install.json"
+    if changed == "receipt":
+        meta = json.loads(receipt.read_text(encoding="utf-8"))
+        meta["subpath"] = "changed"
+        receipt.write_text(json.dumps(meta), encoding="utf-8")
+    else:
+        (installed if changed == "installed" else package).joinpath("change.txt").write_text("later edit", encoding="utf-8")
+    previous = receipt.read_bytes()
+    with pytest.raises(ValueError, match="changed since the update check"):
+        manager.update("author.provider", expectedUpdate=result)
+    assert receipt.read_bytes() == previous
+    assert (installed / "change.txt").exists() == (changed == "installed")
+
+
+def test_reviewed_local_source_is_revalidated_after_verification(tmp_path):
+    package = source(tmp_path)
+    manager = service(tmp_path / "plugins/cpu")
+    manager.install(str(package))
+    (package / "change.txt").write_text("checked", encoding="utf-8")
+    result = manager.check_updates()["author.provider"]
+    original_probe = manager.policy.probe
+
+    def change_source(root, paths):
+        (package / "change.txt").write_text("changed during verification", encoding="utf-8")
+        return original_probe(root, paths)
+
+    manager.policy.probe = change_source
+    with pytest.raises(ValueError, match="Local plugin source changed"):
+        manager.update("author.provider", expectedUpdate=result)
+    assert not (manager.context.root / "installed/author.provider/change.txt").exists()
+
+
+def test_reviewed_update_cannot_be_applied_to_a_different_runtime_binding(tmp_path):
+    package = source(tmp_path)
+    cpu, cuda = service(tmp_path / "plugins/cpu"), service(tmp_path / "plugins/cuda")
+    cpu.install(str(package))
+    cuda.prepare("author.provider")
+    (package / "change.txt").write_text("checked", encoding="utf-8")
+    result = cpu.check_updates()["author.provider"]
+    with pytest.raises(ValueError, match="reviewed update is unavailable"):
+        cuda.update("author.provider", expectedUpdate=result)
+    assert not (cuda.context.root / "installed/author.provider/change.txt").exists()
+
+
+def test_selective_update_check_retries_only_the_requested_plugin(tmp_path):
+    package = source(tmp_path / "one")
+    other = source(tmp_path / "two", plugin_id="author.other")
+    manager = service(tmp_path / "plugins/cpu")
+    manager.install(str(package))
+    manager.install(str(other))
+    (package / "pyproject.toml").unlink()
+    results = manager.check_updates()
+    assert results["author.provider"]["status"] == "error"
+    assert results["author.provider"]["checked_at"]
+    assert results["author.other"]["status"] == "latest"
+    assert set(manager.manage("check_updates", name="author.other")["updates"]) == {"author.other"}
+    with pytest.raises(ValueError, match="Invalid plugin id"):
+        manager.manage("check_updates", name="../other")
+
+
+@pytest.fixture
+def reviewed_remote_update(tmp_path):
+    manager = PluginService(PluginContext(tmp_path / "plugins/cpu", registry_url="https://example.invalid/registry.json"),
+                            service(tmp_path / "unused").policy)
+    package = source(tmp_path)
+    manager.install(str(package))
+    receipt = manager.context.root / "installed/author.provider/.pymss-install.json"
+    meta = json.loads(receipt.read_text(encoding="utf-8"))
+    url = "https://github.com/example/plugins"
+    meta.update(source="url", defaultRepository=True, url=url, subpath="plugins/provider", resolved_commit="a" * 40)
+    receipt.write_text(json.dumps(meta), encoding="utf-8")
+    entry = {"name": "author.provider", "url": url, "version": "2.0", "ref": "main", "subpath": "plugins/provider"}
+    with mock.patch("pymss.plugins.install.list_available", return_value=[entry]), \
+         mock.patch("pymss.plugins.sources.resolve_github_commit", return_value="b" * 40):
+        checked = manager.check_updates()["author.provider"]
+    assert checked["status"] == "update"
+    return manager, package, entry, checked
+
+
+@pytest.fixture
+def reviewed_official_update(tmp_path, monkeypatch):
+    from pymss.plugins import install as installer, marketplace
+
+    manager = PluginService(PluginContext(tmp_path / "plugins/cpu", registry_url=marketplace.GITHUB_REGISTRY),
+                            service(tmp_path / "unused").policy)
+    package = source(tmp_path)
+    manager.install(str(package))
+    receipt = manager.context.root / "installed/author.provider/.pymss-install.json"
+    metadata = json.loads(receipt.read_text(encoding="utf-8"))
+    metadata.update(source="url", defaultRepository=True, url=marketplace.GITHUB_REPOSITORY,
+                    subpath="plugins/provider", resolved_commit="a" * 40)
+    receipt.write_text(json.dumps(metadata), encoding="utf-8")
+    project = package / "pyproject.toml"
+    project.write_text(project.read_text(encoding="utf-8").replace('version="1.0"', 'version="2.0"'), encoding="utf-8")
+    state = {"provider": "gitcode", "commit": "b" * 40, "version": "2.0"}
+
+    def probe(provider):
+        repository = marketplace.GITHUB_REPOSITORY if provider == "github" else marketplace.GITCODE_REPOSITORY
+        return {"author.provider": {"url": repository, "ref": state["commit"], "version": state["version"],
+                                    "subpath": "plugins/provider"}}, {
+            "provider": provider, "commit": state["commit"], "latencyMs": 1 if provider == state["provider"] else 10,
+        }
+
+    def acquire(url, destination, *, subpath, ref, temporary_root):
+        assert url == marketplace.GITCODE_REPOSITORY
+        assert subpath == "plugins/provider"
+        assert ref == "b" * 40
+        shutil.copytree(package, destination)
+        return {"resolved_commit": ref}
+
+    monkeypatch.setenv("PYMSS_PLUGINS_SOURCE", "auto")
+    monkeypatch.setattr(installer, "_git_available", lambda: True)
+    probe_mock, acquire_mock = mock.Mock(side_effect=probe), mock.Mock(side_effect=acquire)
+    monkeypatch.setattr(marketplace, "_probe", probe_mock)
+    monkeypatch.setattr(installer, "_clone", acquire_mock)
+    checked = manager.check_updates()["author.provider"]
+    assert checked["status"] == "update"
+    assert checked["target"]["source"]["url"] == marketplace.GITCODE_REPOSITORY
+    return manager, state, checked, probe_mock, acquire_mock
+
+
+@pytest.mark.parametrize("change", ["mirror", "branch", "verification", "offline"])
+def test_reviewed_official_update_keeps_its_snapshot_when_catalog_resolution_changes(reviewed_official_update, change):
+    from pymss.plugins.sources import SourceError
+
+    manager, state, checked, probe, acquire = reviewed_official_update
+    if change == "mirror":
+        state["provider"] = "github"
+    elif change == "branch":
+        state.update(commit="c" * 40, version="3.0")
+    elif change == "offline":
+        probe.side_effect = SourceError("Catalog is temporarily unavailable")
+    else:
+        original_probe = manager.policy.probe
+
+        def advance_during_verification(root, paths):
+            state.update(commit="c" * 40, version="3.0")
+            return original_probe(root, paths)
+
+        manager.policy.probe = advance_during_verification
+    manager.update("author.provider", expectedUpdate=checked)
+    acquire.assert_called_once()
+    assert probe.call_count == 2
+    receipt = manager.context.root / "installed/author.provider/.pymss-install.json"
+    assert json.loads(receipt.read_text(encoding="utf-8"))["resolved_commit"] == "b" * 40
+    assert manager.list()["installed"][0]["version"] == "2.0"
+    if change in {"branch", "verification"}:
+        next_update = manager.check_updates()["author.provider"]
+        assert next_update["status"] == "update"
+        assert next_update["target"]["candidate"] == {"version": "3.0", "commit": "c" * 40}
+
+
+@pytest.mark.parametrize("change", ["registry", "local", "preference"])
+def test_reviewed_official_update_rejects_changes_to_user_source_settings(reviewed_official_update, monkeypatch, change):
+    from dataclasses import replace
+    from pymss.plugins import marketplace
+
+    manager, _state, checked, _probe, acquire = reviewed_official_update
+    if change == "registry":
+        manager = PluginService(replace(manager.context, registry_url=marketplace.GITCODE_REGISTRY), manager.policy)
+    elif change == "local":
+        manager = PluginService(replace(manager.context, local_source=manager.context.root / "other-source"), manager.policy)
+    else:
+        monkeypatch.setenv("PYMSS_PLUGINS_SOURCE", "github")
+    with pytest.raises(ValueError, match="Plugin source changed"):
+        manager.update("author.provider", expectedUpdate=checked)
+    acquire.assert_not_called()
+
+
+def test_reviewed_official_update_revalidates_source_settings_before_publication(reviewed_official_update, monkeypatch):
+    manager, _state, checked, _probe, acquire = reviewed_official_update
+    receipt = manager.context.root / "installed/author.provider/.pymss-install.json"
+    previous = receipt.read_bytes()
+    original_probe = manager.policy.probe
+
+    def change_settings_during_verification(root, paths):
+        monkeypatch.setenv("PYMSS_PLUGINS_SOURCE", "github")
+        return original_probe(root, paths)
+
+    manager.policy.probe = change_settings_during_verification
+    with pytest.raises(ValueError, match="Plugin source changed"):
+        manager.update("author.provider", expectedUpdate=checked)
+    acquire.assert_called_once()
+    assert receipt.read_bytes() == previous
+    assert manager.list()["installed"][0]["version"] == "1.0"
+
+
+@pytest.mark.parametrize("mismatch", [None, "commit", "version", "id"])
+def test_reviewed_remote_update_pins_the_checked_commit_and_rejects_other_candidates(reviewed_remote_update, mismatch):
+    from pymss.plugins.install import InstallResult
+
+    manager, package, entry, checked = reviewed_remote_update
+    receipt = manager.context.root / "installed/author.provider/.pymss-install.json"
+    previous = receipt.read_bytes()
+    project = package / "pyproject.toml"
+    project.write_text(project.read_text(encoding="utf-8").replace('version="1.0"', 'version="2.0"'), encoding="utf-8")
+
+    def acquire(target, directory, subpath, *, ref):
+        assert target == entry["url"]
+        assert subpath == entry["subpath"]
+        assert ref == checked["target"]["candidate"]["commit"] == "b" * 40
+        candidate = directory / "author.provider"
+        shutil.copytree(package, candidate)
+        candidate_project = candidate / "pyproject.toml"
+        if mismatch == "version":
+            candidate_project.write_text(candidate_project.read_text(encoding="utf-8").replace('version="2.0"', 'version="3.0"'), encoding="utf-8")
+        elif mismatch == "id":
+            candidate_project.write_text(candidate_project.read_text(encoding="utf-8").replace('id="author.provider"', 'id="author.other"'), encoding="utf-8")
+        (candidate / ".pymss-install.json").write_text(json.dumps({
+            "name": "author.provider", "version": "2.0", "source": "url", "url": entry["url"],
+            "subpath": entry["subpath"], "resolved_commit": "c" * 40 if mismatch == "commit" else ref,
+        }), encoding="utf-8")
+        return InstallResult(name="author.provider", path=candidate, source="url", version="2.0")
+
+    with mock.patch("pymss.plugins.install.list_available", return_value=[entry]), \
+         mock.patch.object(_engine, "_acquire_source", side_effect=acquire):
+        if mismatch:
+            with pytest.raises(ValueError, match="does not match the reviewed update"):
+                manager.update("author.provider", expectedUpdate=checked)
+            assert receipt.read_bytes() == previous
+        else:
+            manager.update("author.provider", expectedUpdate=checked)
+            installed = json.loads(receipt.read_text(encoding="utf-8"))
+            assert installed["resolved_commit"] == "b" * 40
+            assert installed["defaultRepository"]
+            assert manager.list()["installed"][0]["version"] == "2.0"
+
+
+@pytest.mark.parametrize("field, value", [
+    ("url", "https://gitcode.com/example/plugins"), ("subpath", "plugins/other"),
+    ("ref", "stable"), ("version", "3.0"),
+])
+def test_reviewed_remote_update_rejects_changed_catalog_configuration(reviewed_remote_update, field, value):
+    manager, _package, entry, checked = reviewed_remote_update
+    with mock.patch("pymss.plugins.install.list_available", return_value=[{**entry, field: value}]), \
+         mock.patch.object(_engine, "_acquire_source") as acquire:
+        with pytest.raises(ValueError, match="Plugin source changed"):
+            manager.update("author.provider", expectedUpdate=checked)
+    acquire.assert_not_called()
+
+
+@pytest.mark.parametrize("ref", ["main", "b" * 40])
+@pytest.mark.parametrize("field, value", [
+    ("url", "https://gitcode.com/example/plugins"), ("subpath", "plugins/other"),
+    ("ref", "stable"), ("version", "3.0"),
+])
+def test_official_catalog_third_party_entries_keep_strict_source_checks(reviewed_remote_update, ref, field, value):
+    from dataclasses import replace
+    from pymss.plugins import marketplace
+
+    manager, _package, entry, _checked = reviewed_remote_update
+    manager = PluginService(replace(manager.context, registry_url=marketplace.GITHUB_REGISTRY), manager.policy)
+    entry = {**entry, "ref": ref}
+    with mock.patch("pymss.plugins.install.list_available", return_value=[entry]), \
+         mock.patch("pymss.plugins.sources.resolve_github_commit", return_value="b" * 40):
+        checked = manager.check_updates()["author.provider"]
+    assert checked["target"]["source"]["officialSelection"] is None
+    with mock.patch("pymss.plugins.install.list_available", return_value=[{**entry, field: value}]), \
+         mock.patch.object(_engine, "_acquire_source") as acquire:
+        with pytest.raises(ValueError, match="Plugin source changed"):
+            manager.update("author.provider", expectedUpdate=checked)
+    acquire.assert_not_called()
+
+
+def test_reviewed_remote_update_uses_the_pinned_commit_in_the_real_acquisition_path(reviewed_remote_update):
+    manager, package, entry, checked = reviewed_remote_update
+    project = package / "pyproject.toml"
+    project.write_text(project.read_text(encoding="utf-8").replace('version="1.0"', 'version="2.0"'), encoding="utf-8")
+
+    def clone(url, destination, *, subpath, ref, temporary_root):
+        assert url == entry["url"]
+        assert subpath == entry["subpath"]
+        assert ref == "b" * 40
+        shutil.copytree(package, destination)
+        return {"resolved_commit": ref}
+
+    with mock.patch("pymss.plugins.install.list_available", return_value=[entry]), \
+         mock.patch("pymss.plugins.install._clone", side_effect=clone) as acquire:
+        manager.update("author.provider", expectedUpdate=checked)
+    acquire.assert_called_once()
+    assert manager.list()["installed"][0]["version"] == "2.0"
+
+
+def test_reviewed_update_rejects_a_changed_catalog_provider(reviewed_remote_update):
+    from dataclasses import replace
+
+    manager, _package, entry, checked = reviewed_remote_update
+    selected = PluginService(replace(manager.context, registry_url="https://other.invalid/registry.json"), manager.policy)
+    with mock.patch("pymss.plugins.install.list_available", return_value=[entry]), \
+         mock.patch.object(_engine, "_acquire_source") as acquire:
+        with pytest.raises(ValueError, match="Plugin source changed"):
+            selected.update("author.provider", expectedUpdate=checked)
+    acquire.assert_not_called()
+
+
+@pytest.mark.parametrize("failure", ["catalog", "commit"])
+def test_update_checks_reuse_source_failures_instead_of_repeating_network_requests(tmp_path, failure):
+    manager = PluginService(PluginContext(tmp_path / "plugins/cpu", registry_url="https://example.invalid/registry.json"),
+                            service(tmp_path / "unused").policy)
+    packages = [source(tmp_path / name, plugin_id=f"author.{name}") for name in ["one", "two"]]
+    entries = []
+    for package in packages:
+        manager.install(str(package))
+        name = _engine._read_manifest(package)["id"]
+        receipt = manager.context.root / "installed" / name / ".pymss-install.json"
+        metadata = json.loads(receipt.read_text(encoding="utf-8"))
+        metadata.update(defaultRepository=True)
+        receipt.write_text(json.dumps(metadata), encoding="utf-8")
+        entries.append({"name": name, "url": "https://github.com/example/plugins", "version": "1.0", "ref": "main"})
+    with mock.patch("pymss.plugins.install.list_available", side_effect=ValueError("offline") if failure == "catalog" else None,
+                    return_value=entries) as catalog, \
+         mock.patch("pymss.plugins.sources.resolve_github_commit", side_effect=ValueError("offline")) as commit:
+        results = manager.check_updates()
+    assert {item["status"] for item in results.values()} == {"error"}
+    catalog.assert_called_once()
+    assert commit.call_count == (0 if failure == "catalog" else 1)
 
 
 def test_cli_check_updates_renders_statuses_and_errors(tmp_path, capsys):
@@ -487,6 +875,10 @@ def test_cli_check_updates_renders_statuses_and_errors(tmp_path, capsys):
         "author.current": {"local_version": "1.0", "remote_version": "1.0", "up_to_date": True},
         "author.changed": {"local_version": "1.0", "remote_version": "2.0", "up_to_date": False},
         "author.failed": {"error": "Source is unavailable"},
+        "author.older": {"local_version": "2.0", "remote_version": "1.0", "status": "older"},
+        "author.unordered": {"local_version": "1.0", "remote_version": "nightly", "status": "incomparable"},
+        "author.repository": {"status": "source_changed"},
+        "author.content": {"status": "content", "remote_version": "1.0"},
     }
     with mock.patch("pymss_plugin_manager.cli.PluginService") as factory:
         factory.return_value.list.return_value = {"installed": []}
@@ -496,6 +888,10 @@ def test_cli_check_updates_renders_statuses_and_errors(tmp_path, capsys):
     assert "author.current: up to date (1.0)" in output
     assert "author.changed: update available (1.0 -> 2.0)" in output
     assert "author.failed: check failed: Source is unavailable" in output
+    assert "author.older: source version is older (2.0 -> 1.0)" in output
+    assert "author.unordered: versions cannot be compared (1.0 -> nightly)" in output
+    assert "author.repository: source repository has new commits; plugin content is unconfirmed" in output
+    assert "author.content: plugin content has changed (1.0)" in output
 
 
 def test_bad_inventory_blocks_managed_code_without_losing_builtin_operations(tmp_path):

@@ -25,6 +25,7 @@ from . import profiles as python_profiles
 _NAME = re.compile(r"[a-z0-9][a-z0-9_-]*(?:\.[a-z0-9][a-z0-9_-]*)*\Z")
 _DEPENDENCY_HANDOFF = ".studio-deps-pending"
 _SOURCE_IGNORED_DIRS = {".studio-deps", ".pymss-python.json", "__pycache__", ".git", "node_modules", ".venv", "venv", ".tmp", ".cache", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+UPDATE_REVIEW_VERSION = 1
 
 
 class _ContextValue:
@@ -826,7 +827,7 @@ def _verify_candidate(root: Path, candidate: Path, name: str, *, candidate_depen
             raise ValueError("; ".join(f"{row['name']}: {row.get('error')}" for row in failed))
 
 
-def _acquire_source(target: str, directory: Path, subpath: str | None = None):
+def _acquire_source(target: str, directory: Path, subpath: str | None = None, *, ref: str | None = None):
     from datetime import datetime, timezone
     from pymss.plugins.install import InstallResult, install, list_available, _clear_macos_attributes
 
@@ -844,7 +845,7 @@ def _acquire_source(target: str, directory: Path, subpath: str | None = None):
         remote = target.startswith(("http://", "https://", "git@", "ssh://"))
         if not remote and (local.is_absolute() or target.startswith((".", "~")) or "/" in target or "\\" in target):
             raise ValueError(f"Local plugin source folder is unavailable: {local}")
-        kwargs = {}
+        kwargs = {"ref": ref} if ref is not None else {}
         expected_version = None
         if registry_name:
             entry = next((row for row in list_available(_REGISTRY_URL.get()) if row["name"] == registry_name), None)
@@ -856,7 +857,7 @@ def _acquire_source(target: str, directory: Path, subpath: str | None = None):
             if entry.get("ref") is not None:
                 if not isinstance(entry["ref"], str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./-]*", entry["ref"]) or ".." in entry["ref"]:
                     raise ValueError("Invalid plugin repository ref")
-                kwargs["ref"] = entry["ref"]
+                kwargs.setdefault("ref", entry["ref"])
         result = install(target, plugins_dir=directory, subpath=subpath, no_deps=True,
                          registry_url=_REGISTRY_URL.get(), temporary_root=directory.parent, **kwargs)
         expected_commit = kwargs.get("ref", "")
@@ -942,6 +943,9 @@ def _install(root: Path, payload: dict, task_id: str | None, *, intent_revision:
         target = str(payload.get('target') or requested or '').strip()
         if not target:
             raise ValueError('Missing plugin source')
+    reviewed = None
+    if action == 'update' and 'expectedUpdate' in payload:
+        reviewed = _reviewed_update(payload['expectedUpdate'], current, requested)
     if action == 'install' and prepared_source is None:
         local_candidate = Path(target).expanduser()
         if local_candidate.is_dir() and payload.get('subpath') is not None:
@@ -957,7 +961,18 @@ def _install(root: Path, payload: dict, task_id: str | None, *, intent_revision:
         if action == 'update' and current and (not _uses_default_source(_manifest(current))):
             subpath = _manifest(current).get('subpath')
         with _plugin_registry():
-            result = _acquire_source(target, work / 'sources', subpath)
+            if reviewed is None:
+                result = _acquire_source(target, work / 'sources', subpath)
+            else:
+                source = reviewed['source']
+                result = _acquire_source(source['url'], work / 'sources', source['subpath'],
+                                         ref=reviewed['candidate'].get('commit'))
+                _verify_update_candidate(result.path, reviewed)
+                if source['defaultRepository']:
+                    acquired = _manifest(result.path)
+                    acquired.update(defaultRepository=True, sourceContext={
+                        'registryUrl': source['registryUrl'], 'localSource': source['localSource']})
+                    (result.path / '.pymss-install.json').write_text(json.dumps(acquired), encoding='utf-8')
         name = _name(result.name)
         if prepared_source is not None:
             if _read_manifest(result.path)['version'] != prepared_binding.get('version') or _plugin_content_digest(result.path) != prepared_binding['content']:
@@ -1016,6 +1031,9 @@ def _install(root: Path, payload: dict, task_id: str | None, *, intent_revision:
                 _verify_candidate(root, result.path, name, candidate_dependencies=preserved_dependencies)
             else:
                 _verify_candidate(root, result.path, name)
+            if reviewed is not None:
+                _reviewed_update(payload['expectedUpdate'], current, requested)
+                _verify_update_candidate(result.path, reviewed)
             _stage(task_id, 'Activating plugin', 'activating')
             _publish(result.path, root, name, disabled=disabled, preserve_dependencies=preserved_dependencies is not None, intent_revision=intent_revision)
         return name
@@ -1040,87 +1058,216 @@ def _plugin_content_digest(directory: Path) -> str:
     return digest.hexdigest()
 
 
-def _check_updates(root: Path, task_id: str | None, *, names: set[str] | None=None) -> dict:
-    with runtime_lock(root / '.lock'):
-        manifests = [(plugin.name, _manifest(plugin)) for plugin in [*_installed(root), *_installed(root, disabled=True)] if names is None or plugin.name in names]
-    updates = {}
-    checks = root / 'checks'
-    checks.mkdir(parents=True, exist_ok=True)
-    catalog_cache: dict | Exception | None = None
-    commit_cache: dict[tuple[str, str | None], str] = {}
+def _checked_installation(directory: Path) -> dict:
+    meta = _manifest(directory)
+    source_keys = ('source', 'url', 'subpath', 'ref', 'resolved_commit', 'registry_url',
+                   'sourceContext', 'defaultRepository', 'preinstalled')
+    return {'version': _project_version(directory), 'content': _plugin_content_digest(directory),
+            'source': {key: meta.get(key) for key in source_keys}}
 
-    def default_entry(name: str) -> dict:
-        nonlocal catalog_cache
-        if catalog_cache is None:
-            try:
-                if _LOCAL_SOURCE.get():
-                    items = _local_catalog(_LOCAL_SOURCE.get())
-                else:
-                    from pymss.plugins.install import list_available
-                    items = list_available(_REGISTRY_URL.get())
-                catalog_cache = {item['name']: item for item in items}
-            except Exception as error:
-                catalog_cache = error
-        if isinstance(catalog_cache, Exception):
-            raise ValueError(f'Plugin source catalog is unavailable: {catalog_cache}')
-        if name not in catalog_cache:
+
+def _official_source_selection(url: str) -> dict | None:
+    from pymss.plugins.install import _registry_url
+    from pymss.plugins.marketplace import GITHUB_REPOSITORY, GITCODE_REPOSITORY, GITCODE_REGISTRY, is_official_registry
+
+    if _LOCAL_SOURCE.get() is not None or url.rstrip('/').removesuffix('.git') not in {GITHUB_REPOSITORY, GITCODE_REPOSITORY}:
+        return None
+    registry = _registry_url(_REGISTRY_URL.get())
+    if not is_official_registry(registry):
+        return None
+    return {'registryUrl': registry,
+            'preference': 'gitcode' if registry == GITCODE_REGISTRY else os.environ.get('PYMSS_PLUGINS_SOURCE', 'auto')}
+
+
+def _update_source(name: str, meta: dict, *, entry: dict | None = None) -> dict:
+    """Record source settings separately from the catalog's resolved snapshot."""
+    default = _uses_default_source(meta)
+    local = _LOCAL_SOURCE.get()
+    if default and entry is None:
+        if local:
+            entries = _local_catalog(local)
+        else:
+            from pymss.plugins.install import list_available
+            entries = list_available(_REGISTRY_URL.get())
+        entry = next((item for item in entries if item['name'] == name), None)
+        if entry is None:
             raise ValueError(f'Plugin source catalog has no entry for: {name}')
-        return catalog_cache[name]
-    with tempfile.TemporaryDirectory(dir=checks) as temporary:
-        view = Path(temporary) / 'installed'
-        for name, meta in manifests:
-            _stage(task_id, f'Checking {name}', 'checking', plugin_name=name)
-            try:
-                with _plugin_registry():
-                    source = None
-                    catalog_version = None
-                    catalog_ref = None
-                    if _uses_default_source(meta):
-                        entry = default_entry(name)
+    selected = entry if default else meta
+    url = str(local) if default and local else selected.get('url')
+    if not isinstance(url, str) or not url:
+        raise ValueError('Plugin has no update source; install it again from its source')
+    ref = entry.get('ref') if default else None
+    if ref is not None and (not isinstance(ref, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_./-]*', ref) or '..' in ref):
+        raise ValueError('Invalid plugin repository ref')
+    subpath = selected.get('subpath')
+    if subpath is not None and not isinstance(subpath, str):
+        raise ValueError('Invalid plugin source subpath')
+    if default and local:
+        _local_package(local, name, subpath)
+    local_package = bool(default and local) or (meta.get('source') == 'path' and not default)
+    return {'registryUrl': _REGISTRY_URL.get(), 'localSource': str(local) if local else None,
+            'url': url, 'subpath': subpath, 'ref': ref,
+            'version': entry.get('version') if default and isinstance(entry.get('version'), str) else None,
+            'defaultRepository': default, 'kind': 'path' if local_package else 'url',
+            'officialSelection': _official_source_selection(url) if default and ref and re.fullmatch(r'[0-9a-f]{40,64}', ref) else None}
+
+
+def _update_check_error(error: Exception) -> dict:
+    from datetime import datetime, timezone
+    return {'status': 'error', 'error': str(error), 'checked_at': datetime.now(timezone.utc).isoformat()}
+
+
+def _update_status(local: str | None, remote: str, *, content_changed: bool, source_changed: bool) -> str:
+    if local != remote:
+        from packaging.version import InvalidVersion, Version
+        try:
+            previous, candidate = Version(local or ''), Version(remote)
+        except InvalidVersion:
+            return 'incomparable'
+        if candidate < previous:
+            return 'older'
+        if candidate > previous:
+            return 'update'
+    return 'content' if content_changed else 'source_changed' if source_changed else 'latest'
+
+
+def _reviewed_update(expected: dict, current: Path, name: str) -> dict:
+    target = expected.get('target')
+    if (expected.get('status') not in {'update', 'content', 'source_changed'} or not isinstance(target, dict)
+            or target.get('schemaVersion') != UPDATE_REVIEW_VERSION or target.get('name') != name
+            or target.get('binding') != str(_root())):
+        raise ValueError('The reviewed update is unavailable; check for updates again')
+    candidate = target.get('candidate')
+    if not isinstance(candidate, dict) or not isinstance(candidate.get('version'), str) or candidate['version'] != expected.get('remote_version'):
+        raise ValueError('The reviewed update has no immutable target; check for updates again')
+    commit, content = candidate.get('commit'), candidate.get('content')
+    if (not (commit or content)
+            or commit is not None and (not isinstance(commit, str) or not re.fullmatch(r'[0-9a-f]{40,64}', commit))
+            or content is not None and (not isinstance(content, str) or not re.fullmatch(r'[0-9a-f]{64}', content))):
+        raise ValueError('The reviewed update has no immutable target; check for updates again')
+    if target.get('installed') != _checked_installation(current):
+        raise ValueError('Installed plugin changed since the update check; check for updates again')
+    source = target.get('source')
+    if isinstance(source, dict) and source.get('officialSelection') is not None:
+        # Mirror choice and main may move; acquire the already reviewed SHA.
+        if (not source.get('defaultRepository') or source.get('localSource') is not None
+                or source.get('registryUrl') != _REGISTRY_URL.get()
+                or source.get('ref') != commit
+                or source['officialSelection'] != _official_source_selection(source['url'])):
+            raise ValueError('Plugin source changed since the update check; check for updates again')
+    else:
+        actual = _update_source(name, _manifest(current))
+        if source != actual:
+            raise ValueError('Plugin source changed since the update check; check for updates again')
+    if source['kind'] == 'path':
+        path = Path(source['url'])
+        if source['subpath']:
+            path /= source['subpath']
+        if (_project_version(path) != candidate['version']
+                or _plugin_content_digest(path) != candidate.get('content')):
+            raise ValueError('Local plugin source changed since the update check; check for updates again')
+    return target
+
+
+def _verify_update_candidate(directory: Path, target: dict) -> None:
+    candidate = target['candidate']
+    if (_read_manifest(directory)['id'] != target['name'] or _project_version(directory) != candidate['version']
+            or candidate.get('commit') is not None and _manifest(directory).get('resolved_commit') != candidate['commit']
+            or candidate.get('content') is not None and _plugin_content_digest(directory) != candidate['content']):
+        raise ValueError('Acquired plugin does not match the reviewed update; check for updates again')
+
+
+def _check_updates(root: Path, task_id: str | None, *, names: set[str] | None = None) -> dict:
+    from datetime import datetime, timezone
+    from pymss.plugins.install import _fetch_remote_meta
+    from pymss.plugins.sources import github_repository, resolve_github_commit
+
+    with runtime_lock(root / '.lock'):
+        plugins = [plugin for plugin in [*_installed(root), *_installed(root, disabled=True)]
+                   if names is None or plugin.name in names]
+    updates = {}
+    catalog_cache: dict | Exception | None = None
+    commit_cache: dict[tuple[str, str | None], str | Exception] = {}
+    for plugin in plugins:
+        name = plugin.name
+        _stage(task_id, f'Checking {name}', 'checking', plugin_name=name)
+        try:
+            check_cancelled()
+            with runtime_lock(root / '.lock'):
+                current = _location(root, name)
+                meta = _manifest(current)
+                installed = _checked_installation(current)
+            entry = None
+            if _uses_default_source(meta):
+                if catalog_cache is None:
+                    try:
                         if _LOCAL_SOURCE.get():
-                            source = _local_package(_LOCAL_SOURCE.get(), name, entry.get('subpath'))
+                            items = _local_catalog(_LOCAL_SOURCE.get())
                         else:
-                            meta = {**meta, 'url': entry['url'], 'subpath': entry.get('subpath')}
-                            catalog_ref = entry.get('ref')
-                            if catalog_ref is not None and (not isinstance(catalog_ref, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./-]*", catalog_ref) or ".." in catalog_ref):
-                                raise ValueError("Invalid plugin repository ref")
-                            if isinstance(entry.get('version'), str) and entry['version'].strip():
-                                catalog_version = entry['version']
-                    elif meta.get('source') == 'path':
-                        source = Path(meta['url'])
-                        if meta.get('subpath'):
-                            source = source / meta['subpath']
-                    if source is not None:
-                        if not source.is_dir():
-                            raise ValueError(f'Local plugin source folder is unavailable: {source}')
-                        remote = _project_version(source)
-                        if remote is None:
-                            raise ValueError('Local plugin source does not declare a version')
-                        changed = _plugin_content_digest(source) != _plugin_content_digest(_location(root, name))
-                        update = {'local_version': meta.get('version'), 'remote_version': remote, 'content_changed': changed, 'up_to_date': remote == meta.get('version') and (not changed)}
-                    elif catalog_version is not None:
-                        from pymss.plugins.sources import github_repository, resolve_github_commit
-                        remote_commit = None
-                        if catalog_ref and re.fullmatch(r"[0-9a-f]{40,64}", catalog_ref):
-                            remote_commit = catalog_ref
-                        elif github_repository(meta['url']):
-                            key = (meta['url'], catalog_ref)
-                            if key not in commit_cache:
-                                commit_cache[key] = resolve_github_commit(*key)
-                            remote_commit = commit_cache[key]
-                        changed = remote_commit is not None and remote_commit != meta.get('resolved_commit')
-                        update = {'local_version': meta.get('version'), 'remote_version': catalog_version, 'local_commit': meta.get('resolved_commit'), 'remote_commit': remote_commit, 'content_changed': changed, 'up_to_date': catalog_version == meta.get('version') and (not changed)}
+                            from pymss.plugins.install import list_available
+                            items = list_available(_REGISTRY_URL.get())
+                        catalog_cache = {item['name']: item for item in items}
+                    except InterruptedError:
+                        raise
+                    except Exception as error:
+                        catalog_cache = error
+                if isinstance(catalog_cache, Exception):
+                    raise ValueError(f'Plugin source catalog is unavailable: {catalog_cache}') from catalog_cache
+                entry = catalog_cache.get(name)
+                if entry is None:
+                    raise ValueError(f'Plugin source catalog has no entry for: {name}')
+            source = _update_source(name, meta, entry=entry)
+            candidate = {}
+            changed = False
+            commit_changed = False
+            if source['kind'] == 'path':
+                local = Path(source['url'])
+                if source['subpath']:
+                    local /= source['subpath']
+                if not local.is_dir():
+                    raise ValueError(f'Local plugin source folder is unavailable: {local}')
+                if _read_manifest(local)['id'] != name:
+                    raise ValueError('The update source does not provide the installed plugin')
+                candidate = {'version': _project_version(local), 'content': _plugin_content_digest(local)}
+                changed = candidate['content'] != installed['content']
+            else:
+                ref = source['ref']
+                if source['version'] is not None and (ref and re.fullmatch(r'[0-9a-f]{40,64}', ref) or github_repository(source['url'])):
+                    if ref and re.fullmatch(r'[0-9a-f]{40,64}', ref):
+                        commit = ref
                     else:
-                        from pymss.plugins.install import check_update
-                        directory = view / name
-                        directory.mkdir(parents=True)
-                        (directory / '.pymss-install.json').write_text(json.dumps(meta), encoding='utf-8')
-                        update = check_update(name, plugins_dir=view, ref=catalog_ref)
-                if update.get('remote_version') is None:
-                    raise ValueError('The update source does not declare a version')
-                updates[name] = update
-            except Exception as error:
-                updates[name] = {'error': str(error)}
+                        key = (source['url'], ref)
+                        if key not in commit_cache:
+                            try:
+                                commit_cache[key] = resolve_github_commit(*key)
+                            except InterruptedError:
+                                raise
+                            except Exception as error:
+                                commit_cache[key] = error
+                        commit = commit_cache[key]
+                        if isinstance(commit, Exception):
+                            raise ValueError(f'Plugin source commit is unavailable: {commit}') from commit
+                    candidate = {'version': source['version'], 'commit': commit}
+                else:
+                    remote = _fetch_remote_meta(source['url'], source['subpath'], ref=ref)
+                    candidate = {'version': remote.get('version'), 'commit': remote.get('resolved_commit')}
+                commit_changed = candidate.get('commit') is not None and candidate['commit'] != meta.get('resolved_commit')
+            remote_version = candidate.get('version')
+            if not isinstance(remote_version, str) or not remote_version.strip():
+                raise ValueError('The update source does not declare a version')
+            status = _update_status(installed['version'], remote_version, content_changed=changed, source_changed=commit_changed)
+            update = {'name': name, 'local_version': installed['version'], 'remote_version': remote_version,
+                      'local_commit': meta.get('resolved_commit'), 'remote_commit': candidate.get('commit'),
+                      'content_changed': changed, 'up_to_date': status == 'latest', 'status': status,
+                      'checked_at': datetime.now(timezone.utc).isoformat()}
+            if status in {'update', 'content', 'source_changed'} and (candidate.get('commit') or candidate.get('content')):
+                update['target'] = {'schemaVersion': UPDATE_REVIEW_VERSION, 'binding': str(root), 'name': name, 'installed': installed,
+                                    'source': source, 'candidate': candidate}
+            updates[name] = update
+        except InterruptedError:
+            raise
+        except Exception as error:
+            updates[name] = _update_check_error(error)
     return updates
 
 
@@ -1138,6 +1285,10 @@ def validate_request(payload):
         raise ValueError("Unsupported plugin action")
     if action in {"update", "repair", "uninstall", "enable", "disable", "prepare", "install_preinstalled"}:
         _name(payload.get("name"))
+    if action == "check_updates" and payload.get("name") is not None:
+        _name(payload["name"])
+    if "expectedUpdate" in payload and (action != "update" or not isinstance(payload["expectedUpdate"], dict)):
+        raise ValueError("expectedUpdate must be an update check result")
     if payload.get("subpath") is not None and not isinstance(payload["subpath"], str):
         raise ValueError("Plugin subpath must be a string")
     if "installDependencies" in payload and type(payload["installDependencies"]) is not bool:
@@ -1162,7 +1313,7 @@ def manage(payload):
         revision = application_inventory.reserve(root, observations, removed)
     updates = {}
     if action == "check_updates":
-        updates = _check_updates(root, task_id)
+        updates = _check_updates(root, task_id, names={payload['name']} if payload.get('name') else None)
     elif action == "install":
         _install(root, {**payload, "action": action}, task_id, intent_revision=revision)
     else:
