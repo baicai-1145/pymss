@@ -95,6 +95,14 @@ def _npu_runtime_available():
         return False
 
 
+def _xpu_runtime_available():
+    """Return True when PyTorch reports an available Intel XPU runtime."""
+    try:
+        return torch.xpu.is_available()
+    except Exception:
+        return False
+
+
 #: ``--device`` aliases that resolve to a vendor PyTorch extension.
 _VENDOR_ALIASES = frozenset({"biren", "iluvatar", "metax", "enflame", "gcu", "mlu", "supa", "hygon"})
 
@@ -129,6 +137,8 @@ def _resolve_public_device(device, inference_params, logger):
         logger.debug("Using Ascend NPU through torch_npu")
         return "npu", inference_params
     if requested_device == "xpu":
+        if not _xpu_runtime_available():
+            raise RuntimeError("device='xpu' requires an XPU-enabled PyTorch build with a visible Intel GPU")
         logger.debug("Using Intel GPU through PyTorch XPU")
         return "xpu", inference_params
     if requested_device in _VENDOR_ALIASES:
@@ -137,7 +147,7 @@ def _resolve_public_device(device, inference_params, logger):
             device_type = prepare_device_alias(requested_device)
         except ImportError as exc:
             raise RuntimeError(f"device={requested_device!r} requires the {plugin} package") from exc
-        logger.debug(f"Mapping device={requested_device!r} to torch device type {device_type!r} via {plugin}")
+        logger.debug(f"Mapping device={requested_device!r} to torch device type {device_type!r}")
         return device_type, inference_params
     if requested_device not in {"auto", "cpu", "cuda", "mps"}:
         raise ValueError(
@@ -173,14 +183,15 @@ def _select_private_device(device, device_ids, logger, profile):
     module = getattr(torch, profile.device_type, None) or _vendor_device_module(profile.vendor)
     counter = getattr(module, "device_count", None)
     device_count = int(counter()) if callable(counter) else 1
+    label = profile.vendor.upper()
     if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
         isinstance(index, bool) or not isinstance(index, int) or index < 0 for index in device_ids
     ):
-        raise ValueError(f"{profile.vendor} device_ids must be a non-empty list of non-negative integers")
+        raise ValueError(f"{label} device_ids must be a non-empty list of non-negative integers")
     invalid_ids = [index for index in device_ids if index >= device_count]
     if invalid_ids:
         raise ValueError(
-            f"{profile.vendor} device ID(s) {invalid_ids} are outside the available range [0, {device_count})"
+            f"{label} device ID(s) {invalid_ids} are outside the available range [0, {device_count})"
         )
     logger.debug(f"Using {profile.vendor} accelerator through torch.{profile.device_type}")
     return f"{profile.device_type}:{device_ids[0]}"
@@ -228,6 +239,17 @@ def _select_device(device, device_ids, logger):
             else:
                 logger.debug("CUDA is available in Torch, setting Torch device to CUDA")
             return f"cuda:{device_ids[0]}"
+        if _xpu_runtime_available():
+            xpu_count = torch.xpu.device_count()
+            if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
+                isinstance(index, bool) or not isinstance(index, int) or index < 0 for index in device_ids
+            ):
+                raise ValueError("XPU device_ids must be a non-empty list of non-negative integers")
+            invalid_ids = [index for index in device_ids if index >= xpu_count]
+            if invalid_ids:
+                raise ValueError(f"XPU device ID(s) {invalid_ids} are outside the available range [0, {xpu_count})")
+            logger.debug("auto device selected Intel GPU through PyTorch XPU")
+            return f"xpu:{device_ids[0]}"
         if _npu_runtime_available():
             npu_count = torch.npu.device_count()
             if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
