@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pymss"
-version = "2.1.13"
+version = "2.4.0"
 description = "Python package for music source separation."
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 authors = [
     { name = "KitsuneX07", email = "ghast1085654218@163.com" },
@@ -27,7 +27,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -39,6 +38,7 @@ dependencies = [
     "av>=14",
     "librosa>=0.10.2",
     "numpy>=1.26",
+    "packaging>=24.0",
     "pymss-core>=0.1.15",
     "pyyaml>=6.0.1",
     "torch>=2.4",
@@ -64,7 +64,7 @@ dev = [
 ]
 
 [project.scripts]
-pymss = "pymss.cli:main"
+pymss = "pymss_plugin_manager.cli:main"
 
 [project.urls]
 "Bug Tracker" = "https://github.com/pymss-project/pymss/issues"
@@ -75,6 +75,7 @@ Documentation = "https://github.com/pymss-project/pymss/blob/main/README.md"
 include = ["pymss*"]
 
 [tool.setuptools.package-data]
+pymss_plugin_manager = ["NOTICE", "LICENSE"]
 pymss = [
     "resources/model_catalog.json",
     "resources/vr_modelparams/*.json",
@@ -95,7 +96,7 @@ url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 128
 
 [tool.pytest.ini_options]

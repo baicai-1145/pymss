@@ -1,4 +1,4 @@
-"""Plugin protocol v1 tests: manifests, lifecycle, dependency resolution."""
+"""Plugin protocol v2 tests: manifests, lifecycle, dependency resolution."""
 
 from __future__ import annotations
 
@@ -36,10 +36,13 @@ class ManifestTests(unittest.TestCase):
             target.write_text(content, encoding="utf-8")
         return plugin
 
-    def test_legacy_plugin_without_manifest(self):
+    def test_plugin_without_manifest_is_rejected(self):
         plugin = self.write("plain", "")
+        with self.assertRaisesRegex(ManifestError, "missing"):
+            read_manifest(plugin)
         plugin.joinpath("pyproject.toml").unlink()
-        self.assertIsNone(read_manifest(plugin))
+        with self.assertRaisesRegex(ManifestError, "missing"):
+            read_manifest(plugin)
 
     def test_full_manifest_parses_and_resolves_paths(self):
         plugin = self.write(
@@ -51,64 +54,61 @@ version = "1.2.0"
 
 [tool.pymss.plugin]
 id = "author.chain"
-api_version = 1
+api_version = 2
 requires_pymss = ">=2.1"
 
 [tool.pymss.plugin.dependencies]
 "author.denoise" = ">=1,<2"
+
+[[tool.pymss.plugin.operations]]
+id = "author.chain.process"
+title = "Process"
 
 [[tool.pymss.plugin.contributions.graphs]]
 id = "chain"
 file = "graphs/chain.json"
 operation = "author.chain.process"
 
-[[tool.pymss.plugin.contributions.views]]
+[[tool.pymss.studio.views]]
 id = "editor"
-title = "Chain Editor"
-entry = "ui/index.html"
-placements = ["tool", "workspace"]
-operation = "author.chain.process"
-permissions = ["operations", "files.pickAudio"]
-
-[[tool.pymss.plugin.contributions.player]]
-operation = "author.chain.process"
-scopes = ["clip"]
-modes = ["rendered_preview", "offline_export"]
+entry = "ui/missing.html"
 """,
-            {"graphs/chain.json": "{}", "ui/index.html": "<html></html>"},
+            {"graphs/chain.json": "{}"},
         )
         manifest = read_manifest(plugin)
-        assert manifest is not None
         self.assertEqual(manifest.plugin_id, "author.chain")
         self.assertEqual(manifest.version, "1.2.0")
         self.assertEqual(manifest.dependencies, {"author.denoise": ">=1,<2"})
+        self.assertEqual(manifest.operation_ids, {"author.chain.process"})
+        self.assertEqual(manifest.to_dict()["operations"], [{"id": "author.chain.process", "title": "Process"}])
         self.assertTrue(manifest.graphs[0].file.samefile(plugin / "graphs" / "chain.json"))
-        self.assertEqual(manifest.views[0].placements, ("tool", "workspace"))
-        self.assertIn("files.pickAudio", manifest.views[0].permissions)
-        self.assertEqual(manifest.player[0].scopes, ("clip",))
+        self.assertNotIn("views", manifest.to_dict()["contributions"])
 
     def test_invalid_fields_are_rejected(self):
-        with self.assertRaises(ManifestError):
-            read_manifest(self.write("bad-id", '[tool.pymss.plugin]\nid = "Not Valid"\napi_version = 1\n'))
-        with self.assertRaises(ManifestError):
-            read_manifest(self.write("bad-api", '[tool.pymss.plugin]\nid = "a.b"\napi_version = "1"\n'))
-        with self.assertRaises(ManifestError):
-            read_manifest(self.write(
-                "escape", '[tool.pymss.plugin]\nid = "a.b"\napi_version = 1\n\n'
-                '[tool.pymss.plugin.contributions.views]\nid = "v"\nentry = "../../secrets.html"\n'))
-        with self.assertRaises(ManifestError):
-            read_manifest(self.write(
-                "missing-entry", '[tool.pymss.plugin]\nid = "a.b"\napi_version = 1\n\n'
-                '[tool.pymss.plugin.contributions.views]\nid = "v"\nentry = "ui/missing.html"\n'))
-        with self.assertRaises(ManifestError):
-            read_manifest(self.write(
-                "bad-placement", '[tool.pymss.plugin]\nid = "a.b"\napi_version = 1\n\n'
-                '[tool.pymss.plugin.contributions.views]\nid = "v"\nentry = "ui/index.html"\nplacements = ["sidebar"]\n',
-                {"ui/index.html": ""}))
-        with self.assertRaises(ManifestError):
-            read_manifest(self.write(
-                "bad-constraint", '[tool.pymss.plugin]\nid = "a.b"\napi_version = 1\n\n'
-                '[tool.pymss.plugin.dependencies]\n"other" = "latest"\n'))
+        head = '[tool.pymss.plugin]\nid = "a.b"\napi_version = 2\n\n'
+        cases = {
+            "tool-array": 'tool = []\n',
+            "tool-string": 'tool = "invalid"\n',
+            "pymss-array": '[tool]\npymss = []\n',
+            "pymss-string": '[tool]\npymss = "invalid"\n',
+            "bad-id": '[tool.pymss.plugin]\nid = "Not Valid"\napi_version = 2\n',
+            "api-v1": '[tool.pymss.plugin]\nid = "a.b"\napi_version = 1\n',
+            "api-string": '[tool.pymss.plugin]\nid = "a.b"\napi_version = "2"\n',
+            "api-missing": '[tool.pymss.plugin]\nid = "a.b"\n',
+            "escape": head + '[[tool.pymss.plugin.contributions.graphs]]\nid = "g"\nfile = "../../x.json"\noperation = "a.b.run"\n',
+            "foreign-op": head + '[[tool.pymss.plugin.operations]]\nid = "other.run"\n',
+            "duplicate-op": head + '[[tool.pymss.plugin.operations]]\nid = "a.b.run"\n\n[[tool.pymss.plugin.operations]]\nid = "a.b.run"\n',
+            "bad-constraint": head + '[tool.pymss.plugin.dependencies]\n"other" = "latest"\n',
+        }
+        for name, body in cases.items():
+            with self.subTest(case=name), self.assertRaises(ManifestError):
+                read_manifest(self.write(name, body))
+
+    def test_invalid_utf8_is_reported_as_a_manifest_error(self):
+        plugin = self.write("bad-encoding", "")
+        (plugin / "pyproject.toml").write_bytes(b"\xff\xfe")
+        with self.assertRaisesRegex(ManifestError, "cannot read pyproject.toml"):
+            read_manifest(plugin)
 
     def test_version_constraints(self):
         self.assertTrue(satisfies("1.2.0", ">=1,<2"))
@@ -151,15 +151,19 @@ class LifecycleTests(unittest.TestCase):
         self.addCleanup(setattr, ops, "_DEFAULT_RUNTIME", ops._DEFAULT_RUNTIME)
 
     def plugin(self, name: str, plugin_id: str, version: str, deps: dict | None = None,
-               body: str = "", broken: bool = False, entry: str | None = None) -> Path:
-        directory = self.root / name
+               body: str = "", broken: bool = False, entry: str | None = None,
+               operations: list[str] | None = None, root: Path | None = None) -> Path:
+        directory = (root or self.root) / name
         directory.mkdir(parents=True, exist_ok=True)
         lines = [
             "[project]", f'name = "pymss-plugin-{name}"', f'version = "{version}"', "",
-            "[tool.pymss.plugin]", f'id = "{plugin_id}"', "api_version = 1", "",
+            "[tool.pymss.plugin]", f'id = "{plugin_id}"', "api_version = 2",
         ]
         if entry is not None:
             lines.append(f'entry = "{entry}"')
+        lines.append("")
+        for operation in [f"{plugin_id}.run"] if operations is None else operations:
+            lines += ["[[tool.pymss.plugin.operations]]", f'id = "{operation}"', ""]
         if deps:
             lines.append("[tool.pymss.plugin.dependencies]")
             lines += [f'"{k}" = "{v}"' for k, v in deps.items()]
@@ -195,6 +199,28 @@ class LifecycleTests(unittest.TestCase):
         self.assertIn("author.util.run", runtime.list_operations()[0]["id"].join([]) or
                       [op["id"] for op in runtime.list_operations()])
         self.assertTrue(by_id["author.util"]["loaded"])
+
+    def test_malformed_manifests_do_not_block_healthy_neighbors(self):
+        malformed = {
+            "bad-encoding": b"\xff\xfe",
+            "bad-tool": b"tool = []\n",
+            "bad-pymss": b"[tool]\npymss = []\n",
+        }
+        for name, content in malformed.items():
+            directory = self.plugin(name, f"author.{name}", "1.0.0")
+            (directory / "pyproject.toml").write_bytes(content)
+        self.plugin("healthy", "author.healthy", "1.0.0")
+        manager = PluginManager(self.root)
+        states = {state.name: state for state in manager.discover()}
+        for name in malformed:
+            self.assertEqual(states[name].status, "blocked")
+            self.assertTrue(states[name].error)
+        manager.resolve()
+        runtime = ops.Runtime()
+        rows = manager.activate(lambda source: ops._RuntimePluginHandle(runtime, source=source))
+        healthy = next(row for row in rows if row["plugin_id"] == "author.healthy")
+        self.assertEqual(healthy["status"], "activated")
+        self.assertIn("author.healthy.run", [operation["id"] for operation in runtime.list_operations()])
 
     def test_missing_and_version_unsatisfied_dependencies_block(self):
         self.plugin("needs", "author.needs", "1.0.0", deps={"author.gone": ">=1"})
@@ -254,42 +280,103 @@ class LifecycleTests(unittest.TestCase):
                     self.assertIn("first, second", row["error"])
 
     def test_duplicate_plugin_id_from_a_second_root_preserves_the_active_provider(self):
-        original = self.plugin("original", "author.shared", "1.0.0", body=(
+        self.plugin("original", "author.shared", "1.0.0", body=(
             "def setup(plugin):\n"
-            "    plugin.register_operation(id='author.original', inputs={}, params={'type':'object'}, "
+            "    plugin.register_operation(id='author.shared.run', inputs={}, params={'type':'object'}, "
             "outputs={}, run=lambda c,i,p: {'value': 1})\n"
         ))
         runtime = ops.Runtime()
         self.assertTrue(runtime.load_plugins()[0]["loaded"])
-        second_root = self.root / "managed"
-        duplicate = second_root / "duplicate"
-        duplicate.mkdir(parents=True)
-        (duplicate / "pyproject.toml").write_text((original / "pyproject.toml").read_text(encoding="utf-8"), encoding="utf-8")
-        (duplicate / "__init__.py").write_text(
+        second_root = self.root.parent / f"{self.root.name}-managed"
+        self.addCleanup(shutil.rmtree, second_root, True)
+        self.plugin("duplicate", "author.shared", "1.0.0", root=second_root, body=(
             "def setup(plugin):\n"
-            "    plugin.register_operation(id='author.duplicate', inputs={}, params={'type':'object'}, "
-            "outputs={}, run=lambda c,i,p: {'value': 2})\n", encoding="utf-8",
-        )
-        with patch.dict(os.environ, {"PYMSS_PLUGINS_DIR": str(second_root)}):
-            report = runtime.load_plugins()
+            "    plugin.register_operation(id='author.shared.run', inputs={}, params={'type':'object'}, "
+            "outputs={}, run=lambda c,i,p: {'value': 2})\n"
+        ))
+        report = runtime.load_plugins([second_root])
         self.assertEqual(report[0]["status"], "blocked")
         self.assertIn("already activated from", report[0]["error"])
-        self.assertEqual([entry["id"] for entry in runtime.list_operations()], ["author.original"])
-        self.assertEqual(runtime.run("author.original", inputs={}, params={}), {"value": 1})
+        self.assertEqual([entry["id"] for entry in runtime.list_operations()], ["author.shared.run"])
+        self.assertEqual(runtime.run("author.shared.run", inputs={}, params={}), {"value": 1})
 
-    def test_future_api_version_is_blocked_not_crashed(self):
-        directory = self.root / "future"
-        directory.mkdir(parents=True)
-        directory.joinpath("pyproject.toml").write_text(
-            '[tool.pymss.plugin]\nid = "author.future"\napi_version = 99\n', encoding="utf-8")
-        directory.joinpath("__init__.py").write_text("raise RuntimeError('must not import')", encoding="utf-8")
-        manager = PluginManager(self.root)
-        states = {s.manifest.plugin_id: s for s in manager.discover() if s.manifest}
-        manager.resolve()
-        self.assertEqual(states["author.future"].status, "blocked")
-        self.assertIn("api_version 99", states["author.future"].error)
+    def test_explicit_roots_load_plugins_from_every_root(self):
+        second_root = self.root.parent / f"{self.root.name}-second"
+        self.addCleanup(shutil.rmtree, second_root, True)
+        self.plugin("one", "author.one", "1.0.0")
+        self.plugin("two", "author.two", "1.0.0", root=second_root)
+        runtime = ops.Runtime()
+        rows = runtime.load_plugins([self.root, second_root])
+        self.assertEqual({row["plugin_id"] for row in rows if row["loaded"]}, {"author.one", "author.two"})
+        self.assertEqual({row["path"] for row in rows}, {str(self.root / "one"), str(second_root / "two")})
 
-    def test_runtime_load_plugins_reports_manifest_and_legacy_rows(self):
+    def test_setup_must_register_exactly_the_declared_operations(self):
+        from pymss.plugins import get_registry
+
+        capabilities_before = dict(get_registry().capabilities)
+        self.plugin("missing", "author.missing", "1.0.0", operations=["author.missing.run", "author.missing.other"])
+        self.plugin("extra", "author.extra", "1.0.0", operations=[], body=(
+            "def setup(plugin):\n"
+            "    plugin.register_capability('extra_cap', lambda: 1)\n"
+            "    plugin.register_operation(id='author.extra.run', inputs={}, params={'type':'object'}, "
+            "outputs={}, run=lambda c,i,p: {})\n"
+        ))
+        runtime = ops.Runtime()
+        rows = {row["plugin_id"]: row for row in runtime.load_plugins()}
+        self.assertEqual(rows["author.missing"]["status"], "failed")
+        self.assertIn("missing ['author.missing.other']", rows["author.missing"]["error"])
+        self.assertEqual(rows["author.extra"]["status"], "failed")
+        self.assertIn("undeclared ['author.extra.run']", rows["author.extra"]["error"])
+        self.assertEqual(runtime.list_operations(), [])
+        self.assertEqual(dict(get_registry().capabilities), capabilities_before)
+
+    def test_same_directory_names_across_roots_keep_distinct_plugin_ids(self):
+        for dependent in (False, True):
+            with self.subTest(dependent=dependent):
+                roots = [self.root / str(dependent) / name for name in ("first", "second")]
+                self.plugin("pkg", "author.one", "1.0.0", root=roots[0],
+                            deps={"author.two": ">=1"} if dependent else None)
+                self.plugin("pkg", "author.two", "1.0.0", root=roots[1])
+                runtime = ops.Runtime()
+                rows = runtime.load_plugins(roots)
+                self.assertEqual({row["plugin_id"] for row in rows}, {"author.one", "author.two"})
+                self.assertTrue(all(row["loaded"] for row in rows), rows)
+                self.assertEqual({operation["id"] for operation in runtime.list_operations()},
+                                 {"author.one.run", "author.two.run"})
+
+    def test_same_named_duplicate_ids_report_every_rejected_path(self):
+        roots = [self.root / name for name in ("first", "second")]
+        for root in roots:
+            self.plugin("pkg", "author.shared", "1.0.0", root=root)
+        rows = ops.Runtime().load_plugins(roots)
+        self.assertEqual({row["path"] for row in rows}, {str(root / "pkg") for root in roots})
+        self.assertTrue(all(row["status"] == "blocked" for row in rows), rows)
+
+    def test_progress_events_reach_the_host_callback(self):
+        calls = []
+        context = ops.OperationContext(progress=lambda *args: calls.append(args))
+        context.report_progress(0.5, "half")
+        context.report_progress(1.0, "done", event={"type": "tool_progress", "payload": {"completed": 1}})
+        self.assertEqual(calls, [
+            (0.5, "half", None),
+            (1.0, "done", {"type": "tool_progress", "payload": {"completed": 1}}),
+        ])
+
+    def test_other_api_versions_are_blocked_without_importing(self):
+        for version in (1, 99):
+            with self.subTest(api_version=version):
+                directory = self.root / f"api{version}"
+                directory.mkdir(parents=True)
+                directory.joinpath("pyproject.toml").write_text(
+                    f'[tool.pymss.plugin]\nid = "author.api{version}"\napi_version = {version}\n', encoding="utf-8")
+                directory.joinpath("__init__.py").write_text("raise RuntimeError('must not import')", encoding="utf-8")
+        runtime = ops.Runtime()
+        rows = {row["name"]: row for row in runtime.load_plugins()}
+        for version in (1, 99):
+            self.assertFalse(rows[f"api{version}"]["loaded"])
+            self.assertIn(f"api_version must be 2, got {version}", rows[f"api{version}"]["error"])
+
+    def test_runtime_load_plugins_reports_manifest_rows_and_rejects_manifestless_plugins(self):
         self.plugin("util", "author.util", "1.0.0")
         legacy = self.root / "legacy-cap"
         legacy.mkdir()
@@ -305,16 +392,16 @@ class LifecycleTests(unittest.TestCase):
         by_name = {row["name"]: row for row in report}
         self.assertTrue(by_name["util"]["loaded"])
         self.assertEqual(by_name["util"]["plugin_id"], "author.util")
-        self.assertFalse(by_name["util"]["legacy"])
-        self.assertTrue(by_name["legacy-cap"]["loaded"])
-        self.assertTrue(by_name["legacy-cap"].get("legacy", False))
-        self.assertIn("author.util.run", by_name["util"]["operations"])
+        self.assertEqual(by_name["util"]["operations"], [{"id": "author.util.run", "title": "author.util.run"}])
+        self.assertFalse(by_name["legacy-cap"]["loaded"])
+        self.assertIn("missing pyproject.toml", by_name["legacy-cap"]["error"])
+        self.assertNotIn("legacy_shout", plugs.get_registry().capabilities)
 
     def test_broken_manifest_is_blocked_with_reason(self):
         directory = self.root / "badm"
         directory.mkdir(parents=True)
         directory.joinpath("pyproject.toml").write_text(
-            '[tool.pymss.plugin]\nid = "Bad Id"\napi_version = 1\n', encoding="utf-8")
+            '[tool.pymss.plugin]\nid = "Bad Id"\napi_version = 2\n', encoding="utf-8")
         directory.joinpath("__init__.py").write_text("", encoding="utf-8")
         manager = PluginManager(self.root)
         states = {s.name: s for s in manager.discover()}
@@ -405,52 +492,67 @@ class LifecycleTests(unittest.TestCase):
         )
         future = self.plugin("future", "author.future", "1.0.0", body="raise RuntimeError('must not execute')\n")
         manifest = future / "pyproject.toml"
-        manifest.write_text(manifest.read_text(encoding="utf-8").replace("api_version = 1", "api_version = 999"), encoding="utf-8")
+        manifest.write_text(manifest.read_text(encoding="utf-8").replace("api_version = 2", "api_version = 999"), encoding="utf-8")
         plugins.reset()
         self.addCleanup(plugins.reset)
         ops._DEFAULT_RUNTIME = None
         output = io.StringIO()
-        with patch("pymss.plugins.loader._scan_entrypoints"), redirect_stdout(output):
+        with redirect_stdout(output):
             self.assertEqual(cli.main(["ops", "list"]), 0)
             self.assertEqual(cli.main(["ops", "list"]), 0)
         self.assertIn("author.custom.run", output.getvalue())
         self.assertEqual((directory / "calls.txt").read_text(), "1")
         failed = next(row for row in plugins.get_last_report().failed if row.name == "future")
-        self.assertIn("api_version 999", failed.error)
+        self.assertIn("got 999", failed.error)
 
-    def test_failed_entrypoint_restores_operations_and_global_registrations(self):
-        from types import SimpleNamespace
-        from unittest.mock import Mock
-        from pymss.plugins import PluginRegistration, get_registry
-        from pymss.plugins.loader import PluginLoadReport, _scan_entrypoints
+    def test_cli_validate_reads_the_manifest_without_running_code(self):
+        import pymss.cli as cli
+        import pymss.plugins as plugins
 
-        registry = get_registry()
-        registry.register_capability("ep_shared", lambda: "original", source="existing")
-        original = registry.capabilities["ep_shared"]
-        nodes_before, cli_before = dict(registry.nodes), list(registry.cli_commands)
-        runtime = ops.Runtime()
-        ops._DEFAULT_RUNTIME = runtime
+        directories = []
+        for name in ("checked", "neighbor"):
+            directories.append(self.plugin(name, f"author.{name}", "1.0.0", body=(
+                "from pathlib import Path\n"
+                "Path(__file__).with_name('imported.txt').write_text('imported')\n"
+                "def setup(plugin):\n"
+                "    Path(__file__).with_name('setup.txt').write_text('setup')\n"
+                f"    plugin.register_operation(id='author.{name}.run', inputs={{}}, "
+                "params={'type':'object','properties':{}}, outputs={}, run=lambda c,i,p: {})\n"
+            )))
+        directory = directories[0]
+        self.addCleanup(plugins.reset)
+        output = io.StringIO()
+        arguments = ["plugins", "validate", str(directory)]
+        for explicit_arguments in (True, False):
+            with self.subTest(explicit_arguments=explicit_arguments):
+                plugins.reset()
+                ops._DEFAULT_RUNTIME = None
+                with patch.object(sys, "argv", ["pymss", *arguments]), redirect_stdout(output):
+                    self.assertEqual(cli.main(arguments if explicit_arguments else None), 0)
+                for plugin_dir in directories:
+                    self.assertFalse((plugin_dir / "imported.txt").exists())
+                    self.assertFalse((plugin_dir / "setup.txt").exists())
+        self.assertIn("author.checked 1.0.0 (api_version 2)", output.getvalue())
+        self.assertIn("author.checked.run", output.getvalue())
+        (directory / "pyproject.toml").write_text('[tool.pymss.plugin]\nid = "author.checked"\napi_version = 1\n', encoding="utf-8")
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(["plugins", "validate", str(directory)]), 1)
+        for plugin_dir in directories:
+            self.assertFalse((plugin_dir / "imported.txt").exists())
+            self.assertFalse((plugin_dir / "setup.txt").exists())
 
-        def fail():
-            plugin = PluginRegistration(source="broken-entrypoint")
-            plugin.register_capability("ep_shared", lambda: "replacement")
-            plugin.register_node("EntrypointNode", lambda *args: None)
-            plugin.register_cli(("broken", "ep"), lambda args: 0)
-            plugin.register_operation(id="author.entrypoint", inputs={}, params={"type": "object"},
-                                      outputs={}, run=lambda c, i, p: {})
-            raise RuntimeError("entrypoint import failed")
+    def test_cli_still_loads_plugin_commands(self):
+        import pymss.cli as cli
+        import pymss.plugins as plugins
 
-        entries = Mock()
-        entries.select.return_value = [SimpleNamespace(name="broken", load=fail)]
-        report = PluginLoadReport()
-        with patch("pymss.plugins.loader.entry_points", return_value=entries):
-            _scan_entrypoints(report)
-        self.assertFalse(report.results[0].loaded)
-        self.assertIn("entrypoint import failed", report.results[0].error)
-        self.assertEqual(runtime.list_operations(), [])
-        self.assertIs(registry.capabilities["ep_shared"], original)
-        self.assertEqual(registry.nodes, nodes_before)
-        self.assertEqual(registry.cli_commands, cli_before)
+        self.plugin("commands", "author.commands", "1.0.0", operations=[], body=(
+            "def setup(plugin):\n"
+            "    plugin.register_cli(('plugin-command',), lambda args: 17)\n"
+        ))
+        plugins.reset()
+        self.addCleanup(plugins.reset)
+        ops._DEFAULT_RUNTIME = None
+        self.assertEqual(cli.main(["plugin-command"]), 17)
 
 
 class GraphOperationTests(unittest.TestCase):

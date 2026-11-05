@@ -12,6 +12,10 @@ from .backends import amp_supported, autocast_dtype, device_profile
 from .config import load_config
 from .progress import _ProgressContext
 
+# XPU deliberately stays in FP32 until bf16 AMP has model accuracy benchmarks.
+# The policy now lives in the backend profile (``DeviceProfile.amp``), so XPU
+# reports ``amp_supported() == False`` and this module needs no special case.
+
 
 def apply_msst_inference_compat(config, logger=None, *, user_set_chunk_size=False):
     """Normalize MSST-style ``num_overlap`` / ``inference.chunk_size`` for pymss.
@@ -1104,7 +1108,7 @@ def demix_track(config, model, mix, device, pbar=False, source_indices=None, pro
     mix, length_init = _prepare_mix_for_chunks(mix, border)
     chunk_starts, chunk_windows = _build_chunk_plan(mix.shape[1], C, step, fade_size)
     # MPS needs the slow path (mlx handoff); every other accelerator mirrors the
-    # CUDA kernel set, including the CUDA-impersonating domestic vendors.
+    # CUDA kernel set, including the CUDA-impersonating domestic vendors and XPU.
     use_complete_fast_path = device_profile(device).device_type != "mps"
     mix_device = _model_mix(mix, device)
 

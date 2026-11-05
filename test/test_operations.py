@@ -175,6 +175,10 @@ def test_runtime_loads_plugin_setup_operations(tmp_path, monkeypatch):
     monkeypatch.setenv("PYMSS_PLUGINS_DIR", str(tmp_path))
     plug = tmp_path / "opplug"
     plug.mkdir()
+    (plug / "pyproject.toml").write_text(
+        '[tool.pymss.plugin]\nid = "x.op"\napi_version = 2\n\n'
+        '[[tool.pymss.plugin.operations]]\nid = "x.op.echo"\n'
+    )
     (plug / "__init__.py").write_text(
         "def setup(plugin):\n"
         "    plugin.register_operation(\n"
@@ -195,6 +199,10 @@ def test_failing_plugin_setup_rolls_back_its_registrations(tmp_path, monkeypatch
     monkeypatch.setenv("PYMSS_PLUGINS_DIR", str(tmp_path))
     plug = tmp_path / "halfplug"
     plug.mkdir()
+    (plug / "pyproject.toml").write_text(
+        '[tool.pymss.plugin]\nid = "x.op"\napi_version = 2\n\n'
+        '[[tool.pymss.plugin.operations]]\nid = "x.op.first"\n'
+    )
     (plug / "__init__.py").write_text(
         "def setup(plugin):\n"
         "    plugin.register_operation(\n"
@@ -210,5 +218,6 @@ def test_failing_plugin_setup_rolls_back_its_registrations(tmp_path, monkeypatch
     assert "x.op.first" not in ids
     # The failure is surfaced, not swallowed
     report = rt.plugin_report()
-    assert any("halfplug" in name and not loaded for name, loaded in
-               [(r["name"], r["loaded"]) for r in report])
+    row = next(r for r in report if r["name"] == "halfplug")
+    assert not row["loaded"]
+    assert "boom after first registration" in row["error"]

@@ -168,13 +168,14 @@ def register_builtin_codecs() -> None:
     that already exists is never overwritten — neither a repeat builtin
     registration nor one over a plugin-provided encoder for the same format.
     """
-    for fmt, (func, _default_params) in _BUILTIN_CODECS.items():
-        name = f"{fmt}_encode"
-        if name in _REGISTRY.capabilities:
-            continue
-        _REGISTRY.register_capability(
-            name, func, source="builtin", description=f"encode audio to {fmt}"
-        )
+    with _REGISTRY._builtin_registration():
+        for fmt, (func, _default_params) in _BUILTIN_CODECS.items():
+            name = f"{fmt}_encode"
+            if name in _REGISTRY.capabilities:
+                continue
+            _REGISTRY.register_capability(
+                name, func, source="builtin", description=f"encode audio to {fmt}"
+            )
 
 
 def supported_formats() -> list[str]:

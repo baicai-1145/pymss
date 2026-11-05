@@ -4,11 +4,26 @@
 
 ## 安装
 
+pymss 2.2 及后续版本要求 Python 3.11 或更高版本。
+
 如果想安装 CUDA 版 PyTorch，推荐先运行：
 
 ```sh
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 ```
+
+### Intel XPU（Arc）
+
+Linux 需要可用的 Level Zero 和 OpenCL 驱动。安装 PyTorch 官方 XPU wheel 后再安装 pymss：
+
+```sh
+pip install torch --index-url https://download.pytorch.org/whl/xpu
+pip install pymss
+```
+
+使用 `--device xpu` 强制 Intel GPU，`--device-id` 指定设备编号；传入多个编号时仅使用第一项，目前不支持多 XPU 并行。`--device auto` 的优先级为 CUDA → XPU → NPU → Apple Silicon。XPU 硬件推理目前为实验性支持，显式使用 FP32，即使设置 `use_amp=True` 也不会启用混合精度。bf16 AMP 需要单独验证模型精度和性能。
+
+可通过 `test/manual/xpu_benchmark.py` 在本地硬件上手动对比 FP32 CPU 与 XPU 的推理性能。
 
 ### 昇腾 NPU（Ascend）
 
@@ -18,7 +33,7 @@ pymss 通过 `torch_npu` 支持华为昇腾 NPU。请先安装与 CANN 工具链
 pip install pymss
 ```
 
-使用 `--device npu`（或 `device="auto"`，其优先级为 CUDA → NPU → Apple Silicon）。`--device-id` 指定 NPU 编号；传入多个编号时仅使用第一项，目前不支持多 NPU 并行。NPU 上的 STFT/ISTFT 使用基于 `torch.fft` 原语的设备内实现；针对相关 `torch_npu` 版本，RNN/LSTM/GRU 循环层使用 CPU 推理回退，结果返回 NPU。此回退不支持训练，并会增加 CPU 数据传输开销。
+使用 `--device npu`（或 `device="auto"`，其优先级为 CUDA → XPU → NPU → Apple Silicon）。`--device-id` 指定 NPU 编号；传入多个编号时仅使用第一项，目前不支持多 NPU 并行。NPU 上的 STFT/ISTFT 使用基于 `torch.fft` 原语的设备内实现；针对相关 `torch_npu` 版本，RNN/LSTM/GRU 循环层使用 CPU 推理回退，结果返回 NPU。此回退不支持训练，并会增加 CPU 数据传输开销。
 
 ### 国产 GPU（壁仞 / 天数 / 沐曦 / 燧原 / 海光 / 寒武纪）
 
@@ -72,7 +87,7 @@ pip install "pymss[server]"
 
 ## 开发
 
-开发需要 Git、Python 3.10 或更高版本，以及 [uv](https://docs.astral.sh/uv/)。WebUI 开发还需要 Node.js 和 npm。
+开发需要 Git、Python 3.11 或更高版本，以及 [uv](https://docs.astral.sh/uv/)。WebUI 开发还需要 Node.js 和 npm。
 
 克隆 Python 包仓库，并安装开发依赖：
 
@@ -125,7 +140,7 @@ pymss infer bs_roformer_voc_hyperacev2 \
   --format wav     # wav | flac | mp3 | m4a | aac | opus | vorbis | ogg
 ```
 
-`--device auto` 在有 NVIDIA GPU 时优先使用 CUDA，其次是昇腾 NPU（`torch_npu`），再次是 Apple Silicon MLX。可以用 `--device npu` 强制昇腾 NPU、`--device mlx` 强制 MLX，或用 `--device mps` 强制 PyTorch MPS。
+`--device auto` 依次优先使用 CUDA、Intel XPU、昇腾 NPU（`torch_npu`）和 Apple Silicon MLX。可以用 `--device xpu` 强制 Intel GPU、`--device npu` 强制昇腾 NPU、`--device mlx` 强制 MLX，或用 `--device mps` 强制 PyTorch MPS。
 `--save-as-folder` 会把每个输入音频的输出音轨保存到以该音频命名的子文件夹中，例如 `results/song/song_vocals.wav`。
 
 默认下载源是 ModelScope。也可以指定下载源或模型目录：
@@ -226,17 +241,20 @@ pymss serve --webui
 
 ### 插件系统
 
+官方插件市场支持 GitHub 和 GitCode，默认比较可用源并选择响应更快且已同步的来源。可通过 `PYMSS_PLUGINS_SOURCE=github` 或 `PYMSS_PLUGINS_SOURCE=gitcode` 显式指定来源。GitCode 获取需要 Git；没有 Git 时，自动模式使用 GitHub。目录与安装的插件代码固定到同一个提交。
+
 pymss 有插件系统，用于扩展能力——音频 DSP 操作、音频编解码器、以及工作流节点。内置功能（23 个能力：15 个 DSP/声道操作 + 8 个编解码器）和插件用的是同一套注册机制，核心与扩展共用同一个能力池。
 
-**安装插件** —— 可用官方目录名、git URL 或本地路径。在 URL 后加 `#子目录` 可从 monorepo 子目录安装；用 `@tag` 锁定版本：
+**安装插件** —— 使用 pymss 2.2 或更新版本，通过官方目录中的完整插件 id、仓库 URL 或本地路径安装。在 URL 后加 `#子目录` 可从 monorepo 子目录安装：
 
 ```sh
-pymss install loudnorm                                   # 按官方目录名
-pymss install "https://github.com/xxx/repo#plugins/eq"   # URL + 子目录
-pymss install https://github.com/xxx/repo --subpath plugins/eq
+pymss install pymss.loudnorm                             # 完整插件 id
+pymss install "https://github.com/pymss-project/pymss-plugins#plugins/loudnorm"
+pymss install https://github.com/pymss-project/pymss-plugins --subpath plugins/loudnorm
 pymss install ./my-local-plugin
-pymss install loudnorm@v0.2.0                            # 锁定 git tag/branch/commit
 ```
+
+指定源码版本时使用 `pymss.loudnorm@<tag-or-commit>`，将占位符替换为源码仓库中实际存在的标签或完整提交 SHA。插件的包版本不代表仓库中一定存在同名 Git 标签。
 
 插件的依赖（在其 `pyproject.toml` 里声明）会**自动安装**到当前环境——venv 由 uv 管理时用 uv，否则用 pip。加 `--no-deps` 可跳过。
 
@@ -246,29 +264,69 @@ pymss install loudnorm@v0.2.0                            # 锁定 git tag/branch
 pymss plugins list           # 已装插件：版本、来源、加载状态
 pymss plugins available      # 浏览官方插件目录
 pymss plugins search loudness   # 按名称/描述/标签搜索目录
-pymss plugins update loudnorm   # 重装为最新版本
-pymss uninstall loudnorm
+pymss plugins update pymss.loudnorm   # 从记录的来源更新
+pymss uninstall pymss.loudnorm
 pymss plugins dir            # 打印插件目录
 ```
 
-`update` 对**官方插件和第三方（URL/路径装的）插件完全一样**——pymss 会记录每次安装的来源，所以更新时只需用插件文件夹名。
+`update` 对**官方插件和第三方（URL/路径装的）插件完全一样**——pymss 会记录每次安装的来源。更新和卸载命令使用清单中的插件 id，安装目录也以该 id 命名。
 
-插件放在 `~/.pymss/plugins/`（可用 `PYMSS_PLUGINS_DIR` 覆盖）。单个插件加载失败不会影响其他插件。官方插件目录是一个独立的 `pymss-plugins` 仓库（里面的 `registry.json` 映射短名到来源）；可通过 `PYMSS_PLUGINS_REGISTRY` 指向自定义目录。
+插件放在 `~/.pymss/plugins/`（可用 `PYMSS_PLUGINS_DIR` 覆盖）。单个插件加载失败不会影响其他插件。官方插件目录是一个独立的 `pymss-plugins` 仓库（里面的 `registry.json` 以插件 id 为键）；插件需要 v2 清单，见 `docs/plugin-protocol.md`；可通过 `PYMSS_PLUGINS_REGISTRY` 指向自定义目录。
 
-**编写插件** —— 只需标准的 `pyproject.toml`（带 `[project].name`/`version`/`dependencies`），无需任何 pymss 专属字段。注册一个能力，pymss 会让它对 Python API、CLI 和工作流节点都可用：
+**编写插件** —— 在 `my-local-plugin/` 中创建 `pyproject.toml` 和 `__init__.py`。v2 清单声明插件身份，以及 `setup(plugin)` 注册的全部 Operation。
+
+`pyproject.toml`：
+
+```toml
+[project]
+name = "pymss-plugin-gain"
+version = "0.1.0"
+
+[tool.pymss.plugin]
+id = "author.gain"
+api_version = 2
+requires_pymss = ">=2.2"
+
+[[tool.pymss.plugin.operations]]
+id = "author.gain.apply"
+title = "Apply Gain"
+```
+
+`__init__.py`：
 
 ```python
-from pymss.plugins import register_capability, register_node, register_cli
+def run_gain(ctx, inputs, params):
+    audio = inputs["audio"]
+    gain = 10 ** (params["gain_db"] / 20.0)
+    return {"audio": type(audio)(
+        audio.audio * gain, audio.sample_rate, channel_layout=audio.channel_layout,
+    )}
 
-@register_capability("myplugin_denoise")
-def denoise(audio, sample_rate, strength=0.5):
-    ...                          # 输入输出都是 numpy 音频数组
 
-@register_node("MyDenoiseNode")  # 消费该能力的工作流节点
-def denoise_node(ctx, inputs):
-    fn = ctx.require("myplugin_denoise")
-    ...
+def setup(plugin):
+    plugin.register_operation(
+        id="author.gain.apply",
+        title="Apply Gain",
+        inputs={"audio": {"type": "audio"}},
+        params={
+            "type": "object",
+            "properties": {
+                "gain_db": {"type": "number", "default": 0.0, "minimum": -60.0, "maximum": 60.0},
+            },
+            "additionalProperties": False,
+        },
+        outputs={"audio": {"type": "audio"}},
+        run=run_gain,
+    )
 ```
+
+```sh
+pymss plugins validate ./my-local-plugin
+pymss install ./my-local-plugin
+pymss ops describe author.gain.apply
+```
+
+清单声明的 Operation id 必须与 `setup()` 实际注册的集合完全一致。能力、节点和 CLI 命令同样在 `setup()` 内，通过 `plugin.register_capability`、`plugin.register_node` 和 `plugin.register_cli` 注册。没有 v2 清单的插件不再加载，详见[插件协议](./docs/plugin-protocol.md)和[开发指南](./docs/plugins.md)。
 
 能力是注册在扁平全局池里的具名函数；节点/CLI/库调用都按名字查找。提供者和消费者可以分别打包，仅通过能力名耦合——例如适配 `SaveAudioOpus` 节点时，可以直接复用已有的 `opus_encode` 能力，而不是重写编码器。
 
@@ -364,7 +422,7 @@ with separator as s:
     'vr']
 - model_path: 模型文件路径。
 - config_path: 配置文件路径。
-- device: 设备类型，默认为 'auto'。 必须是以下之一 ['auto', 'cuda', 'npu', 'mps', 'cpu']
+- device: 设备类型，默认为 'auto'。必须是以下之一 ['auto', 'cuda', 'rocm', 'npu', 'xpu', 'mps', 'mlx', 'cpu']
 - device_ids: 设备 ID 列表，默认为 [0]。
 - output_format: 输出音频格式，默认为 'wav'。可选 wav、flac、mp3、m4a、aac、opus、vorbis、ogg。
 - use_tta: 是否使用 TTA（测试时增强），默认为 False。 使用 TTA 会使处理时间增加三倍，但质量会略有提高。

@@ -315,10 +315,11 @@ def register_builtin_capabilities() -> None:
         "eq": (eq, "3-band equalizer (biquad, scipy-backed)"),
         "resample": (resample, "resample between sample rates (librosa)"),
     }
-    for name, (func, desc) in caps.items():
-        if name in _REGISTRY.capabilities and _REGISTRY.capabilities[name].source == "builtin":
-            continue
-        _REGISTRY.register_capability(name, func, source="builtin", description=desc)
+    with _REGISTRY._builtin_registration():
+        for name, (func, desc) in caps.items():
+            if name in _REGISTRY.capabilities and _REGISTRY.capabilities[name].source == "builtin":
+                continue
+            _REGISTRY.register_capability(name, func, source="builtin", description=desc)
 
 
 __all__ = [

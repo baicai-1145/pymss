@@ -94,8 +94,8 @@ separator = MSSeparator(
 | `model_type` | `str` | 必填 | `auto` 根据 YAML 自动识别，或显式指定模型架构与运行类型。常见值包括 `bs_roformer`、`bs_conformer`、`mel_band_roformer`、`mel_band_conformer`、`htdemucs`、`mdx23c`、`bandit`、`bandit_v2`、`scnet`、`apollo`、`vr`、`legacy_demucs`、`legacy_tasnet`。使用 catalog 模型时通常不需要手动设置。 |
 | `model_path` | `str` | 必填 | 模型权重文件路径。扩展名取决于模型类型，例如 `.ckpt`、`.th`、`.pth`。 |
 | `config_path` | `str \| None` | `None` | MSS 类模型使用的 YAML 配置路径。不传时，pymss 会尝试使用 `model_path + ".yaml"`。VR 模型使用内置 VR 元数据，不使用 MSS YAML 配置。 |
-| `device` | `str` | `"auto"` | 运行设备。可选值为 `auto`、`cpu`、`cuda`、`mps`、`mlx`。`auto` 优先选择 CUDA，其次 Apple MPS，最后 CPU。`mlx` 是 Apple Silicon MLX 后端的公开快捷写法，内部会通过 `device="mps"` 和 MLX 模型参数运行。 |
-| `device_ids` | `list[int]` | `[0]` | CUDA 设备 ID 列表。传入多个 CUDA ID 时，支持的 Torch 模型可以使用 `torch.nn.DataParallel`。该参数不会选择多个 Apple MPS 或 MLX 设备。 |
+| `device` | `str` | `"auto"` | 运行设备。可选值为 `auto`、`cpu`、`cuda`、`rocm`、`npu`、`xpu`、`mps`、`mlx`。`auto` 依次优先选择 CUDA、XPU、NPU、Apple MPS，最后 CPU。`mlx` 是 Apple Silicon MLX 后端的公开快捷写法，内部会通过 `device="mps"` 和 MLX 模型参数运行。 |
+| `device_ids` | `list[int]` | `[0]` | 加速器设备 ID 列表。XPU/NPU 仅使用第一项。传入多个 CUDA ID 时，支持的 Torch 模型可以使用 `torch.nn.DataParallel`。该参数不会选择多个 Apple MPS 或 MLX 设备。 |
 | `output_format` | `str` | `"wav"` | `process_folder()` 和 `save_audio()` 保存文件时使用的格式。支持 `wav`、`flac`、`mp3`、`m4a`。 |
 | `use_tta` | `bool` | `False` | 是否启用测试时增强。对 MSS 模型来说，会运行多个变换版本并合并结果。可能略微提升质量，但会增加推理时间。 |
 | `store_dirs` | `str \| dict` | `"results"` | `process_folder()` 使用的输出路径。字符串表示所有保存的音轨都写入同一个文件夹；字典可以把不同音轨映射到文件夹、文件夹列表、`None` 或空值。`None` 或缺少某个音轨表示不保存该音轨。 |

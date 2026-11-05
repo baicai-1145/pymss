@@ -1,5 +1,6 @@
 import math
 import platform
+import sys
 import traceback
 
 import librosa
@@ -11,7 +12,7 @@ from pymss_core.device import device_profile, fft_fallback_required
 
 ARM = "arm"
 wav_resolution = (
-    "polyphase" if platform.system() == "Darwin" and (platform.processor() == ARM or ARM in platform.platform()) else "soxr_hq"
+    "polyphase" if sys.platform == "darwin" and (platform.processor() == ARM or ARM in platform.platform()) else "soxr_hq"
 )
 
 

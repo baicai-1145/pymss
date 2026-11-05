@@ -7,7 +7,6 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
 
 from pymss.operations import OperationContext, Runtime
 from pymss.plugins import ManifestError, read_manifest
@@ -22,20 +21,21 @@ class PosixPluginProtocolTests(unittest.TestCase):
         self.root = Path(temporary.name) / "插件 空间"
         self.root.mkdir()
 
-    def plugin(self, name="plugin"):
+    def plugin(self, name="plugin", *, entry=None, operations=(), extra=""):
         directory = self.root / name
         directory.mkdir()
         (directory / "pyproject.toml").write_text(
             '[project]\nname="pymss-plugin-posix"\nversion="1.0.0"\n'
-            '[tool.pymss.plugin]\nid="author.posix"\napi_version=1\n', encoding="utf-8",
+            '[tool.pymss.plugin]\nid="author.posix"\napi_version=2\n'
+            + (f'entry="{entry}"\n' if entry else "")
+            + "".join(f'[[tool.pymss.plugin.operations]]\nid="{operation}"\n' for operation in operations)
+            + extra, encoding="utf-8",
         )
         (directory / "__init__.py").write_text("def setup(plugin): pass\n", encoding="utf-8")
         return directory
 
     def test_package_entry_under_a_unicode_path_supports_relative_imports(self):
-        directory = self.plugin("音频 插件")
-        manifest = directory / "pyproject.toml"
-        manifest.write_text(manifest.read_text(encoding="utf-8") + 'entry="pkg.handlers:setup"\n', encoding="utf-8")
+        directory = self.plugin("音频 插件", entry="pkg.handlers:setup", operations=["author.posix.run"])
         package = directory / "pkg"
         package.mkdir()
         (package / "__init__.py").touch()
@@ -47,9 +47,8 @@ class PosixPluginProtocolTests(unittest.TestCase):
             "outputs={'value':{'type':'number'}}, run=lambda c,i,p: {'value':VALUE})\n", encoding="utf-8",
         )
         before = list(sys.path)
-        with patch.dict(os.environ, {"PYMSS_PLUGINS_DIR": str(self.root)}):
-            runtime = Runtime()
-            report = runtime.load_plugins()
+        runtime = Runtime()
+        report = runtime.load_plugins([self.root])
         self.assertTrue(report[0]["loaded"], report)
         self.assertEqual(runtime.run("author.posix.run", inputs={}, params={}), {"value": 42})
         self.assertEqual(sys.path, before)
@@ -60,18 +59,16 @@ class PosixPluginProtocolTests(unittest.TestCase):
         alias.symlink_to(self.root, target_is_directory=True)
         runtime = Runtime()
         for root in [self.root, alias]:
-            with patch.dict(os.environ, {"PYMSS_PLUGINS_DIR": str(root)}):
-                report = runtime.load_plugins()
+            report = runtime.load_plugins([root])
             self.assertTrue(report[0]["loaded"], report)
 
-    def test_manifest_view_symlinks_cannot_escape_the_plugin(self):
-        directory = self.plugin()
-        outside = self.root / "outside.html"
-        outside.write_text("private", encoding="utf-8")
-        (directory / "page.html").symlink_to(outside)
-        manifest = directory / "pyproject.toml"
-        manifest.write_text(manifest.read_text(encoding="utf-8") +
-                            '[[tool.pymss.plugin.contributions.views]]\nid="editor"\nentry="page.html"\n', encoding="utf-8")
+    def test_manifest_graph_symlinks_cannot_escape_the_plugin(self):
+        directory = self.plugin(extra=(
+            '[[tool.pymss.plugin.contributions.graphs]]\nid="g"\nfile="graph.json"\noperation="author.posix.run"\n'
+        ))
+        outside = self.root / "outside.json"
+        outside.write_text("{}", encoding="utf-8")
+        (directory / "graph.json").symlink_to(outside)
         with self.assertRaisesRegex(ManifestError, "escapes the plugin directory"):
             read_manifest(directory)
 

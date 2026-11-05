@@ -177,7 +177,11 @@ def register_alias(alias: str, canonical: str) -> None:
     target = _PLUGIN_REGISTRY.nodes.get(canonical)
     if target is None:
         raise KeyError(f"cannot alias {alias!r}: canonical type {canonical!r} is not registered")
-    _PLUGIN_REGISTRY.nodes[alias] = target
+    _PLUGIN_REGISTRY.register_node(
+        alias, target.func, source=target.source,
+        description=target.description, signature=target.signature,
+        saves_output=target.saves_output,
+    )
 
 
 class UnknownNodeError(KeyError):
@@ -241,6 +245,8 @@ class DAGOutputRecord:
     sample_rate: int = 0
     format: str = ""
     source_path: str = ""
+    kind: str = ""
+    media_type: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -252,6 +258,7 @@ class DAGOutputRecord:
             "format": self.format,
             "source_path": self.source_path,
             "name": Path(self.path).name,
+            **({"kind": self.kind, "media_type": self.media_type} if self.kind else {}),
         }
 
 
@@ -311,6 +318,7 @@ class NodeContext:
     execution_event_callback: Callable[[dict[str, Any]], None] | None = None
     _node_fraction: float = 0.0
     _execution_callback_failed: bool = False
+    host_request: Callable[[Any], Any] | None = None
 
     def _emit_execution_event(self, event_type: str, node: DAGNode | None = None,
                               message: str = "", **details: Any) -> None:
@@ -539,6 +547,10 @@ def string_value(artifact: Artifact) -> str:
         return artifact
     if artifact is None:
         return ""
+    from ..operations.files import FileArtifact
+
+    if isinstance(artifact, FileArtifact):
+        return artifact.path
     raise DAGError(f"expected a STRING input, got {type(artifact).__name__}")
 
 
@@ -674,6 +686,7 @@ def run_dag(
     name_prefix: str = "",
     node_results: dict[int, Any] | None = None,
     execution_event_callback: Callable[[dict[str, Any]], None] | None = None,
+    host_request: Callable[[Any], Any] | None = None,
 ) -> list[str]:
     """Execute a DAG and return the list of files written by output nodes.
 
@@ -712,6 +725,7 @@ def run_dag(
             name_prefix=name_prefix or "",
             progress_event_callback=progress_event_callback,
             execution_event_callback=execution_event_callback,
+            host_request=host_request,
             node_count=len(dag.nodes),
         )
 
@@ -840,8 +854,9 @@ def _load_builtin_nodes() -> None:
     global _builtins_loaded
     if _builtins_loaded:
         return
-    from . import nodes  # noqa: F401  (side-effect: registers comfy-mss nodes)
-    from . import builtin_nodes  # noqa: F401  (side-effect: registers ComfyUI built-in nodes)
+    with _PLUGIN_REGISTRY._builtin_registration():
+        from . import nodes  # noqa: F401  (side-effect: registers comfy-mss nodes)
+        from . import builtin_nodes  # noqa: F401  (side-effect: registers ComfyUI built-in nodes)
 
     OUTPUT_NODE_TYPES.update(nodes.OUTPUT_NODE_TYPES)
     OUTPUT_NODE_TYPES.update(builtin_nodes.OUTPUT_NODE_TYPES)

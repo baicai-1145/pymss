@@ -13,13 +13,12 @@ capability name.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
+from .._builtin_node_types import BUILTIN_NODE_TYPES
 
 class CapabilityNotFound(KeyError):
     """Raised when a required capability is not registered.
@@ -55,6 +54,8 @@ class NodeRegistration:
     For graph/workflow nodes, `signature` is a factory that takes a DAGNode and
     returns a NodeSignature (inputs/outputs/params). It is optional — simple
     plugin nodes may omit it.
+    ``saves_output`` marks executors that persist files and report them through
+    NodeResult.saved_paths; intermediate values and in-memory audio do not set it.
     """
 
     node_type: str
@@ -62,6 +63,7 @@ class NodeRegistration:
     source: str = "builtin"  # which plugin/package provided it
     description: str = ""
     signature: Callable[..., Any] | None = None  # (dag_node) -> NodeSignature
+    saves_output: bool = False  # executor persists files in NodeResult.saved_paths
 
 
 @dataclass
@@ -88,9 +90,39 @@ class PluginRegistry:
     cli_commands: list[CLIRegistration] = field(default_factory=list)
 
     # Names that plugins must never override (pymss / comfy-mss built-ins).
-    # Only enforced for node registrations; capabilities use last-writer-wins
-    # with a warning.
-    _reserved_node_types: set[str] = field(default_factory=set)
+    # All registrations also reject a different owner for an existing name.
+    _reserved_node_types: set[str] = field(default_factory=lambda: set(BUILTIN_NODE_TYPES))
+    _builtin_registrations: dict[tuple[str, object], object] = field(default_factory=dict, repr=False)
+    _builtin_registration_depth: int = field(default=0, repr=False)
+
+    @contextmanager
+    def _builtin_registration(self):
+        """Record entry identities created by a trusted core initialization path.
+
+        ``source`` labels are public metadata, so lifecycle rollback must not
+        treat the string ``builtin`` as proof that an entry belongs to core.
+        Partial core imports remain registered when initialization raises.
+        """
+        before = self._registration_entries()
+        self._builtin_registration_depth += 1
+        try:
+            yield
+        finally:
+            for key, entry in self._registration_entries().items():
+                if entry is not before.get(key) and entry.source in {"builtin", "pymss.builtin"}:
+                    self._builtin_registrations[key] = entry
+            self._builtin_registration_depth -= 1
+
+    def _registration_entries(self) -> dict[tuple[str, object], object]:
+        return {
+            **{("capability", name): entry for name, entry in self.capabilities.items()},
+            **{("node", name): entry for name, entry in self.nodes.items()},
+            **{("cli", id(entry)): entry for entry in self.cli_commands},
+        }
+
+    def is_builtin_registration(self, kind: str, name: object, entry: object) -> bool:
+        """Check object identity, never an owner label supplied by plugin code."""
+        return self._builtin_registrations.get((kind, name)) is entry
 
     # ---- capability API ----
     def register_capability(
@@ -101,12 +133,16 @@ class PluginRegistry:
         source: str = "builtin",
         description: str = "",
     ) -> None:
-        if name in self.capabilities and self.capabilities[name].source != source:
-            logger.warning(
-                "capability '%s' already registered by '%s'; overriding with '%s'",
-                name,
-                self.capabilities[name].source,
-                source,
+        previous = self.capabilities.get(name)
+        if previous is not None and (
+            previous.source != source or (
+                self.is_builtin_registration("capability", name, previous)
+                and not self._builtin_registration_depth
+            )
+        ):
+            raise ValueError(
+                f"capability {name!r} is already registered by {previous.source!r}; "
+                f"cannot replace it with {source!r}"
             )
         self.capabilities[name] = Capability(
             name=name, func=func, source=source, description=description
@@ -135,22 +171,32 @@ class PluginRegistry:
         description: str = "",
         allow_override_builtin: bool = False,
         signature: Callable[..., Any] | None = None,
+        saves_output: bool = False,
     ) -> None:
-        if node_type in self._reserved_node_types and not allow_override_builtin:
+        builtin_source = source in {"builtin", "pymss.builtin"}
+        # The legacy override flag remains accepted, but an owner label/flag
+        # alone must not grant access to names reserved for core initialization.
+        builtin_initialization = builtin_source and self._builtin_registration_depth
+        if node_type in self._reserved_node_types and not builtin_initialization:
             raise ValueError(
                 f"node type '{node_type}' is a reserved pymss built-in and "
                 f"cannot be registered by plugins."
             )
-        if node_type in self.nodes:
-            logger.warning(
-                "node type '%s' already registered by '%s'; overriding with '%s'",
-                node_type,
-                self.nodes[node_type].source,
-                source,
+        previous = self.nodes.get(node_type)
+        if previous is not None and (
+            previous.source != source or (
+                self.is_builtin_registration("node", node_type, previous)
+                and not self._builtin_registration_depth
+            )
+        ):
+            raise ValueError(
+                f"node type {node_type!r} is already registered by {previous.source!r}; "
+                f"cannot replace it with {source!r}"
             )
         self.nodes[node_type] = NodeRegistration(
             node_type=node_type, func=func, source=source, description=description,
             signature=signature,
+            saves_output=saves_output,
         )
 
     def get_node(self, node_type: str) -> Callable[..., Any] | None:
@@ -250,10 +296,12 @@ class PluginRegistration:
         *,
         description: str = "",
         signature: Callable[..., Any] | None = None,
+        saves_output: bool = False,
     ) -> None:
         _REGISTRY.register_node(
             node_type, func, source=self.source, description=description,
             signature=signature,
+            saves_output=saves_output,
         )
 
     def register_cli(
@@ -307,22 +355,26 @@ def register_node(
     source: str = "plugin",
     description: str = "",
     signature: Callable[..., Any] | None = None,
+    saves_output: bool = False,
 ):
     """Register a workflow node executor. See register_capability for decorator use.
 
     signature: optional factory (dag_node) -> NodeSignature for graph nodes.
+    saves_output: executor persists files and reports them in NodeResult.saved_paths.
     """
     if func is None:
         def decorator(f: Callable[..., Any]):
             _REGISTRY.register_node(
                 node_type, f, source=source, description=description,
                 signature=signature,
+                saves_output=saves_output,
             )
             return f
         return decorator
     _REGISTRY.register_node(
         node_type, func, source=source, description=description,
         signature=signature,
+        saves_output=saves_output,
     )
     return func
 

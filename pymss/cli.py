@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import sys
 import warnings
 
@@ -13,6 +14,12 @@ from .user_models import KNOWN_MODEL_TYPES, list_user_models
 from .workflow import load_workflow_file, validate_workflow, write_workflow_template
 
 warnings.filterwarnings("ignore", category=UserWarning)
+
+
+def _plugin_binding_argument(value):
+    if not value.strip():
+        raise argparse.ArgumentTypeError("Plugin binding path must not be empty")
+    return value
 
 
 def _parse_key_value(values):
@@ -141,6 +148,9 @@ def cmd_unregister(args):
 
 def cmd_install(args):
     """Install a plugin by name, URL, or local path."""
+    from pymss_plugin_manager.cli import binding_from_args, run as manage_plugins
+    if binding_from_args(args) is not None:
+        return manage_plugins(args, action="install")
     from .plugins.install import install as plugin_install, InstallError
 
     try:
@@ -164,6 +174,9 @@ def cmd_install(args):
 
 def cmd_uninstall(args):
     """Remove an installed plugin."""
+    from pymss_plugin_manager.cli import binding_from_args, run as manage_plugins
+    if binding_from_args(args) is not None:
+        return manage_plugins(args, action="uninstall")
     from .plugins.install import uninstall as plugin_uninstall, InstallError
 
     try:
@@ -177,7 +190,10 @@ def cmd_uninstall(args):
 
 def cmd_plugins(args):
     """Handle plugin subcommands: list / dir / available / search / update."""
-    from .plugins import bootstrap, get_plugins_dir, get_last_report
+    from pymss_plugin_manager.cli import binding_from_args, run as manage_plugins
+    if binding_from_args(args) is not None and getattr(args, "plugins_command", "list") not in {"available", "search", "validate"}:
+        return manage_plugins(args)
+    from .plugins import get_plugins_dir
     from .plugins.install import (
         list_available, search_available, list_installed,
         check_update, update as plugin_update, InstallError,
@@ -187,6 +203,21 @@ def cmd_plugins(args):
 
     if cmd == "dir":
         print(get_plugins_dir())
+        return 0
+
+    if cmd == "validate":
+        from pathlib import Path
+
+        from .plugins.manifest import ManifestError, read_manifest
+
+        try:
+            manifest = read_manifest(Path(args.path))
+        except ManifestError as exc:
+            print(f"pymss plugins validate: error: {exc}", file=sys.stderr)
+            return 1
+        print(f"{manifest.plugin_id} {manifest.version or '?'} (api_version {manifest.api_version})")
+        for operation in manifest.operations:
+            print(f"  operation {operation.id}  {operation.title}")
         return 0
 
     if cmd == "available":
@@ -248,26 +279,16 @@ def cmd_plugins(args):
             print(f"  version: {result.version}")
         return 0
 
-    # Default: list installed.
-    plugins_dir = get_plugins_dir()
-    report = bootstrap()
-    installed = {e["name"]: e for e in list_installed()}
-    print(f"Plugins directory: {plugins_dir}")
-    if not report.results:
-        print("No plugins installed.")
-        print("Browse with: pymss plugins available")
-        return 0
-    print("")
-    for r in report.results:
-        status = "OK" if r.loaded else f"FAILED ({r.error})"
-        meta = installed.get(r.name, {})
-        ver = meta.get("version") or "?"
-        src = meta.get("source") or "?"
-        print(f"  {r.name:<24} {status:<20} v{ver:<10} ({src})")
-    failed = report.failed
-    if failed:
-        print(f"\n{len(failed)} plugin(s) failed to load.", file=sys.stderr)
-    return 1 if failed else 0
+    if cmd in {"enable", "disable", "repair", "prepare", "uninstall", "install", "probe", "check_updates", "recover"}:
+        return manage_plugins(args)
+    entries = list_installed()
+    if getattr(args, "json", False):
+        print(json.dumps(entries, ensure_ascii=False))
+    else:
+        print(f"Plugins directory: {get_plugins_dir()}")
+        for row in entries:
+            print(f"  {row['name']} v{row.get('version') or '?'} installed")
+    return 0
 
 
 def cmd_download(args):
@@ -382,6 +403,17 @@ def cmd_ops(args):
     from .operations import OperationContext, OperationError, default_runtime
     from .plugins import ensure_plugins_loaded
 
+    if getattr(args, "ops_command", None) == "prepare-python":
+        from .operations.python_profiles import prepare_python_environment
+
+        try:
+            profile = prepare_python_environment(args.directory, args.profiles_dir)
+        except (OperationError, OSError, ValueError) as exc:
+            print(f"pymss ops prepare-python: error: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps({"profile": str(profile)}, ensure_ascii=False))
+        return 0
+
     # The global loader imports plugin modules; their setup() registers
     # operations into the process default runtime. Using it here (instead of
     # an isolated runtime) means each plugin loads exactly once per process.
@@ -409,6 +441,7 @@ def cmd_ops(args):
         return 0
 
     if cmd == "run":
+        from .operations.host_services import ReadonlyHost
         params = _parse_key_value(args.param)
         inputs = {}
         for entry in args.input or []:
@@ -421,12 +454,17 @@ def cmd_ops(args):
                 args.operation,
                 inputs=inputs,
                 params=params,
-                context=OperationContext(),
+                context=OperationContext(workdir=getattr(args, "output_dir", None), host_request=ReadonlyHost("cli", args.operation)),
             )
         except OperationError as exc:
             print(f"pymss ops run: error: {exc}", file=sys.stderr)
+            detail = getattr(exc, "extra", {}).get("stderr")
+            if isinstance(detail, str) and detail.strip():
+                print(detail.strip()[-4000:], file=sys.stderr)
             return 1
-        print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+        from .operations.files import FileArtifact
+
+        print(json.dumps(result, indent=2, ensure_ascii=False, default=lambda value: value.to_dict() if isinstance(value, FileArtifact) else str(value)))
         return 0
 
     print(f"pymss ops: unknown subcommand {cmd!r}", file=sys.stderr)
@@ -534,12 +572,14 @@ def cmd_comfy_run(args):
 
     ensure_plugins_loaded()
     from .graph import load_comfy_file, run_dag
+    from .operations.host_services import ReadonlyHost
 
     logger = get_separation_logger()
     dag = load_comfy_file(args.config)
     saved = run_dag(
         dag,
         output_dir=args.output,
+        host_request=ReadonlyHost("cli-graph"),
         input_path=args.input,
         inputs=_parse_named_inputs(getattr(args, "named_input", None)),
         logger=logger,
@@ -610,6 +650,8 @@ def build_parser():
         description="Command-line interface for the pymss music source separation package.",
         formatter_class=lambda prog: argparse.RawTextHelpFormatter(prog, max_help_position=60),
     )
+    parser.add_argument("--plugin-store", "--plugin-binding", type=_plugin_binding_argument,
+                        help="Managed binding directory; its parent store shares intent across sibling bindings")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # ==========================
@@ -750,7 +792,8 @@ def build_parser():
     plugins_subparsers = plugins_parser.add_subparsers(
         dest="plugins_command", required=False
     )
-    plugins_subparsers.add_parser("list", help="List installed plugins (default).")
+    plugins_list = plugins_subparsers.add_parser("list", help="List installed plugins without executing their code.")
+    plugins_list.add_argument("--json", action="store_true")
     plugins_subparsers.add_parser("dir", help="Print the plugins directory path.")
     plugins_subparsers.add_parser(
         "available", help="List all plugins in the official registry."
@@ -762,7 +805,28 @@ def build_parser():
     update_parser = plugins_subparsers.add_parser(
         "update", help="Reinstall a plugin at its latest version."
     )
-    update_parser.add_argument("name", help="Name of the installed plugin to update.")
+    update_parser.add_argument("name", help="Plugin id of the installed plugin to update.")
+    for action in ("enable", "disable", "repair", "prepare", "uninstall"):
+        action_parser = plugins_subparsers.add_parser(action, help=f"{action.capitalize()} a plugin in the selected managed binding.")
+        action_parser.add_argument("name")
+        action_parser.add_argument("--json", action="store_true")
+    managed_install = plugins_subparsers.add_parser("install", help="Install into the selected managed binding.")
+    managed_install.add_argument("target")
+    managed_install.add_argument("--subpath")
+    managed_install.add_argument("--json", action="store_true")
+    check_parser = plugins_subparsers.add_parser("check-updates", help="Check updates in the selected managed binding.")
+    check_parser.add_argument("--json", action="store_true")
+    check_parser.set_defaults(plugins_command="check_updates")
+    recover_parser = plugins_subparsers.add_parser("recover", help="Recover interrupted transactions in the selected binding.")
+    recover_parser.add_argument("--json", action="store_true")
+    probe_parser = plugins_subparsers.add_parser("probe", help="Explicitly load plugins in a separate verification process.")
+    probe_parser.add_argument("--json", action="store_true")
+    update_parser.add_argument("--json", action="store_true")
+    update_parser.add_argument("--sync-dependencies", action="store_true")
+    validate_parser = plugins_subparsers.add_parser(
+        "validate", help="Check a plugin directory's v2 manifest without running its code."
+    )
+    validate_parser.add_argument("path", help="Plugin directory containing pyproject.toml.")
     plugins_parser.set_defaults(func=cmd_plugins, plugins_command="list")
 
     # ==========================
@@ -794,7 +858,7 @@ def build_parser():
     )
     infer_parser.add_argument("--device", default="auto", choices=list(SUPPORTED_DEVICES))
     infer_parser.add_argument(
-        "--device-id", action="append", type=int, dest="device_ids", help="CUDA device id. Can be repeated."
+        "--device-id", action="append", type=int, dest="device_ids", help="Accelerator device id. Can be repeated; XPU/NPU use the first."
     )
     infer_parser.add_argument("--format", default="wav", choices=["wav", "flac", "mp3", "m4a"], dest="output_format")
     infer_parser.add_argument("--wav-bit-depth", default="FLOAT", choices=["FLOAT", "PCM_16", "PCM_24"])
@@ -989,7 +1053,7 @@ def build_parser():
         action="append",
         type=int,
         dest="device_ids",
-        help="CUDA device id. Can be repeated.",
+        help="Accelerator device id. Can be repeated; XPU/NPU use the first.",
     )
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", default=8000, type=int)
@@ -1018,10 +1082,14 @@ def build_parser():
     )
     ops_subparsers = ops_parser.add_subparsers(dest="ops_command", required=False)
     ops_subparsers.add_parser("list", help="List registered operations (default).")
+    prepare_parser = ops_subparsers.add_parser("prepare-python", help="Prepare an isolated Python process plugin from its local wheel lock.")
+    prepare_parser.add_argument("directory", help="Plugin package directory.")
+    prepare_parser.add_argument("--profiles-dir", required=True, help="Stable environment store outside the plugin directory.")
     describe_parser = ops_subparsers.add_parser("describe", help="Print one operation's spec as JSON.")
     describe_parser.add_argument("operation", help="Operation id, e.g. pymss.loudnorm.normalize.")
     run_parser = ops_subparsers.add_parser("run", help="Run an operation.")
     run_parser.add_argument("operation", help="Operation id.")
+    run_parser.add_argument("--output-dir", help="Output directory for file-producing operations.")
     run_parser.add_argument(
         "--input",
         action="append",
@@ -1040,28 +1108,48 @@ def build_parser():
 
 
 def main(argv=None):
-    """Run the pymss command-line interface.
-
-    Loads user plugins first so their registered CLI subcommands exist before
-    argument parsing, then mounts any plugin-registered commands that do not
-    collide with builtin subparsers.
-    """
-    from .plugins import ensure_plugins_loaded, get_registry
-
-    parser = build_parser()
+    """Dispatch fixed management commands before loading plugin extensions."""
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    selector = argparse.ArgumentParser(add_help=False)
+    selector.add_argument("--plugin-store", "--plugin-binding", type=_plugin_binding_argument)
+    selected, remaining = selector.parse_known_args(arguments)
+    from pymss_plugin_manager.cli import binding_from_args
     try:
-        ensure_plugins_loaded()
-    except Exception as exc:  # noqa: BLE001 - plugin load errors must not kill the CLI
-        print(f"pymss: warning: plugin loading failed: {exc}", file=sys.stderr)
-    _mount_plugin_cli_commands(parser)
-    args = parser.parse_args(argv)
-    try:
-        return args.func(args)
-    except Exception as exc:
-        import traceback
-        print(f"pymss error: {exc}", file=sys.stderr)
-        traceback.print_exc()
+        binding = binding_from_args(selected)
+    except (OSError, ValueError) as error:
+        print(f"pymss: {error}", file=sys.stderr)
         return 1
+    previous = os.environ.get("PYMSS_PLUGIN_BINDING")
+    if binding is not None:
+        os.environ["PYMSS_PLUGIN_BINDING"] = str(binding)
+    try:
+        parser = build_parser()
+        if not remaining or remaining[0] not in {"plugins", "install", "uninstall"}:
+            from .plugins import ensure_plugins_loaded
+            try:
+                ensure_plugins_loaded()
+            except Exception as exc:
+                print(f"pymss: warning: plugin loading failed: {exc}", file=sys.stderr)
+                if binding is not None or "PLUGIN_CONTEXT_CHANGED" in str(exc):
+                    return 1
+            _mount_plugin_cli_commands(parser)
+        args = parser.parse_args(remaining)
+        args.plugin_store = str(binding) if binding is not None else None
+        try:
+            return args.func(args)
+        except KeyboardInterrupt:
+            print("Plugin operation cancelled", file=sys.stderr)
+            return 130
+        except Exception as exc:
+            print(f"pymss error: {exc}", file=sys.stderr)
+            return 1
+    finally:
+        # Registered plugin code remains in the default runtime after main()
+        # returns. Its lease therefore belongs to the process, not this call.
+        if previous is None:
+            os.environ.pop("PYMSS_PLUGIN_BINDING", None)
+        else:
+            os.environ["PYMSS_PLUGIN_BINDING"] = previous
 
 
 def _mount_plugin_cli_commands(parser) -> None:

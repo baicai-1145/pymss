@@ -103,7 +103,7 @@ def _convert_run(ctx, inputs, params):
     output = _available_path(output_dir / f"{source.stem}_{sample_rate}_{detail}.{ext}".replace(" ", "_"))
     _run([_ffmpeg(), *command, "-y", str(output)])
     if ctx is not None and getattr(ctx, "progress", None):
-        ctx.progress(1.0, f"converted {source.name}")
+        ctx.report_progress(1.0, f"converted {source.name}")
     return {"audio_file": str(output), "format": fmt, "sample_rate": sample_rate}
 
 
@@ -293,7 +293,7 @@ def _slice_run(ctx, inputs, params):
               "-vn", *codec, "-y", str(output)])
         files.append(str(output))
         if ctx is not None and getattr(ctx, "progress", None):
-            ctx.progress(index / total, f"segment {index}/{total}")
+            ctx.report_progress(index / total, f"segment {index}/{total}")
     return {"files": files, "count": total, "report": {"intervals": [{"start": s, "end": e} for s, e in intervals]}}
 
 
@@ -318,7 +318,7 @@ def _merge_run(ctx, inputs, params):
             _run([_ffmpeg(), "-i", str(path), "-vn", "-ar", "44100", "-ac", "2", "-c:a", "pcm_s24le", "-y", str(segment)])
             segments.append(segment)
             if ctx is not None and getattr(ctx, "progress", None):
-                ctx.progress(index / (len(ordered) + 1), f"normalized {path.name}")
+                ctx.report_progress(index / (len(ordered) + 1), f"normalized {path.name}")
         listing = Path(temp) / "segments.txt"
         listing.write_text("".join(f"file '{str(p)}'\n" for p in segments), encoding="utf-8")
         _run([_ffmpeg(), "-f", "concat", "-safe", "0", "-i", str(listing), "-c:a", "pcm_s24le", "-y", str(output)])

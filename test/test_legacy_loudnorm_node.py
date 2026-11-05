@@ -9,21 +9,19 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def _load_loudnorm(tmp_path, monkeypatch):
-    """Import the real loudnorm plugin the way the loader does."""
-    import importlib.util
+def _load_loudnorm(tmp_path):
+    """Load the real loudnorm plugin through the v2 loader."""
     import shutil
-    import sys
+    from pathlib import Path
 
-    src = __import__("pathlib").Path(
-        __file__).resolve().parents[2] / "pymss-plugins" / "plugins" / "loudnorm"
-    dest = tmp_path / "loudnorm"
-    shutil.copytree(src, dest)
-    monkeypatch.setenv("PYMSS_PLUGINS_DIR", str(tmp_path))
-    spec = importlib.util.spec_from_file_location("_test_loudnorm", dest / "__init__.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["_test_loudnorm"] = module
-    spec.loader.exec_module(module)
+    from pymss.operations import create_runtime
+
+    src = Path(__file__).resolve().parents[2] / "pymss-plugins" / "plugins" / "loudnorm"
+    if not src.is_dir():
+        pytest.skip("pymss-plugins checkout is not next to pymss")
+    shutil.copytree(src, tmp_path / "loudnorm")
+    rows = create_runtime().load_plugins([tmp_path])
+    assert rows[0]["loaded"], rows
     yield
 
 

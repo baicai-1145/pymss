@@ -18,9 +18,16 @@ Design (round 2 of the plugin redesign, docs/plugin-redesign-plan.md):
 
 from __future__ import annotations
 
-import re
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
+
+from .._identifiers import OPERATION_ID_RE
+
+if TYPE_CHECKING:
+    from ..plugins.lifecycle import PluginState
+    from .host_services import HostRequest
 
 __all__ = [
     "OperationError",
@@ -32,8 +39,6 @@ __all__ = [
 ]
 
 AUDIO_TYPE = "audio"
-
-_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,}$")
 
 _SUPPORTED_PARAM_TYPES = {"object", "number", "integer", "string", "boolean"}
 
@@ -61,7 +66,7 @@ class OperationSpec:
     description: str = ""
 
     def __post_init__(self) -> None:
-        if not isinstance(self.id, str) or not _ID_PATTERN.match(self.id):
+        if not isinstance(self.id, str) or not OPERATION_ID_RE.fullmatch(self.id):
             raise OperationError(
                 f"operation id must be a dot-namespaced lowercase identifier, got {self.id!r}"
             )
@@ -153,19 +158,21 @@ def _matches_type(ptype: str, value: Any) -> bool:
 class OperationContext:
     """Execution context handed to every operation run.
 
-    Round 2 keeps this minimal (progress, cancel, logger); later rounds add
-    audio-service access. ``cancelled`` is checked by long-running operations
-    cooperatively via ``ctx.check_cancelled()``.
+    ``cancelled`` is checked cooperatively via ``ctx.check_cancelled()``.
+    An optional ``host_request`` supplies task-scoped services to RPC peers;
+    absence means services are unavailable, never implicit user approval.
     """
 
     workdir: str | None = None
-    progress: Callable[[float, str], None] | None = None
+    progress: Callable[[float, str, dict[str, Any] | None], None] | None = None
     cancelled: Callable[[], bool] | None = None
     logger: Any = None
+    host_request: Callable[[HostRequest], Any] | None = None
 
-    def report_progress(self, fraction: float, message: str = "") -> None:
+    def report_progress(self, fraction: float, message: str = "", *, event: Mapping[str, Any] | None = None) -> None:
+        """Report progress; ``event`` carries optional structured host data (``{"type", "payload"}``)."""
         if self.progress is not None:
-            self.progress(fraction, message)
+            self.progress(fraction, message, dict(event) if event is not None else None)
 
     def check_cancelled(self) -> None:
         if self.cancelled is not None and self.cancelled():
@@ -184,14 +191,13 @@ class Runtime:
     """Isolated operation registry + executor.
 
     Not shared across processes or hosts; each host (CLI, Studio worker,
-    Comfy) creates its own instance. The legacy global plugin registry is not
-    consulted unless ``load_plugins`` discovers old-style plugins, in which
-    case their capabilities/nodes stay in the global registry as before.
+    Comfy) creates its own instance. Capabilities/nodes/CLI commands that a
+    plugin registers from ``setup()`` still land in the global registry.
     """
 
     _operations: dict[str, _OperationEntry] = field(default_factory=dict)
     _load_report: list[dict[str, Any]] = field(default_factory=list)
-    _manifest_plugin_dirs: dict[str, str] = field(default_factory=dict)
+    _active_plugins: dict[str, PluginState] = field(default_factory=dict)
 
     # ---- registration ----
 
@@ -237,141 +243,52 @@ class Runtime:
         context: OperationContext | None = None,
     ) -> dict[str, Any]:
         entry = self._require_entry(operation_id)
-        _check_inputs(entry.spec, inputs)
-        resolved = _resolve_input_values(entry.spec, inputs)
-        merged = _merge_and_validate_params(operation_id, entry.spec.params, params)
-        ctx = context or OperationContext()
-        result = entry.run(ctx, resolved, merged)
-        if not isinstance(result, Mapping):
-            raise OperationError(
-                f"operation {operation_id!r} must return a mapping of named outputs"
-            )
-        return dict(result)
+        return _invoke_operation(entry.spec, entry.run, inputs, params, context or OperationContext())
 
     # ---- plugin loading (setup protocol) ----
 
-    def load_plugins(self) -> list[dict[str, Any]]:
-        """Scan the plugins dir; each plugin's setup() registers into *this* runtime.
+    def load_plugins(
+        self, roots: Sequence[str | Path] | None = None,
+        *, validate_plugin: Callable[[Path], None] | None = None,
+        activation_context: Callable[[Path], AbstractContextManager[None]] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Load v2 manifest plugins from ``roots``; each setup() registers into *this* runtime.
 
-        Registrations made by a plugin whose setup() raises are rolled back,
-        and the failure recorded in the report.
-
-        Protocol v1 (docs/plugin-protocol.md): plugins with a
-        ``[tool.pymss.plugin]`` manifest go through the PluginManager
-        (dependency resolution, ordered activation, blocked diagnostics).
-        Manifest-less plugins keep the legacy scan below.
+        ``roots`` defaults to ``get_plugins_dir()``. Plugins go through the
+        PluginManager (dependency resolution, ordered activation, blocked
+        diagnostics). Registrations made by a plugin whose setup() raises, or
+        whose operations differ from its manifest, are rolled back and the
+        failure is recorded in the report (docs/plugin-protocol.md). Already
+        activated plugins satisfy dependencies across calls and are not
+        initialized again; replacing their code requires a new Runtime.
+        A host may validate each newly discovered package before resolution;
+        a validation error blocks the package and its dependent plugins before
+        any of their Python code is imported.
+        ``activation_context`` surrounds import, setup and registration checks
+        only after resolution succeeds. It must propagate activation errors so
+        failed registrations are rolled back and dependents remain blocked.
         """
-        import os
-        from pathlib import Path
+        from ..plugins.lifecycle import PluginManager, pymss_package_version
+        from ..plugins.loader import get_plugins_dir
 
-        self._load_report = []
-        plugins_dir = os.environ.get("PYMSS_PLUGINS_DIR")
-        if not plugins_dir:
-            plugins_dir = str(Path.home() / ".pymss" / "plugins")
-        root = Path(plugins_dir)
-        if not root.exists():
-            return self._load_report
-        import importlib.util
-        import sys
-
-        # ---- protocol v1: manifest plugins (resolve → ordered activate) ----
-        manifest_rows: dict[str, dict[str, Any]] = {}
-        try:
-            from ..plugins.lifecycle import PluginManager, pymss_package_version
-
-            manager = PluginManager(root)
-            states = manager.discover()
+        directories = [Path(root) for root in roots] if roots is not None else [get_plugins_dir()]
+        manager = PluginManager(directories, active_plugins=self._active_plugins)
+        states = manager.discover()
+        if validate_plugin is not None:
             for state in states:
-                if state.manifest is None:
-                    continue
-                plugin_id = state.manifest.plugin_id
-                previous = self._manifest_plugin_dirs.get(plugin_id)
-                if previous is not None and previous != str(state.directory.resolve()):
-                    state.status = "blocked"
-                    state.error = f"duplicate plugin id {plugin_id!r}: already activated from {previous}"
-            manager.resolve(pymss_version=pymss_package_version())
-            rows = manager.activate(lambda source: _RuntimePluginHandle(self, source=source))
-            for row in rows:
-                name = row.get("name")
-                if isinstance(name, str):
-                    manifest_rows[name] = row
-                    if row.get("loaded"):
-                        self._manifest_plugin_dirs[row["plugin_id"]] = str((root / name).resolve())
-        except Exception as exc:  # noqa: BLE001 — lifecycle must not break legacy loading
-            self._load_report.append(
-                {"name": "<plugin-lifecycle>", "loaded": False, "error": f"{type(exc).__name__}: {exc}"}
-            )
-
-        for child in sorted(root.iterdir()):
-            if not child.is_dir() or child.name.startswith(("_", ".")):
-                continue
-            entry_file = next(
-                (child / name for name in ("__init__.py", "plugin.py") if (child / name).exists()),
-                None,
-            )
-            pyproject = child / "pyproject.toml"
-            if entry_file is None:
-                if pyproject.exists() and child.name in manifest_rows:
-                    self._load_report.append(manifest_rows[child.name])
-                elif pyproject.exists():
-                    # Broken manifest (blocked at discovery) or manifest without entry file.
-                    from ..plugins.manifest import ManifestError, read_manifest
-
+                if state.status == "discovered" and state.manifest is not None:
                     try:
-                        read_manifest(child)
-                        self._load_report.append({"name": child.name, "loaded": False, "error": "no entry file"})
-                    except ManifestError as exc:
-                        self._load_report.append({"name": child.name, "loaded": False, "error": str(exc)})
-                else:
-                    self._load_report.append(
-                        {"name": child.name, "loaded": False, "error": "no entry file"}
-                    )
-                continue
-            if child.name in manifest_rows:
-                # Manifest plugin already handled by the lifecycle manager.
-                row = manifest_rows[child.name]
-                if row.get("loaded"):
-                    registered = sorted(
-                        op_id for op_id, entry in self._operations.items()
-                        if entry.source == f"plugin:{row.get('plugin_id')}"
-                    )
-                    row["operations"] = registered
-                self._load_report.append(row)
-                continue
-            modname = f"_pymss_runtime_plugin_{child.name}"
-            before = set(self._operations)
-            handle = _RuntimePluginHandle(self, source=modname)
-            try:
-                spec = importlib.util.spec_from_file_location(modname, entry_file)
-                module = importlib.util.module_from_spec(spec)
-                sys.modules[modname] = module
-                try:
-                    spec.loader.exec_module(module)
-                    setup = getattr(module, "setup", None)
-                    if setup is not None:
-                        setup(handle)
-                except Exception:
-                    sys.modules.pop(modname, None)
-                    raise
-            except Exception as exc:  # noqa: BLE001
-                handle.rollback()
-                self._load_report.append(
-                    {
-                        "name": child.name,
-                        "loaded": False,
-                        "error": f"{type(exc).__name__}: {exc}",
-                    }
-                )
-            else:
-                self._load_report.append(
-                    {
-                        "name": child.name,
-                        "loaded": True,
-                        "legacy": True,
-                        "api_version": 0,
-                        "operations": sorted(set(self._operations) - before),
-                    }
-                )
+                        validate_plugin(state.directory)
+                    except Exception as error:
+                        state.status, state.error = "blocked", str(error)
+        manager.resolve(pymss_version=pymss_package_version())
+        self._load_report = manager.activate(
+            lambda source: _RuntimePluginHandle(self, source=source),
+            activation_context=activation_context,
+        )
+        for state in states:
+            if state.status == "activated" and state.manifest is not None:
+                self._active_plugins[state.manifest.plugin_id] = state
         return self._load_report
 
     def plugin_report(self) -> list[dict[str, Any]]:
@@ -395,6 +312,43 @@ class _RuntimePluginHandle:
         self._capabilities_before = dict(registry.capabilities)
         self._nodes_before = dict(registry.nodes)
         self._cli_before = list(registry.cli_commands)
+        self.registered_operations: list[str] = []
+        self.registered_nodes: list[str] = []
+        self._node_declarations = {}
+
+    def configure_manifest(self, manifest) -> None:
+        """Bind declarations before import/setup so graph handlers share validation."""
+        self._node_declarations = {node.type: node for node in manifest.nodes}
+
+    def run_operation(self, operation_id, *, inputs, params, context=None):
+        """Run this plugin's Operation from a registered node using its Runtime.
+
+        Nodes retain this handle in their executor closure so standalone and
+        workflow calls share input/parameter validation and execution context.
+        """
+        if operation_id not in self.registered_operations:
+            raise OperationError(f"operation {operation_id!r} is not registered by {self.source!r}")
+        return self.runtime.run(operation_id, inputs=inputs, params=params, context=context)
+
+    def validate_node_registrations(self) -> None:
+        """Reject registrations outside the handle or whose owner was changed."""
+        from ..plugins.manifest import ManifestError
+        from ..plugins.registry import get_registry
+
+        registry = get_registry()
+        current = registry.nodes
+        tracked = set(self.registered_nodes)
+        for name, registration in current.items():
+            if registration is self._nodes_before.get(name):
+                continue
+            # A plugin may lazily import core graph modules during setup.
+            if registry.is_builtin_registration("node", name, registration) and name not in tracked:
+                continue
+            if name not in tracked or registration.source != self.source:
+                raise ManifestError(f"node {name!r} must be registered through setup(plugin) by {self.source!r}")
+        for name in tracked:
+            if name not in current or current[name].source != self.source:
+                raise ManifestError(f"node {name!r} is not registered by {self.source!r}")
 
     def register_operation(self, *, id, params, inputs=None, outputs=None, run=None, **kwargs):
         spec = OperationSpec(
@@ -409,6 +363,7 @@ class _RuntimePluginHandle:
         if run is None:
             raise OperationError(f"operation {id!r} requires a run handler")
         self.runtime.register(spec=spec, run=run, source=self.source)
+        self.registered_operations.append(id)
 
     def rollback(self) -> None:
         """Restore registrations made or replaced during this plugin's activation."""
@@ -417,22 +372,23 @@ class _RuntimePluginHandle:
         self.runtime._operations.clear()
         self.runtime._operations.update(self._operations_before)
         registry = get_registry()
-        for current, before in (
-            (registry.capabilities, self._capabilities_before),
-            (registry.nodes, self._nodes_before),
+        for kind, current, before in (
+            ("capability", registry.capabilities, self._capabilities_before),
+            ("node", registry.nodes, self._nodes_before),
         ):
             # Importing graph modules may initialize builtins. Preserve those
             # registrations because Python retains the imported modules too.
             builtins = {
                 name: entry for name, entry in current.items()
-                if name not in before and entry.source in {"builtin", "pymss.builtin"}
+                if name not in before and registry.is_builtin_registration(kind, name, entry)
             }
             current.clear()
             current.update(builtins)
             current.update(before)
         builtin_commands = [
             entry for entry in registry.cli_commands
-            if entry.source == "builtin" and not any(entry is previous for previous in self._cli_before)
+            if registry.is_builtin_registration("cli", id(entry), entry)
+            and not any(entry is previous for previous in self._cli_before)
         ]
         registry.cli_commands[:] = [*self._cli_before, *builtin_commands]
 
@@ -444,15 +400,51 @@ class _RuntimePluginHandle:
 
         register_capability(name, func, source=self.source, description=description)
 
-    def register_node(self, node_type, func, *, description="", signature=None):
+    def register_node(self, node_type, func, *, description="", signature=None, saves_output=False):
+        from functools import wraps
+
         from pymss.plugins import register_node
 
-        register_node(node_type, func, source=self.source, description=description, signature=signature)
+        declaration = self._node_declarations.get(node_type)
+        if declaration is not None and declaration.widgets:
+            @wraps(func)
+            def execute(ctx, inputs):
+                from ..graph.core import DAGError, ctx_node_of
+
+                node = ctx_node_of(ctx, node_type)
+                values = node.data.get("widgets_values") if node is not None else None
+                try:
+                    declaration.validate_widgets(values)
+                except ValueError as exc:
+                    raise DAGError(str(exc)) from exc
+                return func(ctx, inputs)
+        else:
+            execute = func
+        register_node(
+            node_type, execute, source=self.source, description=description,
+            signature=signature, saves_output=saves_output,
+        )
+        self.registered_nodes.append(node_type)
 
     def register_cli(self, path, func, *, help="", add_arguments=None):
         from pymss.plugins import register_cli
 
         register_cli(path, func, help=help, source=self.source, add_arguments=add_arguments)
+
+
+def _invoke_operation(spec, run, inputs, params, context):
+    """Shared execution boundary for standalone and graph-backed Operations."""
+    context.check_cancelled()
+    _check_inputs(spec, inputs)
+    resolved = _resolve_input_values(spec, inputs)
+    merged = _merge_and_validate_params(spec.id, spec.params, params)
+    result = run(context, resolved, merged)
+    if not isinstance(result, Mapping):
+        raise OperationError(f"operation {spec.id!r} must return a mapping of named outputs")
+    missing = set(spec.outputs) - set(result)
+    if missing:
+        raise OperationError(f"operation {spec.id!r} did not return declared outputs: {sorted(missing)}")
+    return dict(result)
 
 
 def _resolve_input_values(spec: OperationSpec, inputs: Mapping[str, Any]) -> dict[str, Any]:

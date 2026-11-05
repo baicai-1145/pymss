@@ -1,33 +1,32 @@
 """Plugin discovery and loading.
 
-Two sources:
-1. Folder scan: every subdirectory of ``~/.pymss/plugins`` (or
-   ``$PYMSS_PLUGINS_DIR``) with an ``__init__.py`` or ``plugin.py``
-   is a plugin; we import it.
-2. Entry points (optional, for proper packages): packages declare
-   ``[project.entry-points."pymss.plugins"]`` and we import the target module.
+Plugins are directories with a v2 ``[tool.pymss.plugin]`` manifest under one or
+more plugin roots. The default root is ``~/.pymss/plugins`` (or
+``$PYMSS_PLUGINS_DIR``); hosts such as Studio pass their own roots explicitly.
 
-A single plugin failing to load never blocks others: each import is wrapped in
-try/except, failures are recorded, and surfaced via ``pymss plugins list``.
+A single plugin failing to load never blocks others: failures are recorded and
+surfaced via ``pymss plugins list``.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
-from importlib.metadata import entry_points
 from pathlib import Path
+from typing import Callable, Sequence
 
 logger = logging.getLogger(__name__)
-
-ENTRYPOINT_GROUP = "pymss.plugins"
 
 DEFAULT_PLUGINS_DIR = Path.home() / ".pymss" / "plugins"
 
 
 def get_plugins_dir() -> Path:
-    """Resolve the plugins directory from env var or default."""
+    """Resolve the default plugins directory from env var or default."""
+    binding = os.environ.get("PYMSS_PLUGIN_BINDING")
+    if binding:
+        return Path(binding).expanduser().absolute() / "installed"
     env = os.environ.get("PYMSS_PLUGINS_DIR")
     if env:
         return Path(env)
@@ -39,10 +38,11 @@ class PluginLoadResult:
     """Result of loading one plugin."""
 
     name: str
-    source: str  # "folder:<path>" | "entrypoint"
+    source: str  # "folder:<path>"
     loaded: bool
     error: str | None = None
     path: str | None = None
+    plugin_id: str | None = None
 
 
 @dataclass
@@ -62,6 +62,7 @@ class PluginLoadReport:
 
 
 _LAST_REPORT: PluginLoadReport | None = None
+_LAST_CONTEXT: tuple[str, ...] | None = None
 
 
 def get_last_report() -> PluginLoadReport | None:
@@ -69,82 +70,47 @@ def get_last_report() -> PluginLoadReport | None:
     return _LAST_REPORT
 
 
-def _scan_folder(plugins_dir: Path, report: PluginLoadReport) -> None:
-    """Use the same manifest lifecycle for CLI and other runtime hosts."""
-    if not plugins_dir.exists():
-        return
-    from ..operations import default_runtime
-
-    for row in default_runtime().load_plugins():
-        name = str(row.get("name") or "")
-        directory = plugins_dir / name
-        entry = next(
-            (directory / filename for filename in ("__init__.py", "plugin.py") if (directory / filename).is_file()),
-            directory,
-        )
-        report.results.append(PluginLoadResult(
-            name=name,
-            source=f"folder:{directory}",
-            loaded=bool(row.get("loaded")),
-            error=row.get("error"),
-            path=str(entry),
-        ))
-
-
-def _scan_entrypoints(report: PluginLoadReport) -> None:
-    """Import every declared pymss.plugins entry point."""
-    try:
-        eps = entry_points()
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("entry_points() failed: %s", exc)
-        return
-    # Compatible across Python 3.10+ (EntryPoints) and older (dict).
-    group_eps = []
-    try:
-        group_eps = list(eps.select(group=ENTRYPOINT_GROUP))  # py3.10+
-    except AttributeError:
-        group_eps = list(eps.get(ENTRYPOINT_GROUP, []))  # type: ignore[union-attr]
-    for ep in group_eps:
-        from ..operations import _RuntimePluginHandle, default_runtime
-
-        handle = _RuntimePluginHandle(default_runtime(), source=f"entrypoint:{ep.name}")
-        try:
-            ep.load()
-            report.results.append(
-                PluginLoadResult(name=ep.name, source="entrypoint", loaded=True)
-            )
-            logger.debug("loaded entrypoint plugin '%s'", ep.name)
-        except Exception as exc:  # noqa: BLE001
-            handle.rollback()
-            report.results.append(
-                PluginLoadResult(
-                    name=ep.name,
-                    source="entrypoint",
-                    loaded=False,
-                    error=f"{type(exc).__name__}: {exc}",
-                )
-            )
-            logger.warning("entrypoint plugin '%s' failed to load: %s", ep.name, exc)
-
-
-def bootstrap(force: bool = False) -> PluginLoadReport:
-    """Discover and load all plugins.
+def bootstrap(
+    force: bool = False, roots: Sequence[Path] | None = None,
+    *, validate_plugin: Callable[[Path], None] | None = None,
+    activation_context: Callable[[Path], AbstractContextManager[None]] | None = None,
+) -> PluginLoadReport:
+    """Discover and load all plugins into the default runtime.
 
     Idempotent: subsequent calls return the cached report unless ``force=True``.
+    Host validation and activation context must be supplied on the first load.
     """
-    global _LAST_REPORT
+    global _LAST_REPORT, _LAST_CONTEXT
+    context = tuple(str(Path(root).resolve()) for root in (roots if roots is not None else [get_plugins_dir()]))
     if _LAST_REPORT is not None and _LAST_REPORT.bootstrapped and not force:
+        if _LAST_CONTEXT is not None and _LAST_CONTEXT != context:
+            raise ValueError("PLUGIN_CONTEXT_CHANGED: Start a new process for a different plugin context")
         return _LAST_REPORT
 
+    from ..operations import default_runtime
+
     report = PluginLoadReport(bootstrapped=True)
-    plugins_dir = get_plugins_dir()
-    _scan_folder(plugins_dir, report)
-    _scan_entrypoints(report)
+    for row in default_runtime().load_plugins(
+        roots, validate_plugin=validate_plugin, activation_context=activation_context,
+    ):
+        path = str(row.get("path") or "")
+        report.results.append(PluginLoadResult(
+            name=str(row.get("name") or ""),
+            source=f"folder:{path}",
+            loaded=bool(row.get("loaded")),
+            error=row.get("error"),
+            path=path,
+            plugin_id=row.get("plugin_id"),
+        ))
     _LAST_REPORT = report
+    _LAST_CONTEXT = context
     return report
 
 
-def ensure_plugins_loaded() -> PluginLoadReport:
+def ensure_plugins_loaded(
+    *, validate_plugin: Callable[[Path], None] | None = None,
+    activation_context: Callable[[Path], AbstractContextManager[None]] | None = None,
+) -> PluginLoadReport:
     """Load user plugins once per process before an entry point uses them.
 
     Business entry points (infer / workflow / comfy run / serve / ops) call
@@ -153,18 +119,18 @@ def ensure_plugins_loaded() -> PluginLoadReport:
     "produce a report for the plugins command". Failures are already isolated
     per plugin; the report is retrievable via ``get_last_report()``.
     """
-    return bootstrap()
+    return bootstrap(validate_plugin=validate_plugin, activation_context=activation_context)
 
 
 def reset() -> None:
     """Clear the cached bootstrap report (mainly for tests)."""
-    global _LAST_REPORT
+    global _LAST_REPORT, _LAST_CONTEXT
     _LAST_REPORT = None
+    _LAST_CONTEXT = None
 
 
 __all__ = [
     "DEFAULT_PLUGINS_DIR",
-    "ENTRYPOINT_GROUP",
     "PluginLoadResult",
     "PluginLoadReport",
     "bootstrap",

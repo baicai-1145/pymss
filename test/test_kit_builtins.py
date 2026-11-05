@@ -9,15 +9,13 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from pymss.operations import default_runtime
+from pymss.operations import OperationContext, default_runtime
 from pymss.operations.builtins import register_builtin_operations
 from pymss.operations.kit_builtins import register_kit_operations
 
 
-def _silent_context():
-    class _Ctx:
-        progress = None
-    return _Ctx()
+def _silent_context() -> OperationContext:
+    return OperationContext()
 
 
 def _two_segment_tone(path: Path) -> None:
