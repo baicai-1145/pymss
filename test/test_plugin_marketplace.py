@@ -59,15 +59,16 @@ def test_explicit_source_does_not_silently_fall_back(monkeypatch):
     assert marketplace.source_info() is None
 
 
-def test_gitcode_is_not_selected_without_git(monkeypatch):
+def test_gitcode_is_available_without_git(monkeypatch):
     monkeypatch.setattr(install_mod, "_git_available", lambda: False)
     probe = mock.Mock(side_effect=lambda provider: result(provider))
     monkeypatch.setattr(marketplace, "_probe", probe)
     marketplace.fetch_official_catalog(marketplace.GITHUB_REGISTRY)
-    probe.assert_called_once_with("github")
-    assert not marketplace.source_info()["gitAvailable"]
-    with pytest.raises(SourceError, match="requires Git"):
-        marketplace.fetch_official_catalog(marketplace.GITCODE_REGISTRY)
+    assert {call.args[0] for call in probe.call_args_list} == {"github", "gitcode"}
+    assert marketplace.source_info()["httpProviders"] == ["github", "gitcode"]
+    probe.reset_mock()
+    marketplace.fetch_official_catalog(marketplace.GITCODE_REGISTRY)
+    probe.assert_called_once_with("gitcode")
 
 
 @pytest.mark.parametrize("provider", ["github", "gitcode"])

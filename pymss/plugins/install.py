@@ -32,6 +32,7 @@ from uuid import uuid4
 
 from .loader import get_plugins_dir
 from .manifest import ManifestError, read_manifest
+from . import gitcode
 from .sources import (
     SourceError,
     download_github_source,
@@ -111,7 +112,7 @@ def _fetch_registry(registry_url: str | None = None) -> dict[str, str]:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as exc:  # noqa: BLE001
         raise InstallError(
-            f"could not fetch official plugin registry from {url}: {exc}. "
+            f"could not fetch plugin registry: {exc}. "
             f"Install by URL or path instead, e.g. `pymss install https://github.com/xxx/pymss-opus`."
         ) from exc
     if not isinstance(data, dict):
@@ -123,7 +124,7 @@ def _clone(url: str, dest: Path, subpath: str | None = None, ref: str | None = N
            temporary_root: Path | None = None) -> dict:
     """Acquire one plugin directory and record the actual source commit.
 
-    Public HTTPS GitHub repositories use commit-pinned archives. Other hosts
+    Public HTTPS GitHub/GitCode repositories use commit-pinned HTTP downloads. Other hosts
     and SSH sources use Git, with the same default-branch or explicit-ref policy.
     """
     if ref is not None and (not isinstance(ref, str) or not ref or ref.startswith("-")):
@@ -132,10 +133,12 @@ def _clone(url: str, dest: Path, subpath: str | None = None, ref: str | None = N
         if github_repository(url):
             return download_github_source(url, dest, subpath=subpath, ref=ref,
                                           **({"temporary_root": temporary_root} if temporary_root is not None else {}))
+        if gitcode.repository(url):
+            return gitcode.download_source(url, dest, subpath=subpath, ref=ref, temporary_root=temporary_root)
     except SourceError as exc:
         raise InstallError(str(exc)) from exc
     if not _git_available():
-        raise InstallError("git is required for non-GitHub or SSH plugin sources; install git or use a public HTTPS GitHub URL.")
+        raise InstallError("Git is required for this source; use a public HTTPS GitHub/GitCode URL or install Git.")
     if dest.exists():
         raise InstallError(f"destination already exists: {dest} (uninstall it first)")
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -498,6 +501,11 @@ def _fetch_remote_meta(url: str, subpath: str | None, ref: str | None) -> dict:
             commit = resolve_github_commit(url, ref)
             path = f"{subpath.rstrip('/')}/pyproject.toml" if subpath else "pyproject.toml"
             content = read_github_file(url, path, commit=commit)
+            return {**_parse_plugin_meta(content.decode("utf-8")), "resolved_commit": commit}
+        if gitcode.repository(url):
+            commit = gitcode.resolve_commit(url, ref)
+            path = f"{subpath.rstrip('/')}/pyproject.toml" if subpath else "pyproject.toml"
+            content = gitcode.read_file(url, path, commit=commit)
             return {**_parse_plugin_meta(content.decode("utf-8")), "resolved_commit": commit}
     except (SourceError, UnicodeDecodeError) as exc:
         raise InstallError(str(exc)) from exc

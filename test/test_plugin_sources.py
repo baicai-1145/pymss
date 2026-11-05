@@ -80,7 +80,7 @@ def test_windows_git_acquisition_handles_extended_paths_with_spaces(tmp_path, mo
     store = Path("\\\\?\\" + str(tmp_path / "Studio install"))
     transactions = store / "transactions"
     transactions.mkdir(parents=True)
-    url = "https://gitcode.com/owner/plugin"
+    url = "https://git.example.invalid/owner/plugin"
     monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
     monkeypatch.setenv("GIT_CONFIG_KEY_0", f"url.{source.as_uri()}.insteadOf")
     monkeypatch.setenv("GIT_CONFIG_VALUE_0", url)
@@ -171,7 +171,7 @@ def test_download_resolves_commit_and_extracts_only_selected_subpath(tmp_path, m
     assert result == {"url": REPOSITORY, "ref": ref, "resolved_commit": COMMIT}
     endpoint = "commits?per_page=1" if ref is None else f"commits/{sources.urllib.parse.quote(ref, safe='')}?per_page=1"
     assert requests == [
-        (f"https://api.github.com/repos/owner/plugin/{endpoint}", sources._MAX_METADATA_BYTES),
+        *([(f"https://api.github.com/repos/owner/plugin/{endpoint}", sources._MAX_METADATA_BYTES)] if ref != COMMIT else []),
         (f"{REPOSITORY}/archive/{COMMIT}.zip", sources._MAX_ARCHIVE_BYTES),
     ]
     assert (destination / "pyproject.toml").read_bytes() == MANIFEST

@@ -23,7 +23,7 @@ _MAX_ARCHIVE_BYTES = 256 * 1024 * 1024
 _MAX_EXTRACTED_BYTES = 1024 * 1024 * 1024
 _MAX_ARCHIVE_ENTRIES = 50_000
 _COMMIT_RE = re.compile(r"[0-9a-f]{40}")
-_GITHUB_HOSTS = {"api.github.com", "codeload.github.com", "github.com"}
+_GITHUB_HOSTS = {"api.github.com", "codeload.github.com", "github.com", "raw.githubusercontent.com"}
 _RESERVED_NAMES = {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))}
 
 
@@ -101,6 +101,8 @@ def _repository_api(url: str) -> str:
 def resolve_github_commit(url: str, ref: str | None = None) -> str:
     """Resolve an explicit ref or the current default branch to a full SHA."""
     api = _repository_api(url)
+    if ref and _COMMIT_RE.fullmatch(ref.lower()):
+        return ref.lower()
     endpoint = f"{api}/commits/{urllib.parse.quote(ref, safe='')}?per_page=1" if ref else f"{api}/commits?per_page=1"
     output = io.BytesIO()
     _download(endpoint, output, limit=_MAX_METADATA_BYTES)
@@ -133,7 +135,9 @@ def read_github_file(url: str, path: str, *, commit: str) -> bytes:
     _relative_parts(path)
     if not _COMMIT_RE.fullmatch(commit):
         raise SourceError("A full commit SHA is required to read repository content.")
-    endpoint = f"{_repository_api(url)}/contents/{urllib.parse.quote(path, safe='/')}?ref={commit}"
+    _repository_api(url)
+    owner, repo = github_repository(url)
+    endpoint = f"https://raw.githubusercontent.com/{owner}/{repo}/{commit}/{urllib.parse.quote(path, safe='/')}"
     output = io.BytesIO()
     _download(endpoint, output, limit=_MAX_METADATA_BYTES, accept="application/vnd.github.raw+json")
     return output.getvalue()
@@ -213,3 +217,13 @@ def download_github_source(
             _download(f"https://github.com/{owner}/{repo}/archive/{commit}.zip", output, limit=_MAX_ARCHIVE_BYTES)
         _extract_archive(archive, dest, subpath)
     return {"url": url, "ref": ref, "resolved_commit": commit}
+
+
+def is_http_repository(url: str) -> bool:
+    from .gitcode import repository
+    return github_repository(url) is not None or repository(url) is not None
+
+
+def resolve_source_commit(url: str, ref: str | None = None) -> str:
+    from .gitcode import resolve_commit
+    return resolve_github_commit(url, ref) if github_repository(url) else resolve_commit(url, ref)

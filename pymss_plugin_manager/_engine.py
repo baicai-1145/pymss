@@ -1180,7 +1180,7 @@ def _verify_update_candidate(directory: Path, target: dict) -> None:
 def _check_updates(root: Path, task_id: str | None, *, names: set[str] | None = None) -> dict:
     from datetime import datetime, timezone
     from pymss.plugins.install import _fetch_remote_meta
-    from pymss.plugins.sources import github_repository, resolve_github_commit
+    from pymss.plugins.sources import is_http_repository, resolve_source_commit
 
     with runtime_lock(root / '.lock'):
         plugins = [plugin for plugin in [*_installed(root), *_installed(root, disabled=True)]
@@ -1232,14 +1232,14 @@ def _check_updates(root: Path, task_id: str | None, *, names: set[str] | None = 
                 changed = candidate['content'] != installed['content']
             else:
                 ref = source['ref']
-                if source['version'] is not None and (ref and re.fullmatch(r'[0-9a-f]{40,64}', ref) or github_repository(source['url'])):
+                if source['version'] is not None and (ref and re.fullmatch(r'[0-9a-f]{40,64}', ref) or is_http_repository(source['url'])):
                     if ref and re.fullmatch(r'[0-9a-f]{40,64}', ref):
                         commit = ref
                     else:
                         key = (source['url'], ref)
                         if key not in commit_cache:
                             try:
-                                commit_cache[key] = resolve_github_commit(*key)
+                                commit_cache[key] = resolve_source_commit(*key)
                             except InterruptedError:
                                 raise
                             except Exception as error:

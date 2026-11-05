@@ -484,7 +484,8 @@ def test_immutable_catalog_commits_detect_same_version_updates_on_both_hosts(tmp
 
 
 @pytest.mark.parametrize("ref", [None, "stable"])
-def test_unpinned_non_github_catalog_resolves_a_reviewed_update_target(tmp_path, ref):
+@pytest.mark.parametrize("url", ["https://git.example.invalid/example/plugins", "https://gitcode.com/example/plugins"])
+def test_unpinned_catalog_resolves_a_reviewed_update_target(tmp_path, ref, url):
     manager = PluginService(PluginContext(tmp_path / "plugins/cpu", registry_url="https://example.invalid/registry.json"),
                             service(tmp_path / "unused").policy)
     manager.install(str(source(tmp_path)))
@@ -492,14 +493,19 @@ def test_unpinned_non_github_catalog_resolves_a_reviewed_update_target(tmp_path,
     metadata = json.loads(receipt.read_text(encoding="utf-8"))
     metadata.update(defaultRepository=True)
     receipt.write_text(json.dumps(metadata), encoding="utf-8")
-    url, commit = "https://gitcode.com/example/plugins", "b" * 40
+    commit = "b" * 40
     entry = {"name": "author.provider", "url": url, "subpath": "plugins/provider", "version": "2.0", "ref": ref}
     with mock.patch("pymss.plugins.install.list_available", return_value=[entry]), \
          mock.patch("pymss.plugins.install._fetch_remote_meta", return_value={
              "version": "2.0", "resolved_commit": commit,
-         }) as fetch:
+         }) as fetch, mock.patch("pymss.plugins.gitcode.resolve_commit", return_value=commit) as resolve:
         result = manager.check_updates()["author.provider"]
-    fetch.assert_called_once_with(url, "plugins/provider", ref=ref)
+    if "gitcode.com" in url:
+        resolve.assert_called_once_with(url, ref)
+        fetch.assert_not_called()
+    else:
+        fetch.assert_called_once_with(url, "plugins/provider", ref=ref)
+        resolve.assert_not_called()
     assert result["status"] == "update"
     assert result["target"]["candidate"] == {"version": "2.0", "commit": commit}
 

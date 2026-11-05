@@ -21,6 +21,11 @@ GITHUB_REGISTRY = "https://raw.githubusercontent.com/pymss-project/pymss-plugins
 GITCODE_REGISTRY = "https://api.gitcode.com/api/v5/repos/pymss-project/pymss-plugins/raw/registry.json?ref=main"
 _MAX_METADATA_BYTES = 1024 * 1024
 _SOURCE: ContextVar[dict | None] = ContextVar("pymss_official_plugin_source", default=None)
+HTTP_PROVIDERS = ("github", "gitcode")
+
+
+def source_capabilities() -> dict:
+    return {"httpProviders": list(HTTP_PROVIDERS)}
 
 
 def source_info() -> dict | None:
@@ -85,11 +90,7 @@ def fetch_official_catalog(url: str) -> dict:
     preference = "gitcode" if url == GITCODE_REGISTRY else os.environ.get("PYMSS_PLUGINS_SOURCE", "auto")
     if preference not in {"auto", "github", "gitcode"}:
         raise SourceError("Plugin source must be auto, github, or gitcode")
-    from .install import _git_available
-    git_available = _git_available()
-    if preference == "gitcode" and not git_available:
-        raise SourceError("GitCode plugin acquisition requires Git. Install Git or select GitHub.")
-    providers = (["github", "gitcode"] if git_available else ["github"]) if preference == "auto" else [preference]
+    providers = list(HTTP_PROVIDERS) if preference == "auto" else [preference]
     results, errors = {}, []
     with ThreadPoolExecutor(max_workers=len(providers)) as pool:
         requests = {pool.submit(_probe, provider): provider for provider in providers}
@@ -107,5 +108,5 @@ def fetch_official_catalog(url: str) -> dict:
         catalog, info = results["github"]
     else:
         catalog, info = min(results.values(), key=lambda result: (result[1]["latencyMs"], result[1]["provider"]))
-    _SOURCE.set({**info, "preference": preference, "gitAvailable": git_available})
+    _SOURCE.set({**info, "preference": preference, **source_capabilities()})
     return catalog
