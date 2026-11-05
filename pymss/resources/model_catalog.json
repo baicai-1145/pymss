@@ -2846,10 +2846,10 @@
       "config_relpath": "music_stems/drum_stems/gilliaan_drumsV1.yaml",
       "auxiliary_relpaths": [],
       "size_bytes": 303490678,
-      "primary_category": "music_stems",
-      "primary_category_cn": "音乐多轨/分轨",
-      "secondary_category": "drum_stems",
-      "secondary_category_cn": "鼓组细分",
+      "primary_category": "single_instrument",
+      "primary_category_cn": "单乐器/单音轨",
+      "secondary_category": "drums_percussion",
+      "secondary_category_cn": "鼓/打击乐",
       "target_stem": "drums/other"
     },
     {
@@ -3290,7 +3290,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "accordion"
+      "target_stem": "accordion",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_accordion_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_acoustic-guitar_mvsep.ckpt",
@@ -3310,7 +3311,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "acoustic-guitar"
+      "target_stem": "acoustic-guitar",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_acoustic-guitar_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_back-vocal_mvsep.ckpt",
@@ -3330,7 +3332,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "back-vocal"
+      "target_stem": "back-vocal",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_back-vocal_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_banjo_mvsep.ckpt",
@@ -3350,7 +3353,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "banjo"
+      "target_stem": "banjo",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_banjo_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_bass_mvsep.ckpt",
@@ -3370,7 +3374,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "bass"
+      "target_stem": "bass",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bass_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_bassoon_mvsep.ckpt",
@@ -3390,7 +3395,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "bassoon"
+      "target_stem": "bassoon",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bassoon_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_bells_mvsep.ckpt",
@@ -3410,7 +3416,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "bells"
+      "target_stem": "bells",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bells_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_bowed_strings_mvsep.ckpt",
@@ -3430,7 +3437,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "bowed_strings"
+      "target_stem": "bowed_strings",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bowed_strings_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_brass_mvsep.ckpt",
@@ -3450,7 +3458,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "brass"
+      "target_stem": "brass",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_brass_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_cello_mvsep.ckpt",
@@ -3470,7 +3479,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "cello"
+      "target_stem": "cello",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_cello_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_clarinet_mvsep.ckpt",
@@ -3490,7 +3500,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "clarinet"
+      "target_stem": "clarinet",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_clarinet_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_congas_mvsep.ckpt",
@@ -3510,7 +3521,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "congas"
+      "target_stem": "congas",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_congas_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_digital-piano_mvsep.ckpt",
@@ -3530,7 +3542,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "digital-piano"
+      "target_stem": "digital-piano",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_digital-piano_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_dobro_mvsep.ckpt",
@@ -3550,7 +3563,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "dobro"
+      "target_stem": "dobro",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_dobro_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_double-bass_mvsep.ckpt",
@@ -3570,7 +3584,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "double-bass"
+      "target_stem": "double-bass",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_double-bass_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_drums_mvsep.ckpt",
@@ -3590,7 +3605,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "drums"
+      "target_stem": "drums",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_drums_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_electric-guitar_mvsep.ckpt",
@@ -3610,7 +3626,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "electric-guitar"
+      "target_stem": "electric-guitar",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_electric-guitar_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_flute_mvsep.ckpt",
@@ -3630,7 +3647,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "flute"
+      "target_stem": "flute",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_flute_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_french-horn_mvsep.ckpt",
@@ -3650,7 +3668,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "french-horn"
+      "target_stem": "french-horn",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_french-horn_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_glockenspiel_mvsep.ckpt",
@@ -3670,7 +3689,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "glockenspiel"
+      "target_stem": "glockenspiel",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_glockenspiel_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_guitar_mvsep.ckpt",
@@ -3690,7 +3710,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "guitar"
+      "target_stem": "guitar",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_guitar_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_harmonica_mvsep.ckpt",
@@ -3710,7 +3731,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "harmonica"
+      "target_stem": "harmonica",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_harmonica_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_harp_mvsep.ckpt",
@@ -3730,7 +3752,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "harp"
+      "target_stem": "harp",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_harp_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_harpsichord_mvsep.ckpt",
@@ -3750,7 +3773,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "harpsichord"
+      "target_stem": "harpsichord",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_harpsichord_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_hh_mvsep.ckpt",
@@ -3770,7 +3794,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "hh"
+      "target_stem": "hh",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_hh_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_keys_mvsep.ckpt",
@@ -3790,7 +3815,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "keys"
+      "target_stem": "keys",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_keys_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_kick_mvsep.ckpt",
@@ -3810,7 +3836,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "kick"
+      "target_stem": "kick",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_kick_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_lead-vocal_mvsep.ckpt",
@@ -3830,7 +3857,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "lead-vocal"
+      "target_stem": "lead-vocal",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_lead-vocal_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_mandolin_mvsep.ckpt",
@@ -3850,7 +3878,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "mandolin"
+      "target_stem": "mandolin",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_mandolin_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_marimba_mvsep.ckpt",
@@ -3870,7 +3899,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "marimba"
+      "target_stem": "marimba",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_marimba_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_oboe_mvsep.ckpt",
@@ -3890,7 +3920,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "oboe"
+      "target_stem": "oboe",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_oboe_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_organ_mvsep.ckpt",
@@ -3910,7 +3941,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "organ"
+      "target_stem": "organ",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_organ_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_percussion_mvsep.ckpt",
@@ -3930,7 +3962,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "percussion"
+      "target_stem": "percussion",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_percussion_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_piano_mvsep.ckpt",
@@ -3950,7 +3983,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "piano"
+      "target_stem": "piano",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_piano_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_saxophone_mvsep.ckpt",
@@ -3970,7 +4004,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "saxophone"
+      "target_stem": "saxophone",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_saxophone_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_sitar_mvsep.ckpt",
@@ -3990,7 +4025,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "sitar"
+      "target_stem": "sitar",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_sitar_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_snare_mvsep.ckpt",
@@ -4010,7 +4046,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "snare"
+      "target_stem": "snare",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_snare_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_strings_mvsep.ckpt",
@@ -4030,7 +4067,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "strings"
+      "target_stem": "strings",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_strings_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_synth_mvsep.ckpt",
@@ -4050,7 +4088,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "synth"
+      "target_stem": "synth",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_synth_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_tambourine_mvsep.ckpt",
@@ -4070,7 +4109,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "tambourine"
+      "target_stem": "tambourine",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_tambourine_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_timpani_mvsep.ckpt",
@@ -4090,7 +4130,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "timpani"
+      "target_stem": "timpani",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_timpani_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_toms_mvsep.ckpt",
@@ -4110,7 +4151,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "toms"
+      "target_stem": "toms",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_toms_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_triangle_mvsep.ckpt",
@@ -4130,7 +4172,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "triangle"
+      "target_stem": "triangle",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_triangle_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_trombone_mvsep.ckpt",
@@ -4150,7 +4193,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "trombone"
+      "target_stem": "trombone",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_trombone_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_trumpet_mvsep.ckpt",
@@ -4170,7 +4214,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "trumpet"
+      "target_stem": "trumpet",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_trumpet_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_tuba_mvsep.ckpt",
@@ -4190,7 +4235,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "tuba"
+      "target_stem": "tuba",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_tuba_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_ukulele_mvsep.ckpt",
@@ -4210,7 +4256,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "ukulele"
+      "target_stem": "ukulele",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_ukulele_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_viola_mvsep.ckpt",
@@ -4230,7 +4277,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "viola"
+      "target_stem": "viola",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_viola_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_violin_mvsep.ckpt",
@@ -4250,7 +4298,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "violin"
+      "target_stem": "violin",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_violin_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_vocal_mvsep.ckpt",
@@ -4270,7 +4319,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "vocal"
+      "target_stem": "vocal",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_vocal_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_wind-chimes_mvsep.ckpt",
@@ -4290,7 +4340,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "wind-chimes"
+      "target_stem": "wind-chimes",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_wind-chimes_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_wind_mvsep.ckpt",
@@ -4310,7 +4361,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "wind"
+      "target_stem": "wind",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_wind_mvsep.ckpt"
     },
     {
       "name": "bs_mega_53stem_woodwind_mvsep.ckpt",
@@ -4330,7 +4382,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "woodwind"
+      "target_stem": "woodwind",
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_woodwind_mvsep.ckpt"
     },
     {
       "name": "mvsep_mega_model_bs_roformer_53_stems_v1.ckpt",
@@ -4350,7 +4403,8 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
-      "target_stem": "accordion/acoustic-guitar/back-vocal/banjo/bass/bassoon/bells/bowed_strings/brass/cello/clarinet/congas/digital-piano/dobro/double-bass/drums/electric-guitar/flute/french-horn/glockenspiel/guitar/harmonica/harp/harpsichord/hh/keys/kick/lead-vocal/mandolin/marimba/oboe/organ/percussion/piano/saxophone/sitar/snare/strings/synth/tambourine/timpani/toms/triangle/trombone/trumpet/tuba/ukulele/viola/violin/vocal/wind/wind-chimes/woodwind"
+      "target_stem": "accordion/acoustic-guitar/back-vocal/banjo/bass/bassoon/bells/bowed_strings/brass/cello/clarinet/congas/digital-piano/dobro/double-bass/drums/electric-guitar/flute/french-horn/glockenspiel/guitar/harmonica/harp/harpsichord/hh/keys/kick/lead-vocal/mandolin/marimba/oboe/organ/percussion/piano/saxophone/sitar/snare/strings/synth/tambourine/timpani/toms/triangle/trombone/trumpet/tuba/ukulele/viola/violin/vocal/wind/wind-chimes/woodwind",
+      "sort_key": "bs_mega_53stem_000"
     },
     {
       "name": "BS-Roformer-SW.ckpt",
@@ -5089,7 +5143,7 @@
       "primary_category": "vocal",
       "primary_category_cn": "人声",
       "secondary_category": "choir_vocal",
-      "secondary_category_cn": "合唱/人群歌声分离",
+      "secondary_category_cn": "四部和声分离",
       "target_stem": "alto/bass/soprano/tenor"
     },
     {
@@ -5109,7 +5163,7 @@
       "primary_category": "vocal",
       "primary_category_cn": "人声",
       "secondary_category": "choir_vocal",
-      "secondary_category_cn": "合唱/人群歌声分离",
+      "secondary_category_cn": "四部和声分离",
       "target_stem": "alto/bass/soprano/tenor"
     },
     {

@@ -46,6 +46,7 @@ class ModelEntry:
     secondary_category_cn: str
     target_stem: str
     target_instrument_override: str = ""
+    sort_key: str = ""
 
     @property
     def stem(self):
@@ -95,6 +96,7 @@ class ModelEntry:
             secondary_category_cn=data.get("secondary_category_cn", ""),
             target_stem=data.get("target_stem", ""),
             target_instrument_override=data.get("target_instrument_override", ""),
+            sort_key=data.get("sort_key", ""),
         )
 
 
