@@ -105,7 +105,7 @@ def _xpu_runtime_available():
 
 
 #: ``--device`` aliases that resolve to a vendor PyTorch extension.
-_VENDOR_ALIASES = frozenset({"biren", "iluvatar", "metax", "enflame", "gcu", "mlu", "supa", "hygon"})
+_VENDOR_ALIASES = frozenset({"biren", "iluvatar", "metax", "enflame", "gcu", "mlu", "supa", "hygon", "musa", "moore"})
 
 
 def _validate_device_ids(device_ids, device_count, backend):
@@ -164,7 +164,7 @@ def _resolve_public_device(device, inference_params, logger):
     if requested_device not in {"auto", "cpu", "cuda", "mps"}:
         raise ValueError(
             "device must be 'auto', 'cpu', 'cuda', 'mps', 'rocm', 'npu', 'xpu', 'mlx', "
-            "'biren', 'iluvatar', 'metax', 'enflame', 'gcu', 'mlu', 'supa', or 'hygon'"
+            "'biren', 'iluvatar', 'metax', 'enflame', 'gcu', 'mlu', 'supa', 'hygon', 'musa', or 'moore'"
         )
     return requested_device, inference_params
 
@@ -249,7 +249,7 @@ def _select_device(device, device_ids, logger):
             _validate_device_ids(device_ids, npu_count, "NPU")
             logger.debug("auto device selected Ascend NPU through torch_npu")
             return f"npu:{device_ids[0]}"
-        for alias in ("gcu", "mlu", "supa"):
+        for alias in ("gcu", "mlu", "supa", "musa"):
             try:
                 device_type = prepare_device_alias(alias)
             except ImportError:
@@ -498,7 +498,11 @@ def _coerce_mps_float64(module):
 
 
 def _coerce_cpu_low_precision(module):
-    """Run CPU inference in float32 when checkpoints store fp16/bf16 weights."""
+    """Cast fp16/bf16 parameters to float32 when inference runs in fp32.
+
+    Applies to CPU always, and to accelerators whenever AMP is disabled: some
+    checkpoints (htdemucs family) store half weights and the conv kernels do not
+    implicitly promote fp32 activations."""
     for child in module.modules():
         for name, param in list(child._parameters.items()):
             if param is not None and param.dtype in {torch.float16, torch.bfloat16}:
@@ -1328,7 +1332,11 @@ class MSSeparator:
             model.load_state_dict(state_dict)
         if torch.device(self.device).type == "mps":
             _coerce_mps_float64(model)
-        if torch.device(self.device).type == "cpu":
+        if torch.device(self.device).type == "cpu" or not _resolve_use_amp(config):
+            # FP32 inference needs fp32 parameters everywhere, not just on CPU:
+            # the htdemucs checkpoints ship fp16 weights, and accelerator conv
+            # kernels do not implicitly cast fp32 activations
+            # ("Input type (float) and bias type (c10::Half) should be the same").
             _coerce_cpu_low_precision(model)
 
         keep_torch_model_cpu = _store_torch_model_on_cpu_for_mlx(model, self.device)
