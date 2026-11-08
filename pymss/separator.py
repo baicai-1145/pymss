@@ -105,7 +105,7 @@ def _xpu_runtime_available():
 
 
 #: ``--device`` aliases that resolve to a vendor PyTorch extension.
-_VENDOR_ALIASES = frozenset({"biren", "iluvatar", "metax", "enflame", "gcu", "mlu", "supa", "hygon"})
+_VENDOR_ALIASES = frozenset({"biren", "iluvatar", "metax", "enflame", "gcu", "mlu", "supa", "hygon", "musa", "moore"})
 
 
 def _validate_device_ids(device_ids, device_count, backend):
@@ -164,7 +164,7 @@ def _resolve_public_device(device, inference_params, logger):
     if requested_device not in {"auto", "cpu", "cuda", "mps"}:
         raise ValueError(
             "device must be 'auto', 'cpu', 'cuda', 'mps', 'rocm', 'npu', 'xpu', 'mlx', "
-            "'biren', 'iluvatar', 'metax', 'enflame', 'gcu', 'mlu', 'supa', or 'hygon'"
+            "'biren', 'iluvatar', 'metax', 'enflame', 'gcu', 'mlu', 'supa', 'hygon', 'musa', or 'moore'"
         )
     return requested_device, inference_params
 
@@ -249,7 +249,7 @@ def _select_device(device, device_ids, logger):
             _validate_device_ids(device_ids, npu_count, "NPU")
             logger.debug("auto device selected Ascend NPU through torch_npu")
             return f"npu:{device_ids[0]}"
-        for alias in ("gcu", "mlu", "supa"):
+        for alias in ("gcu", "mlu", "supa", "musa"):
             try:
                 device_type = prepare_device_alias(alias)
             except ImportError:
