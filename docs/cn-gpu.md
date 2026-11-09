@@ -373,6 +373,25 @@ S70/S80 是春晓架构**唯二零售的桌面卡**，与工作站型号 S3000 �
   （0.073 ms vs 0.073 ms @ `(1,1723,512)`），没有理由为它引入厂商专有依赖。
 - `_scaled_dot_product_attention_math_musa`：与上游逐位相同、速度 1.01×；`..._flash_musa` 受 `mp ≥ 2.2` 限制。
 
+### 二·补：profile 按算力分档（mp 2.1 / ≥ 2.2）
+
+`DeviceProfile` 对摩尔线程分两档，靠 `torch.musa.get_device_capability()` 选：
+
+| 档 | 硬件 | 关键差异 | 来源 |
+|---|---|---|---|
+| `MOORE` | MTT S70 / S80 / S3000（`(2,1)`） | `amp=False`、`multi_device=False` | **实测**（本文所有数据） |
+| `_MOORE_TENSORCORE` | `(2,2)` 及更高 | `amp=True`、`multi_device=True` | **预测**（据厂商自己的门槛推的） |
+
+预测的依据：mp ≥ 2.2 才引入 tensor 单元（⇒ fp16 可用，mp 2.1 上 `RunFusion` 崩溃属于 muDNN 实现缺口），
+MCCL 只给 S3000 以上的型号（⇒ 多卡可用）；**flash SDPA 不需要 pymss 加开关**——厂商在
+`SDPUtils.h` 里写死 `(arch_major > 2) || (arch_major == 2 && arch_minor > 1)`，卡报 ≥ 2.2 时
+`F.scaled_dot_product_attention` 自己就会选 flash，所以我们两档都保持 `sdpa_shim=False`。
+
+不变的部分同样重要：复数 `index_add_` 与复数 pad 是**版本缺口**而不是硬件缺口（连 torch_musa
+`main` 都还没实现），所以 `scatter_add=False` 两档都保留。预测档换到真机后，先跑
+`tools/musa_probe.py` 再据实修正，优先复核 `fft_dtype_shim`（半精度 muFFT 是否可用）与
+`amp_dtype`（bf16 是否可用）。
+
 ### 三、11 类型实测（10 s 音频，FP32，vs 同机 CPU，`repeat_delta` 全为 0）
 
 | 模型族 | 热态 | 相对 CPU | 峰值显存 |
