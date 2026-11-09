@@ -64,6 +64,32 @@ def test_moore_profile_matches_measured_flags():
     assert profile.multi_device is False
 
 
+def test_moore_profile_follows_compute_capability(monkeypatch):
+    """mp 2.1 keeps the measured workarounds; mp >= 2.2 predicts the tensor units."""
+    from pymss_core import device as device_module
+
+    monkeypatch.setattr(device_module, "_moore_capability", lambda: (2, 1))
+    clear_device_cache()
+    first_generation = profile_for_alias("musa")
+    assert first_generation.amp is False   # fp16 muDNN conv aborts on mp 2.1
+    assert first_generation.multi_device is False   # no MCCL on S70/S80/S3000
+
+    monkeypatch.setattr(device_module, "_moore_capability", lambda: (2, 2))
+    clear_device_cache()
+    tensor_core = profile_for_alias("musa")
+    assert tensor_core.amp is True   # tensor units from mp 2.2 on
+    assert tensor_core.multi_device is True   # MCCL ships above the S3000
+    # The complex gaps are version-gated, not hardware-gated: still missing.
+    assert tensor_core.scatter_add is False
+    assert tensor_core.fft_dtype_shim is True
+    # Nothing may replace SDPA: the vendor picks flash on mp >= 2.2 by itself.
+    assert tensor_core.sdpa_shim is False
+
+    monkeypatch.setattr(device_module, "_moore_capability", lambda: None)
+    clear_device_cache()
+    assert profile_for_alias("musa").amp is False   # unknown -> conservative
+    clear_device_cache()
+
 def test_musa_fallbacks_route_as_measured():
     assert fft_fallback_required("musa:0") is False   # native FFT is correct
     assert rnn_fallback_required("musa:0") is False   # native LSTM/GRU must not bounce
