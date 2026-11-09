@@ -37,7 +37,7 @@ pip install pymss
 
 ### 国产 GPU（壁仞 / 天数 / 沐曦 / 燧原 / 海光 / 寒武纪）
 
-pymss 同样支持壁仞（BIRENSUPA）、天数智芯 CoreX、沐曦 MACA、燧原 GCU、海光 DCU、寒武纪 MLU。
+pymss 同样支持壁仞（BIRENSUPA）、天数智芯 CoreX、沐曦 MACA、燧原 GCU、海光 DCU、寒武纪 MLU、摩尔线程 MUSA。
 这些目标都是纯 PyTorch 算子，pymss 没有 CUDA 扩展需要编译，所以唯一要求是厂商版 PyTorch **≥ 2.4**：
 
 ```sh
@@ -53,6 +53,7 @@ pip install --no-deps pymss
 | 燧原 | `enflame`（`gcu`） | 2.6 – 2.10（`torch_gcu`） |
 | 海光 | `hygon` | 2.4.1（`+das`，DTK 25.04） |
 | 寒武纪 | `mlu` | 2.4（`torch_mlu`） |
+| 摩尔线程 | `musa`（`moore`） | 2.7.1（`torch_musa`） |
 
 完整兼容矩阵、替代硬编码 `device.type` 的能力标志、以及各厂商的开卡验证清单见
 [docs/cn-gpu.md](./docs/cn-gpu.md)。

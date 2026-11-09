@@ -19,10 +19,11 @@ pymss 的模型全部是纯 PyTorch 算子（`torch.stft` / `torch.fft` / `nn.*`
 | 海光 Hygon DCU | DTK 25.04.x + DAS | **2.4.1** | `hygon` | `torch 2.4.1+das.opt1.dtk25041` | 冒充 `cuda`（HIP）；**官方适配版最高 2.4.1** |
 | 寒武纪 Cambricon MLU | torch_mlu（分支到 `pt2.4.0`） | **2.4** | `mlu` | `torch_mlu` | 私有 device type `mlu`；wheel 不公开分发 |
 | 华为昇腾 Ascend | CANN + torch_npu | 2.7.1+ | `npu` | `torch_npu` | 已在基线实现：STFT 走 `torch.fft` 组合、LSTM/GRU 走 CPU 回退 |
+| 摩尔线程 Moore Threads | MUSA SDK 4.3.0.CC2.1 | **2.7.1** | `musa`（或 `moore`） | `torch_musa`（**需源码自编，无官方 wheel**） | 私有 device type `musa`；**春晓架构（S70/S80/S3000）能跑的最高组合就是 torch_musa 2.7.1 + SDK 4.3.0 + 驱动 3.3.0**，再高装不上；原生 FFT / 复数乘除 / 复数 cat·fill / GRU / MHA 都可用，仅剩复数 `scatter_add_`·`index_add_`、复数 reflect pad 无内核；fp16 融合 conv 崩、bf16 不可用 → 保持 FP32；flash SDPA 受 `mp ≥ 2.2` 门槛限制 |
 | NVIDIA / AMD ROCm | 官方 wheel | 2.4 – 2.10 | `cuda` / `rocm` | PyPI / rocm 索引 | — |
 | Apple Silicon | MLX / MPS | 2.4+ | `mps` / `mlx` | PyPI | 用 MLX 全模型后端 |
 
-> 结论：**`torch>=2.4` 是能覆盖全部 7 家的唯一下限**。海光、寒武纪停留在 2.4，其余四家都已在 2.6~2.10 区间。
+> 结论：**`torch>=2.4` 是能覆盖全部 8 家的唯一下限**。海光、寒武纪停留在 2.4，天数/英伟达/摩尔线程在 2.7.1，其余在 2.6~2.10 区间。摩尔线程是唯一**必须** 2.7.1 的（更低版本缺算子，更高版本春晓架构装不上）。
 
 ## 安装
 
@@ -52,9 +53,10 @@ pymss infer --model <name> --input mix.wav --device biren      # 壁仞
 pymss infer --model <name> --input mix.wav --device hygon      # 海光
 pymss infer --model <name> --input mix.wav --device gcu        # 燧原
 pymss infer --model <name> --input mix.wav --device mlu        # 寒武纪
+pymss infer --model <name> --input mix.wav --device musa       # 摩尔线程
 ```
 
-`--device auto` 的探测顺序：CUDA/ROCm → Ascend NPU → GCU → MLU → SUPA → MPS → CPU。
+`--device auto` 的探测顺序：CUDA/ROCm → Ascend NPU → GCU → MLU → SUPA → MUSA → MPS → CPU。
 若某个厂商后端在 `torch.cuda.get_device_name()` 里返回的字符串无法识别，可用环境变量强制指定：
 
 ```sh
@@ -65,7 +67,7 @@ PYMSS_DEVICE_BACKEND=iluvatar pymss infer --device auto ...
 
 | 变量 | 作用 |
 |---|---|
-| `PYMSS_DEVICE_BACKEND` | 强制厂商识别（`biren` / `iluvatar` / `metax` / `enflame` / `hygon` / `mlu` / `ascend` / `nvidia` / `rocm`） |
+| `PYMSS_DEVICE_BACKEND` | 强制厂商识别（`biren` / `iluvatar` / `metax` / `enflame` / `hygon` / `mlu` / `musa` / `ascend` / `nvidia` / `rocm`） |
 | `PYMSS_FFT_FALLBACK=1` | 强制用 `torch.fft` 组合实现 STFT/ISTFT（厂商 complex 支持不完整时用） |
 | `PYMSS_RNN_FALLBACK=1` | 强制 LSTM/GRU/RNN 走 CPU 回退 |
 | `PYMSS_AMP=0` | 关闭 autocast（厂商 fp16 kernel 不稳时用） |
@@ -331,13 +333,83 @@ aten::lstm/mm/embedding 设备盲路由（CPU 张量也进 SUPA IR）——
 对这些算子只能参考实现重写；异步内核崩溃会以 SIGABRT 迟到暴露；
 深层 stride 下 conv/slice 长度语义漂移需正索引切片+显式补齐。
 
+## 摩尔线程 MUSA 实测记录（春晓架构 / MTT S70 / torch_musa 2.7.1）
+
+> 2026-11-09，真实权重，11 类型全通。设备：MTT S70（7168 MiB，算力 `(2,1)`）。本分支的 MUSA 支持以 **torch_musa 2.7.1** 为基线开发。
+
+### 一、版本上限：春晓架构别乱升
+
+| 组件 | 上限 | 再往上会怎样 |
+|---|---|---|
+| torch_musa | **2.7.1** | 2.9.x 要求 MUSA SDK ≥ 4.3.2，2.11 要求 ≥ 5.1 → 春晓装不上 |
+| MUSA SDK | **4.3.0.CC2.1**（mcc 4.3.0 / muDNN 3.1.0.CC2.1） | 更高版本用户态不支持老卡 |
+| 驱动 | **musa 3.3.0-server** | 更高版本驱动与老卡不兼容 |
+| PyTorch | **2.7.1**（v2.7.1 + torch_musa 的 63 个 `torch_patches`） | 必须与 torch_musa 一一对应 |
+
+S70/S80 是春晓架构**唯二零售的桌面卡**，与工作站型号 S3000 同为 `(2,1)`。**升级任何一项都会让这三款卡直接不能用，且编译期没有任何提示。**
+
+### 二、能力缺口（实测）
+
+原生可用，不需要任何绕行：原生 `rfft`/`irfft`、复数 ×/÷ 实数、复数 `cat`/`fill`/拷贝、
+`nn.GRU`、`nn.MultiheadAttention`、`nn.LSTM`，以及融合 RoPE 内核（比参考实现快 7.6×，已接入）。
+剩余缺口如下：
+
+| 缺口 | 现象 | 采用的应对 |
+|---|---|---|
+| 复数 `scatter_add_` / `index_add_` | `scatter_add_ input unsupported complex tensor dtype`（实数版正常） | band 折叠走实/虚平面逐行累加 |
+| 复数 `reflect` pad | `PadImpl not implemented for 'ComplexFloat'`（`constant` 可以） | 平面轴前置后再 pad |
+| fp16 融合卷积 | `RuntimeError: ConvNd MUDNN failed in: RunFusion`（conv1d/conv2d）；bf16 在 datacast 直接失败 | 推理保持 FP32（linear/matmul/layernorm 的 fp16 可用） |
+| flash / efficient / cuDNN SDPA | 需要 `mp ≥ 2.2`，本代为 `(2,1)` | 走 math SDPA，精度一致，无加速 |
+| 半精度 muFFT | 同样受 `mp ≥ 2.2` 限制 | 频谱保持 fp32 |
+
+厂商专有算子逐个实测，**只有融合 RoPE 有收益**（已接入，见下）：
+
+- `_fused_rope_forward`：q/k 一对 **372 → 49 µs（7.6×）**，注意力分数一致（3.6e-07）；
+  端到端 mel_band 3.31→3.09 s、bs_roformer 2.88→2.14 s。两个坑见 §四第 7 条。
+- `gated_silu` / `_fused_swiglu_forward`：语义是 silu 门，而全仓 `F.glu`/`nn.GLU` **全是 sigmoid 门**
+  （bands 9 处、demucs 6 处、bandit 2 处、apollo 2 处、scnet 2 处、conformer 1 处）；唯一的 silu 门
+  在 apollo 的通道维 `(B,2C,T)`，转置+融合是 54–78 µs vs 现状 24–30 µs（**慢 2.2–2.6×**，喂非连续输入同样慢）。
+- `_fused_rmsnorm_forward`：语义就是标准 RMSNorm，但**标准 `aten::rms_norm` 在本设备上已经同速**
+  （0.073 ms vs 0.073 ms @ `(1,1723,512)`），没有理由为它引入厂商专有依赖。
+- `_scaled_dot_product_attention_math_musa`：与上游逐位相同、速度 1.01×；`..._flash_musa` 受 `mp ≥ 2.2` 限制。
+
+### 三、11 类型实测（10 s 音频，FP32，vs 同机 CPU，`repeat_delta` 全为 0）
+
+| 模型族 | 热态 | 相对 CPU | 峰值显存 |
+|---|---:|---:|---:|
+| vr | 0.25 s | 7.8× | 1.15 GiB |
+| htdemucs | 0.43 s | 20.9× | 0.78 GiB |
+| legacy_demucs | 0.55 s | 3.3× | 0.65 GiB |
+| legacy_tasnet | 0.94 s | 28.5× | 0.52 GiB |
+| scnet | 1.75 s | 4.6× | 1.39 GiB |
+| bandit_v2（2 s chunk） | 2.68 s | — | 0.93 GiB |
+| bs_roformer（4 s chunk） | **2.14 s** | — | 0.94 GiB |
+| mel_band_roformer | **3.09 s** | 16.9× | 1.88 GiB |
+| mdx23c | 4.06 s | 13.6× | 0.73 GiB |
+| bandit（6 s chunk） | 7.64 s | — | 0.54 GiB |
+| apollo | 9.24 s | 19.1× | 1.09 GiB |
+
+### 四、踩到的坑
+
+1. **bandit 的耗时几乎正比于"推理被调用的段数"**：模型自带默认 overlap 很激进，10 s 音频会被切成 26 段。同一张卡、同一模型：不传 chunk 是 **49.6 s**，显式 6 s chunk 是 **7.64 s**。这与设备无关，是模型侧配置。
+2. **原生 GRU 与手写 matmul GRU 同速**（160 ms vs 171 ms @ `(T=517,B=64,H=128)`，LSTM 也是 167 ms）——瓶颈是逐时间步的 kernel 启动开销（517 步 × 每步几个小 kernel），换实现没有收益，不要为此写自定义 cell。
+3. **`F.glu` 原生已经比手写快**（x0.81~0.91，`(64,517,256)`），不要拆开自己算。
+4. `bs_roformer` 的 `F.normalize(x) * sqrt(dim) * gamma` **就是 RMSNorm**（`sqrt(dim)` 恰好补偿 2-范数与 RMS 的差异）。换成厂商融合算子时 **weight 直接传 `gamma`，不能再乘 `sqrt(dim)`**。
+5. muDNN 3.1.0 在 mp_21 上偶发打印 `EXECUTION_FAILED ... err 98 = invalid device function`（Fill/Unary/datacast/Rope），torch 层结果仍然正确（走回退路径），可忽略。
+6. **7 GiB 显存下矩阵测试必须串行单进程**；`kill -9` 后显存不会被回收，只能重启。
+7. **融合 RoPE 有两个坑**：其一，角度表要按元素铺开 `[θ0, θ0, θ1, θ1, ...]`（`repeat_interleave(2)`）配
+   `rotary_interleaved=True`，按半区铺开会**静默转错配对**（rel 1.4，不报错），喂半宽表则报
+   `Unmatched dim size for t_in and freqs_cis`；其二，内核输出是交错布局而参考实现输出 `[even|odd]` 半区，
+   二者**数值等价**（注意力分数一致，3.6e-07），不要为此多做一次转置。另外厂商自己的 rope 单测写着
+   `skipif(get_musa_arch() < 22)`，但实测 mp 2.1 上正确且快，**「厂商不测」不等于「不可用」**。
+
 ## 开卡验证清单
 
 在目标卡上按顺序执行（约 10 分钟）：
 
 ```sh
 # 1. 确认厂商适配版栈（关键：别是 PyPI 公版 torch）
-pip list | grep -Ei "torch|corex|metax|gcu|das|br|mlu|npu|dtk"
+pip list | grep -Ei "torch|corex|metax|gcu|das|br|mlu|npu|dtk|musa"
 
 # 2. 确认后端能被识别
 python -c "from pymss.backends import device_profile; print(device_profile('<alias>'))"
