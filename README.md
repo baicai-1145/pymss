@@ -94,6 +94,22 @@ pip install --no-deps pymss
 See [docs/cn-gpu.md](./docs/cn-gpu.md) for the full compatibility matrix, the capability flags that
 replace hardcoded `device.type` checks, and the per-vendor verification checklist.
 
+### Google TPU
+
+TPUs are supported through `torch_tpu` (the official PyTorch backend, not `torch_xla`), which
+requires **Python 3.13+** and **torch 2.11 - 2.15**:
+
+```sh
+pymss separate input.wav --device tpu -o out/
+```
+
+Unlike the domestic accelerators, TPU has no operator gaps -- complex STFT, RNN, grouped and
+dilated convolution, fold/unfold and SDPA are all native. The adaptation is about **numerics**
+instead: TPU runs fp32 matmul and convolution in bfloat16 by default, `torch.istft` is both
+inaccurate (1.5e-03) and 32x slower than pymss's own overlap-add path, and `F.fold`
+accumulates the chunk windows in bfloat16 (2.6e-03 over a whole track). See
+[docs/tpu.md](./docs/tpu.md).
+
 ## Develop
 
 Development requires Git, Python 3.11 or later, and [uv](https://docs.astral.sh/uv/). WebUI development also requires Node.js and npm.

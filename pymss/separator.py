@@ -105,7 +105,7 @@ def _xpu_runtime_available():
 
 
 #: ``--device`` aliases that resolve to a vendor PyTorch extension.
-_VENDOR_ALIASES = frozenset({"biren", "iluvatar", "metax", "enflame", "gcu", "mlu", "supa", "hygon", "musa", "moore"})
+_VENDOR_ALIASES = frozenset({"biren", "iluvatar", "metax", "enflame", "gcu", "mlu", "supa", "hygon", "musa", "moore", "tpu"})
 
 
 def _validate_device_ids(device_ids, device_count, backend):
@@ -164,7 +164,7 @@ def _resolve_public_device(device, inference_params, logger):
     if requested_device not in {"auto", "cpu", "cuda", "mps"}:
         raise ValueError(
             "device must be 'auto', 'cpu', 'cuda', 'mps', 'rocm', 'npu', 'xpu', 'mlx', "
-            "'biren', 'iluvatar', 'metax', 'enflame', 'gcu', 'mlu', 'supa', 'hygon', 'musa', or 'moore'"
+            "'biren', 'iluvatar', 'metax', 'enflame', 'gcu', 'mlu', 'supa', 'hygon', 'musa', 'moore', or 'tpu'"
         )
     return requested_device, inference_params
 
@@ -181,6 +181,26 @@ def _vendor_device_module(vendor):
     return None
 
 
+def _accelerator_available(device_type):
+    """Return True when ``torch.accelerator`` reports an available backend.
+
+    ``torch_tpu`` gates ``torch.tpu.is_available``/``device_count`` behind an
+    "internal to TorchTPU" check and points callers at the ``torch.accelerator``
+    API, so that is what this uses.
+    """
+    try:
+        current = getattr(torch.accelerator, "current_accelerator", None)
+        if not callable(current) or current() is None:
+            return False
+        accelerator = current()
+        if accelerator.type != device_type:
+            return False
+        counter = getattr(torch.accelerator, "device_count", None)
+        return bool(callable(counter) and counter() > 0)
+    except Exception:  # noqa: BLE001 - an older torch has no accelerator API
+        return False
+
+
 def _select_private_device(device, device_ids, logger, profile):
     """Resolve a device index for a non-CUDA accelerator device type.
 
@@ -194,6 +214,10 @@ def _select_private_device(device, device_ids, logger, profile):
         str: ``"<device_type>:<index>"``."""
     module = getattr(torch, profile.device_type, None) or _vendor_device_module(profile.vendor)
     counter = getattr(module, "device_count", None)
+    if profile.device_type == "tpu":
+        # torch_tpu rejects torch.tpu.device_count() the same way it rejects
+        # torch.tpu.set_device(); torch.accelerator is the public surface.
+        counter = getattr(torch.accelerator, "device_count")
     device_count = int(counter()) if callable(counter) else 1
     label = profile.vendor.upper()
     if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
@@ -261,6 +285,15 @@ def _select_device(device, device_ids, logger):
             if callable(available) and available():
                 logger.debug(f"auto device selected {alias} accelerator through torch.{device_type}")
                 return f"{device_type}:{device_ids[0]}"
+        # TPU is last: importing torch_tpu starts the libtpu runtime, so it is
+        # probed only after every cheaper backend has said no.
+        try:
+            device_type = prepare_device_alias("tpu")
+        except Exception:  # noqa: BLE001 - no torch_tpu, or no libtpu on this host
+            device_type = None
+        if device_type == "tpu" and _accelerator_available("tpu"):
+            logger.debug("auto device selected Google TPU through torch_tpu")
+            return f"tpu:{device_ids[0]}"
         if torch.backends.mps.is_available():
             logger.debug("Apple Silicon MPS/CoreML is available in Torch, setting Torch device to MPS")
             return "mps"

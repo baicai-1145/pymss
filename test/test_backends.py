@@ -24,7 +24,7 @@ def _clean_state(monkeypatch):
 
 
 def test_supported_devices_covers_every_alias():
-    for alias in ("auto", "cpu", "cuda", "rocm", "mps", "mlx", "npu", "xpu", "gcu", "mlu", "supa", "biren", "iluvatar", "metax", "enflame", "hygon"):
+    for alias in ("auto", "cpu", "cuda", "rocm", "mps", "mlx", "npu", "xpu", "gcu", "mlu", "supa", "biren", "iluvatar", "metax", "enflame", "hygon", "tpu"):
         assert alias in SUPPORTED_DEVICES
 
 

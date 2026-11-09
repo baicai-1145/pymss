@@ -129,6 +129,7 @@ def test_model_without_mlx_support_is_not_left_on_cpu_for_mps():
     ("hygon", None, "cuda"),
     ("enflame", "torch_gcu", "gcu"),
     ("mlu", "torch_mlu", "mlu"),
+    ("tpu", "torch_tpu", "tpu"),
 ])
 def test_vendor_alias_resolves_through_the_backend_layer(monkeypatch, alias, plugin, device_type):
     """Guards the domestic-GPU path that NameError'd on a real BIREN card.
