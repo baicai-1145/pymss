@@ -90,6 +90,7 @@ pip install --no-deps pymss
 | Enflame GCU | `enflame` (`gcu`) | 2.6 - 2.10 (`torch_gcu`) |
 | Hygon DCU | `hygon` | 2.4.1 (`+das`, DTK 25.04) |
 | Cambricon MLU | `mlu` | 2.4 (`torch_mlu`) |
+| Moore Threads | `musa` (`moore`) | 2.7.1 (`torch_musa`) |
 
 See [docs/cn-gpu.md](./docs/cn-gpu.md) for the full compatibility matrix, the capability flags that
 replace hardcoded `device.type` checks, and the per-vendor verification checklist.
