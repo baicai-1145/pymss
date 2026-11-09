@@ -10,9 +10,11 @@ from torch.nn.utils.fusion import fuse_conv_bn_eval
 from tqdm import tqdm
 
 from pymss_core.modules.vocal_remover import ModelParameters, determine_model_capacity
+from pymss_core.npu_fft import masked_spectrum
 from pymss_core.modules.vocal_remover.uvr_lib_v5.vr_network import nets_new
 
-from pymss.utils import _autocast
+from ...backends import device_profile
+from ...utils import _autocast
 
 from .common_separator import CommonSeparator
 from .uvr_lib_v5 import spec_utils
@@ -101,7 +103,7 @@ class VRSeparator(CommonSeparator):
         self.use_amp = bool(arch_config.get("use_amp", True))
         device_type = torch.device(self.torch_device).type
         self.fuse_conv_bn = bool(arch_config.get("fuse_conv_bn", False))
-        self.use_channels_last = bool(arch_config.get("use_channels_last", False)) and device_type == "cuda"
+        self.use_channels_last = bool(arch_config.get("use_channels_last", False)) and device_profile(self.torch_device).channels_last
         self.input_high_end_h = None
         self.input_high_end = None
         self.aggression = float(int(arch_config.get("aggression", 5)) / 100)
@@ -334,6 +336,9 @@ class VRSeparator(CommonSeparator):
                         if self.use_channels_last
                         else x_batch_cpu.to(device=device, non_blocking=True)
                     )
+                    # One AMP policy for every caller: pymss.utils._autocast reads
+                    # DeviceProfile.amp / amp_dtype, so BIREN gets bf16, XPU stays
+                    # FP32, and CUDA/MPS keep fp16.
                     with _autocast(device, self.use_amp):
                         pred = self.model_run.predict_mask(x_batch)
                     if not pred.size()[3] > 0:
@@ -416,8 +421,11 @@ class VRSeparator(CommonSeparator):
 
             mask = adjust_aggr_torch(mask, is_non_accom_stem)
             x_spec_t = torch.from_numpy(x_spec).to(device)
-            y_spec = (mask * x_spec_t).cpu().numpy()
-            v_spec = ((1 - mask) * x_spec_t).cpu().numpy()
+            # BIREN has no complex64 * float32 pointwise kernel, so the mask is
+            # applied on the real/imaginary planes (see npu_fft.masked_spectrum).
+            # to_cpu=True: BIREN cannot copy complex tensors device->host.
+            y_spec = masked_spectrum(mask, x_spec_t, to_cpu=True)
+            v_spec = masked_spectrum(1 - mask, x_spec_t, to_cpu=True)
             return y_spec, v_spec
 
         x_mag = np.abs(x_spec)

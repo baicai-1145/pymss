@@ -8,12 +8,13 @@ from typing import Dict
 
 from pymss_core import get_model_from_config as _core_get_model_from_config
 
+from .backends import amp_supported, autocast_dtype, device_profile
 from .config import load_config
 from .progress import _ProgressContext
 
 # XPU deliberately stays in FP32 until bf16 AMP has model accuracy benchmarks.
-# Share this policy with the VR inference path; XPU must not inherit fp16 AMP.
-FP32_INFERENCE_DEVICE_TYPES = frozenset({"xpu"})
+# The policy now lives in the backend profile (``DeviceProfile.amp``), so XPU
+# reports ``amp_supported() == False`` and this module needs no special case.
 
 
 def apply_msst_inference_compat(config, logger=None, *, user_set_chunk_size=False):
@@ -309,11 +310,14 @@ def _autocast(device, enabled):
     Returns:
         Any: Computed result."""
     device_type = torch.device(device).type
-    if device_type in FP32_INFERENCE_DEVICE_TYPES:
+    if not enabled or not amp_supported(device):
         return nullcontext()
-    if enabled and device_type in ("cuda", "mps", "npu"):
-        return torch.amp.autocast(device_type, dtype=torch.float16)
-    return nullcontext()
+    try:
+        return torch.amp.autocast(device_type, dtype=autocast_dtype(device_type))
+    except (AttributeError, RuntimeError, TypeError):
+        # torch < 2.4 has no torch.amp.autocast(device_type=...) entry point and
+        # vendor backends may refuse the device type outright; run without AMP.
+        return nullcontext()
 
 
 def _resolve_use_amp(config):
@@ -654,7 +658,7 @@ def _finalize_overlap(result, counter, length_init, border):
     counter = counter[..., start:end]
     output_shape = result.shape[:-1] + (end - start,)
 
-    if torch.device(result.device).type not in ("cuda", "npu", "xpu"):
+    if not device_profile(result.device).is_accelerator:
         estimated_sources = (result / counter).cpu().numpy()
         np.nan_to_num(estimated_sources, copy=False, nan=0.0)
         return estimated_sources
@@ -1103,8 +1107,9 @@ def demix_track(config, model, mix, device, pbar=False, source_indices=None, pro
 
     mix, length_init = _prepare_mix_for_chunks(mix, border)
     chunk_starts, chunk_windows = _build_chunk_plan(mix.shape[1], C, step, fade_size)
-    device_type = torch.device(device).type
-    use_complete_fast_path = device_type in ("cuda", "cpu", "npu", "xpu")
+    # MPS needs the slow path (mlx handoff); every other accelerator mirrors the
+    # CUDA kernel set, including the CUDA-impersonating domestic vendors and XPU.
+    use_complete_fast_path = device_profile(device).device_type != "mps"
     mix_device = _model_mix(mix, device)
 
     with _autocast(device, _resolve_use_amp(config)):
