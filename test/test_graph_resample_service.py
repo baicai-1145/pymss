@@ -7,7 +7,10 @@ from __future__ import annotations
 import numpy as np
 
 from pymss.audio_services import default_audio_service
-from pymss.graph.nodes import _resample
+from pymss.graph.core import _load_builtin_nodes
+
+_load_builtin_nodes()
+from pymss.graph.nodes import _resample  # noqa: E402
 
 
 class _HalvingResampler:

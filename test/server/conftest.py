@@ -152,7 +152,8 @@ class ASGIClient:
             "server": ("testserver", 80),
         }
         messages = []
-        chunks = list(body_chunks) if body_chunks is not None else [body]
+        response_complete = asyncio.Event()
+        chunks = (list(body_chunks) if body_chunks is not None else [body]) or [b""]
         message_index = 0
 
         async def receive():
@@ -161,12 +162,15 @@ class ASGIClient:
                 chunk = chunks[message_index]
                 message_index += 1
                 return {"type": "http.request", "body": chunk, "more_body": message_index < len(chunks)}
+            await response_complete.wait()
             return {"type": "http.disconnect"}
 
         async def send(message):
             messages.append(message)
+            if message["type"] == "http.response.body" and not message.get("more_body", False):
+                response_complete.set()
 
-        await self.app(scope, receive, send)
+        await asyncio.wait_for(self.app(scope, receive, send), timeout=10)
         status_code = 500
         response_headers = {}
         chunks = []

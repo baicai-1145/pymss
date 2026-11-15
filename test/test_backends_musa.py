@@ -49,9 +49,8 @@ def test_moore_profile_matches_measured_flags():
     assert profile.complex_cat is False
     # Complex scatter_add_/index_add_ are still missing: fold on the real planes.
     assert profile.scatter_add is False
-    # The fused rope kernel is 7.6x faster than the reference rotary path and is
-    # numerically verified on this card, so the shim is on.
-    assert profile.rope_kernel_shim is True
+    # The available vendor RoPE shim targets SUPA; MUSA uses the native path.
+    assert profile.rope_shim is False
     # nn.MultiheadAttention runs on the native op now (3.4e-07).
     assert profile.sdpa_shim is False
     # GRU is native (_thnn_fused_gru_cell exists), like LSTM.

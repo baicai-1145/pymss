@@ -14,12 +14,13 @@ import subprocess
 from time import time
 from tqdm import tqdm
 
-from .audio_io import downmix_to_stereo, load_audio, save_audio
+from .audio_io import downmix_to_stereo, list_audio_tracks, load_audio, save_audio
 from .utils import _resolve_use_amp, clear_mlx_cache, demix, get_model_from_config
 from .logger import get_separation_logger, set_log_level
 from .config import AttrDict, load_config
 from pymss_core import ModelTypeDetectionError, clear_model_runtime_caches, detect_model_type
 from .backends import (
+    SUPPORTED_DEVICES,
     device_profile,
     install_conv_fallback,
     install_recurrent_fallback,
@@ -154,6 +155,8 @@ def _resolve_public_device(device, inference_params, logger):
         logger.debug("Using Intel GPU through PyTorch XPU")
         return "xpu", inference_params
     if requested_device in _VENDOR_ALIASES:
+        if requested_device not in SUPPORTED_DEVICES:
+            raise RuntimeError(f"device={requested_device!r} requires a pymss-core version with this device profile")
         plugin = requires_plugin(requested_device)
         try:
             device_type = prepare_device_alias(requested_device)
@@ -193,18 +196,18 @@ def _select_private_device(device, device_ids, logger, profile):
     Returns:
         str: ``"<device_type>:<index>"``."""
     module = getattr(torch, profile.device_type, None) or _vendor_device_module(profile.vendor)
-    counter = getattr(module, "device_count", None)
-    device_count = int(counter()) if callable(counter) else 1
     label = profile.vendor.upper()
-    if not isinstance(device_ids, (list, tuple)) or not device_ids or any(
-        isinstance(index, bool) or not isinstance(index, int) or index < 0 for index in device_ids
-    ):
-        raise ValueError(f"{label} device_ids must be a non-empty list of non-negative integers")
-    invalid_ids = [index for index in device_ids if index >= device_count]
-    if invalid_ids:
-        raise ValueError(
-            f"{label} device ID(s) {invalid_ids} are outside the available range [0, {device_count})"
-        )
+    available = getattr(module, "is_available", None)
+    counter = getattr(module, "device_count", None)
+    if module is None or (callable(available) and not available()):
+        raise RuntimeError(f"device={device!r} requires an available {label} accelerator")
+    device_count = int(counter()) if callable(counter) else 1
+    if device_count < 1:
+        raise RuntimeError(f"device={device!r} requires an available {label} accelerator")
+    _validate_device_ids(device_ids, device_count, label)
+    from pymss_core.device import set_current_vendor_device
+
+    set_current_vendor_device(profile.device_type, device_ids[0])
     logger.debug(f"Using {profile.vendor} accelerator through torch.{profile.device_type}")
     return f"{profile.device_type}:{device_ids[0]}"
 
@@ -225,8 +228,10 @@ def _select_device(device, device_ids, logger):
         logger.debug("Ascend NPU is available through torch_npu, setting Torch device to NPU")
         return f"npu:{device_ids[0]}"
     profile = device_profile(device)
-    if profile.device_type not in ("cuda", "cpu", "mps"):
+    if device != "auto" and profile.device_type not in ("cuda", "cpu", "mps"):
         return _select_private_device(device, device_ids, logger, profile)
+    if device not in ("auto", "cpu", "cuda", "mps"):
+        raise RuntimeError(f"device={device!r} has no supported pymss-core device profile")
     if device not in ["cpu", "mps"]:
         cuda_available = torch.cuda.is_available()
         if device == "cuda" and not cuda_available:
@@ -252,15 +257,21 @@ def _select_device(device, device_ids, logger):
         for alias in ("gcu", "mlu", "supa", "musa"):
             try:
                 device_type = prepare_device_alias(alias)
+                if device_type == "cuda":
+                    continue  # older vendor stacks expose devices as CUDA; handled above
+                profile = device_profile(device_type)
+                module = getattr(torch, device_type, None) or _vendor_device_module(profile.vendor)
+                available = getattr(module, "is_available", None)
+                counter = getattr(module, "device_count", None)
+                usable = (callable(available) and available()) or (not callable(available) and callable(counter) and counter() > 0)
             except ImportError:
                 continue
-            if device_type == "cuda":
-                continue  # older vendor stacks expose devices as CUDA; handled above
-            module = getattr(torch, device_type, None)
-            available = getattr(module, "is_available", None)
-            if callable(available) and available():
+            except Exception as error:
+                logger.debug(f"Skipping unavailable {alias} accelerator: {error}")
+                continue
+            if usable:
                 logger.debug(f"auto device selected {alias} accelerator through torch.{device_type}")
-                return f"{device_type}:{device_ids[0]}"
+                return _select_private_device(device_type, device_ids, logger, profile)
         if torch.backends.mps.is_available():
             logger.debug("Apple Silicon MPS/CoreML is available in Torch, setting Torch device to MPS")
             return "mps"
@@ -1332,7 +1343,7 @@ class MSSeparator:
             model.load_state_dict(state_dict)
         if torch.device(self.device).type == "mps":
             _coerce_mps_float64(model)
-        if torch.device(self.device).type == "cpu" or not _resolve_use_amp(config):
+        if torch.device(self.device).type == "cpu" or not _resolve_use_amp(config, self.device):
             # FP32 inference needs fp32 parameters everywhere, not just on CPU:
             # the htdemucs checkpoints ship fp16 weights, and accelerator conv
             # kernels do not implicitly cast fp32 activations
@@ -1570,7 +1581,7 @@ class MSSeparator:
             load_audio, paths[index], sr=sample_rate, mono=False, downmix_stereo=downmix_stereo
         )
 
-    def _submit_save_outputs(self, save_executor, results, sr, file_name):
+    def _submit_save_outputs(self, save_executor, results, sr, file_name, folder_name=None):
         """Submit save jobs for all returned stems.
 
         Args:
@@ -1580,6 +1591,10 @@ class MSSeparator:
             file_name (str): Base input filename without extension. Also used
                 as the per-input output folder name when ``save_as_folder`` is
                 active.
+            folder_name (str | None, optional): Override only the per-input
+                output folder name. This lets multiple streams from one media
+                file share the source folder while retaining distinct output
+                basenames. Defaults to None.
 
         Returns:
             list[concurrent.futures.Future]: Save job futures."""
@@ -1589,7 +1604,7 @@ class MSSeparator:
             for save_dir in [_get_store_dir(self.store_dirs, instr)]
             if save_dir
             for configured_output_dir in (save_dir if isinstance(save_dir, list) else [save_dir])
-            for output_dir in [self._resolve_output_dir(configured_output_dir, file_name)]
+            for output_dir in [self._resolve_output_dir(configured_output_dir, folder_name or file_name)]
         ]
 
     def _stems_to_save(self):
@@ -1775,6 +1790,82 @@ class MSSeparator:
             if progress is not None:
                 progress.close()
         return success_files
+
+    def process_audio_tracks(self, input_path, *, audio_tracks="all"):
+        """Separate selected audio streams from one media file with this model.
+
+        The model remains loaded while each selected stream is decoded and
+        processed. Results contain source-stream metadata, the basename used
+        for saved stems, and per-track success information. Each result has
+        ``index``, ``language``, ``title``, ``channels``, ``sampleRate``,
+        ``streamIndex``, ``name``, and ``success``. Failed tracks also have an
+        ``error`` string; a failure does not prevent later selected tracks from
+        being attempted.
+
+        Example:
+            >>> records = separator.process_audio_tracks("concert.mkv", audio_tracks=[1, 2])
+            >>> all(record["success"] for record in records)
+            True
+        """
+        if not os.path.isfile(input_path):
+            raise ValueError(f"Input path '{input_path}' does not exist or is not a file.")
+        tracks = list_audio_tracks(input_path)
+        if not tracks:
+            raise ValueError(f"No audio stream found in {input_path!s}.")
+        if audio_tracks == "all":
+            selected = [track["index"] for track in tracks]
+        else:
+            if isinstance(audio_tracks, (str, bytes)):
+                raise ValueError("audio_tracks must be 'all' or a non-empty sequence of positive integers.")
+            try:
+                selected = list(audio_tracks)
+            except TypeError as exc:
+                raise ValueError("audio_tracks must be 'all' or a non-empty sequence of positive integers.") from exc
+            if not selected or any(isinstance(index, bool) or not isinstance(index, int) or index <= 0 for index in selected):
+                raise ValueError("audio_tracks must be a non-empty sequence of positive integers.")
+            if len(set(selected)) != len(selected):
+                raise ValueError("audio_tracks must not contain duplicate track indexes.")
+            missing = [index for index in selected if index > len(tracks)]
+            if missing:
+                raise ValueError(f"Audio track {missing[0]} does not exist in {input_path!s}.")
+
+        by_index = {track["index"]: track for track in tracks}
+        sample_rate = int(self.config.audio.get("sample_rate", 44100))
+        downmix_stereo = _model_input_channels(self.model_type, self.config, self.model) != 1
+        source_stem = os.path.splitext(os.path.basename(input_path))[0]
+        multi_track = len(tracks) > 1
+        results = []
+        with ThreadPoolExecutor(max_workers=2, thread_name_prefix="pymss-save") as save_executor:
+            for index in selected:
+                track = dict(by_index[index])
+                language = str(track.get("language") or "").strip()
+                safe_language = re.sub(r'[^A-Za-z0-9._-]+', "_", language).strip("._-")
+                suffix = f" [track {index}" + (f" {safe_language}" if safe_language and safe_language.lower() not in {"und", "audio"} else "") + "]"
+                name = source_stem + suffix if multi_track else source_stem
+                record = {**track, "name": name, "success": False}
+                mix = None
+                try:
+                    mix, sr = load_audio(input_path, sr=sample_rate, mono=False,
+                                         downmix_stereo=downmix_stereo, audio_track=index)
+                    save_ok = True
+                    for stems in self._stem_batches_to_save():
+                        separated = self.separate(mix, pbar=False, stems=stems)
+                        futures = self._submit_save_outputs(
+                            save_executor, separated, sr, name, folder_name=source_stem
+                        )
+                        save_ok = self._wait_save_futures(input_path, futures) and save_ok
+                        del separated
+                    if not save_ok:
+                        raise RuntimeError("One or more output files could not be saved.")
+                    record["success"] = True
+                except Exception as exc:
+                    record["error"] = str(exc)
+                    self.logger.warning(f"Cannot process audio track {index} in {input_path}: {exc}")
+                finally:
+                    if mix is not None:
+                        del mix
+                results.append(record)
+        return results
 
     def separate(self, mix, pbar=True, stems=None, *, channel_layout=None):
         """Run separation on an already loaded audio array.

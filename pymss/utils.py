@@ -313,19 +313,21 @@ def _autocast(device, enabled):
     if not enabled or not amp_supported(device):
         return nullcontext()
     try:
-        return torch.amp.autocast(device_type, dtype=autocast_dtype(device_type))
+        context = torch.amp.autocast(device_type, dtype=autocast_dtype(device_type))
+        return context if getattr(context, "_enabled", True) else nullcontext()
     except (AttributeError, RuntimeError, TypeError):
         # torch < 2.4 has no torch.amp.autocast(device_type=...) entry point and
         # vendor backends may refuse the device type outright; run without AMP.
         return nullcontext()
 
 
-def _resolve_use_amp(config):
-    """Resolve the effective AMP setting for PyTorch inference."""
+def _resolve_use_amp(config, device=None):
+    """Resolve requested AMP, or the usable AMP policy for a target device."""
     use_amp = config.inference.get("use_amp")
-    if use_amp is not None:
-        return bool(use_amp)
-    return bool(config.training.get("use_amp", True))
+    enabled = bool(use_amp) if use_amp is not None else bool(config.training.get("use_amp", True))
+    if device is None or not enabled:
+        return enabled
+    return not isinstance(_autocast(device, enabled), nullcontext)
 
 
 def _source_names(config):

@@ -83,6 +83,9 @@ def test_explicit_cuda_requires_cuda_instead_of_using_another_accelerator(monkey
 @pytest.mark.parametrize("runtime", ["cuda", "rocm"])
 @pytest.mark.parametrize("node_ids", ["1", "1,0"])
 def test_graph_auto_node_uses_the_first_id_with_an_explicit_gpu_runtime(monkeypatch, runtime, node_ids):
+    from pymss.graph.core import _load_builtin_nodes
+
+    _load_builtin_nodes()
     from pymss.graph.nodes import _common_separator_kwargs
 
     monkeypatch.setattr(torch.cuda, "is_available", lambda: True)

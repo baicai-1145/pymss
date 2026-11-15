@@ -8,10 +8,13 @@ import pytest
 
 from pymss.audio_io import load_audio
 from pymss.graph.core import AudioArtifact, DAGError, DAGNode, NodeContext, SeparatorCache
-from pymss.graph.nodes import _execute_input_audio, _execute_invert_phase, _run_separation
+from pymss.graph.core import _load_builtin_nodes
 from pymss.workflow import WorkflowRunner, load_workflow_data
 from test.test_audio_downmix import layout_audio, write_layout_wav
 from test.test_separator_channels import make_separator
+
+_load_builtin_nodes()
+from pymss.graph.nodes import _execute_input_audio, _execute_invert_phase, _run_separation  # noqa: E402
 
 
 @pytest.fixture

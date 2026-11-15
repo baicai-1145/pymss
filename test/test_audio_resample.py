@@ -8,9 +8,12 @@ import soundfile as sf
 
 from pymss.audio_io import _load_audio_av
 from pymss.graph import AudioArtifact, load_comfy_graph, run_dag
-from pymss.graph.nodes import _run_separation
+from pymss.graph.core import _load_builtin_nodes
 from pymss.plugins.builtins import resample
 from pymss.workflow import _ensure_sample_rate
+
+_load_builtin_nodes()
+from pymss.graph.nodes import _run_separation  # noqa: E402
 
 
 @pytest.mark.parametrize("channels", [1, 2, 3, 6, 8, 9, 16])

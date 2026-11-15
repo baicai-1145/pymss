@@ -10,7 +10,7 @@ from torch.nn.utils.fusion import fuse_conv_bn_eval
 from tqdm import tqdm
 
 from pymss_core.modules.vocal_remover import ModelParameters, determine_model_capacity
-from pymss_core.npu_fft import masked_spectrum
+from pymss_core.npu_fft import masked_spectrum, numpy_complex_to_device
 from pymss_core.modules.vocal_remover.uvr_lib_v5.vr_network import nets_new
 
 from ...backends import device_profile
@@ -420,7 +420,7 @@ class VRSeparator(CommonSeparator):
                 return np.array(y_spec, copy=False), np.array(v_spec, copy=False)
 
             mask = adjust_aggr_torch(mask, is_non_accom_stem)
-            x_spec_t = torch.from_numpy(x_spec).to(device)
+            x_spec_t = numpy_complex_to_device(x_spec, device)
             # BIREN has no complex64 * float32 pointwise kernel, so the mask is
             # applied on the real/imaginary planes (see npu_fft.masked_spectrum).
             # to_cpu=True: BIREN cannot copy complex tensors device->host.

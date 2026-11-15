@@ -24,6 +24,7 @@ Exports:
     save_ensemble_audio: Ensemble multiple audio files and save the result.
     WorkflowRunner: Run a multi-model audio workflow.
     load_audio: Load an audio file into a NumPy array.
+    list_audio_tracks: List selectable audio streams and their metadata.
     save_audio: Save a NumPy audio array to wav/flac/mp3/m4a.
 
 Example:
@@ -67,6 +68,7 @@ _EXPORT_MODULES = {
     "ensemble_audios": ".ensemble",
     "save_ensemble_audio": ".ensemble",
     "load_audio": ".audio_io",
+    "list_audio_tracks": ".audio_io",
     "save_audio": ".audio_io",
     "WorkflowRunner": ".workflow",
     "load_workflow_file": ".workflow",
@@ -107,5 +109,6 @@ __all__ = (
     "run_workflow_file",
     "validate_workflow",
     "load_audio",
+    "list_audio_tracks",
     "save_audio",
 )

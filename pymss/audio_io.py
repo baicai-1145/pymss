@@ -125,14 +125,47 @@ def resample_audio(audio, orig_sr, target_sr):
     return result[0] if mono else result
 
 
-def _ffmpeg_audio_stream_info(path):
+def _normalize_audio_track(audio_track):
+    if isinstance(audio_track, bool) or not isinstance(audio_track, int) or audio_track <= 0:
+        raise ValueError("audio_track must be a positive integer.")
+    return audio_track
+
+
+def list_audio_tracks(path):
+    """Return audio-stream metadata in audio-stream (one-based) order.
+
+    ``index`` intentionally refers to the audio stream's position, rather
+    than the container-wide stream index.  It is therefore suitable for
+    passing directly to :func:`load_audio`.
+
+    Example:
+        >>> list_audio_tracks("concert.mkv")[0]["index"]
+        1
+    """
+    tracks = []
+    with av.open(path) as container:
+        for index, stream in enumerate(container.streams.audio, start=1):
+            codec = stream.codec_context
+            metadata = stream.metadata or {}
+            tracks.append({
+                "index": index,
+                "language": str(metadata.get("language") or ""),
+                "title": str(metadata.get("title") or ""),
+                "channels": int(getattr(codec, "channels", 0) or 0),
+                "sampleRate": int(getattr(codec, "sample_rate", 0) or getattr(stream, "rate", 0) or 0),
+                "streamIndex": int(stream.index),
+            })
+    return tracks
+
+
+def _ffmpeg_audio_stream_info(path, audio_track=1):
     """Return basic audio stream information from ffprobe."""
     command = [
         "ffprobe",
         "-v",
         "error",
         "-select_streams",
-        "a:0",
+        f"a:{_normalize_audio_track(audio_track) - 1}",
         "-show_entries",
         "stream=sample_rate,channels,channel_layout",
         "-of",
@@ -147,16 +180,17 @@ def _ffmpeg_audio_stream_info(path):
     return int(stream["sample_rate"]), int(stream["channels"]), stream.get("channel_layout")
 
 
-def _load_audio_ffmpeg(path, sr=None, mono=False, offset=0.0, duration=None, downmix_stereo=False, return_layout=False):
+def _load_audio_ffmpeg(path, sr=None, mono=False, offset=0.0, duration=None, downmix_stereo=False, return_layout=False, audio_track=1):
     """Load audio through the ffmpeg CLI as a fallback for damaged streams."""
-    source_rate, source_channels, source_layout = _ffmpeg_audio_stream_info(path)
+    audio_track = _normalize_audio_track(audio_track)
+    source_rate, source_channels, source_layout = _ffmpeg_audio_stream_info(path, audio_track)
     out_rate = int(sr or source_rate)
     channels = 1 if mono else (2 if downmix_stereo and source_channels > 2 else source_channels)
     layout = "mono" if channels == 1 else ("stereo" if channels == 2 else source_layout)
     command = ["ffmpeg", "-nostdin", "-v", "error"]
     if offset:
         command += ["-ss", str(float(offset))]
-    command += ["-i", str(path), "-map", "0:a:0", "-vn"]
+    command += ["-i", str(path), "-map", f"0:a:{audio_track - 1}", "-vn"]
     if duration is not None:
         command += ["-t", str(float(duration))]
     if layout:
@@ -176,8 +210,11 @@ def _load_audio_ffmpeg(path, sr=None, mono=False, offset=0.0, duration=None, dow
     return (audio, out_rate, layout) if return_layout else (audio, out_rate)
 
 
-def _load_audio_librosa(path, sr=None, mono=False, offset=0.0, duration=None, downmix_stereo=False, return_layout=False):
+def _load_audio_librosa(path, sr=None, mono=False, offset=0.0, duration=None, downmix_stereo=False, return_layout=False, audio_track=1):
     """Load audio through librosa as a fallback before the ffmpeg CLI."""
+    audio_track = _normalize_audio_track(audio_track)
+    if audio_track != 1:
+        raise ValueError("librosa cannot select a non-first audio stream.")
     import librosa
 
     audio, out_rate = librosa.load(
@@ -213,13 +250,17 @@ def _load_audio_librosa(path, sr=None, mono=False, offset=0.0, duration=None, do
     return audio, int(out_rate), layout
 
 
-def _load_audio_av(path, sr=None, mono=False, offset=0.0, duration=None, downmix_stereo=False, return_layout=False):
+def _load_audio_av(path, sr=None, mono=False, offset=0.0, duration=None, downmix_stereo=False, return_layout=False, audio_track=1):
     """Load audio through PyAV."""
     chunks = []
     out_rate = None
     output_layout = None
+    audio_track = _normalize_audio_track(audio_track)
     with av.open(path) as container:
-        stream = container.streams.audio[0]
+        streams = container.streams.audio
+        if audio_track > len(streams):
+            raise ValueError(f"Audio track {audio_track} does not exist in {path!s}.")
+        stream = streams[audio_track - 1]
         out_rate = int(sr or stream.rate)
         resampler = None
         stop_samples = None if duration is None else int(round((offset + duration) * out_rate))
@@ -253,7 +294,7 @@ def _load_audio_av(path, sr=None, mono=False, offset=0.0, duration=None, downmix
     return (audio, out_rate, output_layout) if return_layout else (audio, out_rate)
 
 
-def load_audio(path, sr=None, mono=False, offset=0.0, duration=None, *, downmix_stereo=False, return_layout=False):
+def load_audio(path, sr=None, mono=False, offset=0.0, duration=None, *, downmix_stereo=False, return_layout=False, audio_track=1):
     """Load an audio file as float32 NumPy samples.
 
     Audio decoding is attempted in this order: PyAV, librosa, then the
@@ -280,6 +321,8 @@ def load_audio(path, sr=None, mono=False, offset=0.0, duration=None, *, downmix_
             a third return value. Defaults to False, preserving the usual
             ``(audio, sample_rate)`` pair. Unknown multichannel positions use
             an unspecified layout such as ``"3 channels"``.
+        audio_track (int, optional): One-based audio-stream position to decode.
+            Defaults to 1. Invalid or unavailable tracks raise an error.
 
     Returns:
         tuple[np.ndarray, int]: Audio samples and sample rate. The array is
@@ -302,17 +345,26 @@ def load_audio(path, sr=None, mono=False, offset=0.0, duration=None, *, downmix_
         ... )
         >>> clip.ndim
         1"""
-    loaders = [
-        ("PyAV", _load_audio_av),
-        ("librosa", _load_audio_librosa),
-        ("ffmpeg CLI", _load_audio_ffmpeg),
-    ]
+    audio_track = _normalize_audio_track(audio_track)
+    loaders = [("PyAV", _load_audio_av)]
+    if audio_track == 1:
+        loaders.append(("librosa", _load_audio_librosa))
+    loaders.append(("ffmpeg CLI", _load_audio_ffmpeg))
 
     errors = []
     for name, loader in loaders:
         try:
-            return loader(path, sr=sr, mono=mono, offset=offset, duration=duration,
-                          downmix_stereo=downmix_stereo, return_layout=return_layout)
+            kwargs = {
+                "sr": sr,
+                "mono": mono,
+                "offset": offset,
+                "duration": duration,
+                "downmix_stereo": downmix_stereo,
+                "return_layout": return_layout,
+            }
+            if audio_track != 1:
+                kwargs["audio_track"] = audio_track
+            return loader(path, **kwargs)
         except Exception as e:
             errors.append(f"{name}: {e}")
             continue

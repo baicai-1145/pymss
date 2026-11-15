@@ -39,7 +39,7 @@ dependencies = [
     "librosa>=0.10.2",
     "numpy>=1.26",
     "packaging>=24.0",
-    "pymss-core>=0.1.15",
+    "pymss-core==0.1.16",
     "pyyaml>=6.0.1",
     "torch>=2.4",
     "tqdm>=4.60",
