@@ -653,6 +653,8 @@ def build_parser():
     parser.add_argument("--plugin-store", "--plugin-binding", type=_plugin_binding_argument,
                         help="Managed binding directory; its parent store shares intent across sibling bindings")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    from .speakers import add_arguments as add_speaker_arguments
+    add_speaker_arguments(subparsers.add_parser("separate-speakers", help="Separate an unknown number of speakers."))
 
     # ==========================
     # List models

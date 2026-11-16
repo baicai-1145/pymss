@@ -52,6 +52,8 @@ from importlib import import_module as _import_module
 # Keep package initialization light so `python -m pymss` can select its core
 # before importing inference dependencies from the base installation.
 _EXPORT_MODULES = {
+    "SpeakerSeparator": ".speakers",
+    "SpeakerSeparation": ".speakers",
     "MSSeparator": ".separator",
     "ModelTypeDetectionError": "pymss_core",
     "detect_model_type": "pymss_core",
@@ -90,6 +92,8 @@ def __dir__():
 
 
 __all__ = (
+    "SpeakerSeparator",
+    "SpeakerSeparation",
     "MSSeparator",
     "ModelTypeDetectionError",
     "detect_model_type",
