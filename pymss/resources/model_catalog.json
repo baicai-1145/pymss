@@ -29,7 +29,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "audio_restoration",
       "secondary_category_cn": "音频/人声修复",
-      "target_stem": "restored"
+      "target_stem": "restored",
+      "publish_date": "2024-09-06",
+      "author": "Kai Li, Yi Luo, JusperLee"
     },
     {
       "name": "apollo_model.ckpt",
@@ -49,7 +51,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "audio_restoration",
       "secondary_category_cn": "音频/人声修复",
-      "target_stem": "restored"
+      "target_stem": "restored",
+      "publish_date": "2024-09-27",
+      "author": "Lew, deton24"
     },
     {
       "name": "apollo_model_v2.ckpt",
@@ -69,7 +73,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "audio_restoration",
       "secondary_category_cn": "音频/人声修复",
-      "target_stem": "restored"
+      "target_stem": "restored",
+      "publish_date": "2024-11-03",
+      "author": "Lew, deton24"
     },
     {
       "name": "model_apollo_vocals_ep_54.ckpt",
@@ -89,7 +95,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "audio_restoration",
       "secondary_category_cn": "音频/人声修复",
-      "target_stem": "restored"
+      "target_stem": "restored",
+      "publish_date": "2025-05-30",
+      "author": "baicai1145"
     },
     {
       "name": "mel_band_roformer_crowd_aufr33_viperx_sdr_8.7144.ckpt",
@@ -109,7 +117,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "crowd_removal",
       "secondary_category_cn": "人群/观众声移除",
-      "target_stem": "crowd"
+      "target_stem": "crowd",
+      "publish_date": "2024-06-08",
+      "author": "aufr33, viperx"
     },
     {
       "name": "denoise_mel_band_roformer_aufr33_aggr_sdr_27.9768.ckpt",
@@ -129,7 +139,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "noise_bleed_control",
       "secondary_category_cn": "降噪/串音抑制",
-      "target_stem": "dry"
+      "target_stem": "dry",
+      "publish_date": "2024-08-03",
+      "author": "aufr33"
     },
     {
       "name": "denoise_mel_band_roformer_aufr33_sdr_27.9959.ckpt",
@@ -149,7 +161,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "noise_bleed_control",
       "secondary_category_cn": "降噪/串音抑制",
-      "target_stem": "dry"
+      "target_stem": "dry",
+      "publish_date": "2024-08-03",
+      "author": "aufr33"
     },
     {
       "name": "kimmel_unwa_ft2_bleedless.ckpt",
@@ -169,7 +183,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "noise_bleed_control",
       "secondary_category_cn": "降噪/串音抑制",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-01-29",
+      "author": "pcunwa"
     },
     {
       "name": "mel_band_roformer_bleed_suppressor_v1.ckpt",
@@ -189,7 +205,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "noise_bleed_control",
       "secondary_category_cn": "降噪/串音抑制",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-10-24",
+      "author": "niobures"
     },
     {
       "name": "mel_band_roformer_denoise_debleed_gabox.ckpt",
@@ -209,7 +227,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "noise_bleed_control",
       "secondary_category_cn": "降噪/串音抑制",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-12",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_bleedless_v1_gabox.ckpt",
@@ -229,7 +249,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "noise_bleed_control",
       "secondary_category_cn": "降噪/串音抑制",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-01-22",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_bleedless_v2_gabox.ckpt",
@@ -249,7 +271,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "noise_bleed_control",
       "secondary_category_cn": "降噪/串音抑制",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-01-22",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_bleedless_v3_gabox.ckpt",
@@ -269,7 +293,9 @@
       "primary_category_cn": "音频清理/修复",
       "secondary_category": "noise_bleed_control",
       "secondary_category_cn": "降噪/串音抑制",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-03-04",
+      "author": "GaboxR67"
     },
     {
       "name": "apollo_model_uni.ckpt",
@@ -289,7 +315,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "restored"
+      "target_stem": "restored",
+      "publish_date": "2024-11-27",
+      "author": "Lew, deton24"
     },
     {
       "name": "BS-Roformer_LargeV1.ckpt",
@@ -309,7 +337,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-01-18",
+      "author": "jarredou"
     },
     {
       "name": "bs_roformer_anvuew_sdr_12.45.ckpt",
@@ -329,7 +359,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-11-09",
+      "author": "anvuew"
     },
     {
       "name": "BS_Roformer_FNF_V1.ckpt",
@@ -349,7 +381,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "Voices"
+      "target_stem": "Voices",
+      "publish_date": "",
+      "author": "MrDense267"
     },
     {
       "name": "bs_roformer_ft1_anvuew_sdr_12.55.ckpt",
@@ -369,7 +403,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2026-04-18",
+      "author": "anvuew"
     },
     {
       "name": "bs_roformer_mag_anvuew.ckpt",
@@ -389,7 +425,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2026-03-12",
+      "author": "anvuew"
     },
     {
       "name": "bs_roformer_revive.ckpt",
@@ -409,7 +447,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-05-11",
+      "author": "pcunwa"
     },
     {
       "name": "bs_roformer_revive2.ckpt",
@@ -429,7 +469,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-05-12",
+      "author": "pcunwa"
     },
     {
       "name": "bs_roformer_revive3e.ckpt",
@@ -449,7 +491,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-05-31",
+      "author": "pcunwa"
     },
     {
       "name": "checkpoint-cmn_state_dict.ckpt",
@@ -469,7 +513,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "speech/music/sfx"
+      "target_stem": "speech/music/sfx",
+      "publish_date": "2024-07-09",
+      "author": "Karn N. Watcharasupat, Chih-Wei Wu, Iroro Orife, jarredou"
     },
     {
       "name": "checkpoint-deu_state_dict.ckpt",
@@ -489,7 +535,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "speech/music/sfx"
+      "target_stem": "speech/music/sfx",
+      "publish_date": "2024-07-09",
+      "author": "Karn N. Watcharasupat, Chih-Wei Wu, Iroro Orife, jarredou"
     },
     {
       "name": "checkpoint-eng_state_dict.ckpt",
@@ -509,7 +557,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "speech/music/sfx"
+      "target_stem": "speech/music/sfx",
+      "publish_date": "2024-07-09",
+      "author": "Karn N. Watcharasupat, Chih-Wei Wu, Iroro Orife, jarredou"
     },
     {
       "name": "checkpoint-fao_state_dict.ckpt",
@@ -529,7 +579,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "speech/music/sfx"
+      "target_stem": "speech/music/sfx",
+      "publish_date": "2024-07-09",
+      "author": "Karn N. Watcharasupat, Chih-Wei Wu, Iroro Orife, jarredou"
     },
     {
       "name": "checkpoint-fra_state_dict.ckpt",
@@ -549,7 +601,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "speech/music/sfx"
+      "target_stem": "speech/music/sfx",
+      "publish_date": "2024-07-09",
+      "author": "Karn N. Watcharasupat, Chih-Wei Wu, Iroro Orife, jarredou"
     },
     {
       "name": "checkpoint-spa_state_dict.ckpt",
@@ -569,7 +623,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "speech/music/sfx"
+      "target_stem": "speech/music/sfx",
+      "publish_date": "2024-07-09",
+      "author": "Karn N. Watcharasupat, Chih-Wei Wu, Iroro Orife, jarredou"
     },
     {
       "name": "Fullness.ckpt",
@@ -589,7 +645,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-08-26",
+      "author": "GaboxR67"
     },
     {
       "name": "INSTV8.ckpt",
@@ -609,7 +667,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-03-05",
+      "author": "GaboxR67"
     },
     {
       "name": "INSTV9.ckpt",
@@ -629,7 +689,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-03-05",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_small.ckpt",
@@ -649,7 +711,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-11",
+      "author": "Aname-Tommy"
     },
     {
       "name": "melband_roformer_small_v1.ckpt",
@@ -669,7 +733,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-10-09",
+      "author": "pcunwa"
     },
     {
       "name": "MelBandRoformerBigSYHFTV1.ckpt",
@@ -689,7 +755,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-11-11",
+      "author": "SYH99999"
     },
     {
       "name": "MelBandRoformerSYHFT.ckpt",
@@ -709,7 +777,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-11-02",
+      "author": "SYH99999"
     },
     {
       "name": "MelBandRoformerSYHFTB1.ckpt",
@@ -729,7 +799,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-01-26",
+      "author": "SYH99999"
     },
     {
       "name": "MelBandRoformerSYHFTV2.5.ckpt",
@@ -749,7 +821,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-11-07",
+      "author": "SYH99999"
     },
     {
       "name": "MelBandRoformerSYHFTV2.ckpt",
@@ -769,7 +843,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-11-05",
+      "author": "SYH99999"
     },
     {
       "name": "MelBandRoformerSYHFTV3Epsilon.ckpt",
@@ -789,7 +865,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-11-10",
+      "author": "SYH99999"
     },
     {
       "name": "merge_syhft.ckpt",
@@ -809,7 +887,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-12-31",
+      "author": "SYH99999"
     },
     {
       "name": "model2.ckpt",
@@ -829,7 +909,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-01-27",
+      "author": "SYH99999"
     },
     {
       "name": "model3.ckpt",
@@ -849,7 +931,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-01-27",
+      "author": "SYH99999"
     },
     {
       "name": "model_bs_roformer_ep_937_sdr_10.5309.ckpt",
@@ -869,7 +953,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "No Drum-Bass"
+      "target_stem": "No Drum-Bass",
+      "publish_date": "2024-03-29",
+      "author": "viperx, playdasegunda"
     },
     {
       "name": "model_jazz_scnet.ckpt",
@@ -889,7 +975,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "drums/bass/piano/other"
+      "target_stem": "drums/bass/piano/other",
+      "publish_date": "2025-06-29",
+      "author": "jorisvaneyghen"
     },
     {
       "name": "model_mel_band_roformer_ep_3_sdr_14.8359.ckpt",
@@ -909,7 +997,9 @@
       "primary_category_cn": "实验/通用分离",
       "secondary_category": "",
       "secondary_category_cn": "通用源分离",
-      "target_stem": "dry"
+      "target_stem": "dry",
+      "publish_date": "2026-04-14",
+      "author": "yuluoye"
     },
     {
       "name": "bs_roformer_inst_hyperacev2.ckpt",
@@ -929,7 +1019,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "instrument"
+      "target_stem": "instrument",
+      "publish_date": "2025-12-20",
+      "author": "pcunwa"
     },
     {
       "name": "essid_mel_inst.ckpt",
@@ -949,7 +1041,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-05-16",
+      "author": "Essid"
     },
     {
       "name": "essid_mel_inst_old.ckpt",
@@ -969,7 +1063,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-05-11",
+      "author": "Essid"
     },
     {
       "name": "Inst_ExperimentalV1.ckpt",
@@ -989,7 +1085,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-03-27",
+      "author": "GaboxR67"
     },
     {
       "name": "Inst_Fv8.ckpt",
@@ -1009,7 +1107,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-12-08",
+      "author": "GaboxR67"
     },
     {
       "name": "Inst_Fv9.ckpt",
@@ -1029,7 +1129,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-06-09",
+      "author": "GaboxR67"
     },
     {
       "name": "inst_gaboxFlowersV10.ckpt",
@@ -1049,7 +1151,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2026-01-04",
+      "author": "GaboxR67"
     },
     {
       "name": "Inst_GaboxFv9.ckpt",
@@ -1069,7 +1173,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-12-23",
+      "author": "GaboxR67"
     },
     {
       "name": "Inst_GaboxV7.ckpt",
@@ -1089,7 +1195,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-27",
+      "author": "GaboxR67"
     },
     {
       "name": "last_mel_band_roformer.ckpt",
@@ -1109,7 +1217,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-09-19",
+      "author": "Essid"
     },
     {
       "name": "mel_band_roformer_instrumental_2_gabox.ckpt",
@@ -1129,7 +1239,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-08",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_3_gabox.ckpt",
@@ -1149,7 +1261,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-08",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_becruily.ckpt",
@@ -1169,7 +1283,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2024-12-27",
+      "author": "becruily"
     },
     {
       "name": "mel_band_roformer_instrumental_fullness_noise_v4_gabox.ckpt",
@@ -1189,7 +1305,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-01-26",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_fullness_v1_gabox.ckpt",
@@ -1209,7 +1327,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-01-21",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_fullness_v2_gabox.ckpt",
@@ -1229,7 +1349,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-01-22",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_fullness_v3_gabox.ckpt",
@@ -1249,7 +1371,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-01-26",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_fullness_v4_gabox.ckpt",
@@ -1269,7 +1393,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-10-05",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_fv7z_gabox.ckpt",
@@ -1289,7 +1415,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-06-20",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_fv8_gabox.ckpt",
@@ -1309,7 +1437,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-05-10",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_fv8b_gabox.ckpt",
@@ -1329,7 +1459,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-06-02",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_fvx_gabox.ckpt",
@@ -1349,7 +1481,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-28",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_gabox.ckpt",
@@ -1369,7 +1503,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-01-21",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_instv5_gabox.ckpt",
@@ -1389,7 +1525,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-01-27",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_instv5n_gabox.ckpt",
@@ -1409,7 +1547,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-12",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_instv6_gabox.ckpt",
@@ -1429,7 +1569,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-06",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_instv6n_gabox.ckpt",
@@ -1449,7 +1591,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-16",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_instv7_gabox.ckpt",
@@ -1469,7 +1613,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-26",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_instv7n_gabox.ckpt",
@@ -1489,7 +1635,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-02-28",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_instv8_gabox.ckpt",
@@ -1509,7 +1657,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-04-10",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_instrumental_instv8n_gabox.ckpt",
@@ -1529,7 +1679,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-03-25",
+      "author": "GaboxR67"
     },
     {
       "name": "model_mel_band_roformer_ep_0_sdr_11.4805.ckpt",
@@ -1550,7 +1702,9 @@
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
       "target_stem": "Vocals",
-      "target_instrument_override": "Vocals"
+      "target_instrument_override": "Vocals",
+      "publish_date": "2025-09-18",
+      "author": "Essid"
     },
     {
       "name": "model_mel_band_roformer_ep_0_sdr_16.8230.ckpt",
@@ -1570,7 +1724,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2024-12-02",
+      "author": "Essid"
     },
     {
       "name": "Neo_InstVFX.ckpt",
@@ -1590,7 +1746,9 @@
       "primary_category_cn": "伴奏/无人声提取",
       "secondary_category": "",
       "secondary_category_cn": "伴奏/无人声提取",
-      "target_stem": "Instrumental"
+      "target_stem": "Instrumental",
+      "publish_date": "2025-10-05",
+      "author": "natanworkspace"
     },
     {
       "name": "bs_karaoke_gabox_IS.ckpt",
@@ -1610,7 +1768,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-10-22",
+      "author": "GaboxR67"
     },
     {
       "name": "bs_roformer_karaoke_anvuew.ckpt",
@@ -1630,7 +1790,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-10-17",
+      "author": "anvuew"
     },
     {
       "name": "bs_roformer_karaoke_frazer_becruily.ckpt",
@@ -1650,7 +1812,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-09-08",
+      "author": "becruily"
     },
     {
       "name": "mel_band_karaoke_fusion_aggressive.ckpt",
@@ -1670,7 +1834,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-07-20",
+      "author": "Gonzaluigi"
     },
     {
       "name": "mel_band_karaoke_fusion_standard.ckpt",
@@ -1690,7 +1856,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-07-20",
+      "author": "Gonzaluigi"
     },
     {
       "name": "mel_band_roformer_bve_gonza.ckpt",
@@ -1710,7 +1878,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "Lead"
+      "target_stem": "Lead",
+      "publish_date": "2025-07-27",
+      "author": "Gonzaluigi"
     },
     {
       "name": "mel_band_roformer_karaoke_becruily.ckpt",
@@ -1730,7 +1900,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "Vocals/Instrumental"
+      "target_stem": "Vocals/Instrumental",
+      "publish_date": "2025-04-15",
+      "author": "becruily"
     },
     {
       "name": "mel_band_roformer_karaoke_gabox.ckpt",
@@ -1750,7 +1922,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-02-26",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_karaoke_gabox_v2.ckpt",
@@ -1770,7 +1944,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-07-31",
+      "author": "GaboxR67"
     },
     {
       "name": "model_mel_band_roformer_karaoke_aufr33_viperx_sdr_10.1956.ckpt",
@@ -1790,7 +1966,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "karaoke"
+      "target_stem": "karaoke",
+      "publish_date": "2024-08-16",
+      "author": "aufr33, viperx"
     },
     {
       "name": "small_karaoke_gaboxaufr.ckpt",
@@ -1810,7 +1988,9 @@
       "primary_category_cn": "卡拉OK/和声",
       "secondary_category": "",
       "secondary_category_cn": "卡拉OK/和声",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2026-02-28",
+      "author": "GaboxR67"
     },
     {
       "name": "0d19c1c6-0f06f20e.th",
@@ -1830,7 +2010,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2021-11-12",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "1ef250f1-592467ce.th",
@@ -1850,7 +2032,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2022-08-30",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "75fc33f5-1941ce65.th",
@@ -1870,7 +2054,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2022-11-16",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "7d865c68-3d5dd56b.th",
@@ -1890,7 +2076,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2021-11-12",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "7ecf8ec1-70f50cc9.th",
@@ -1910,7 +2098,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2021-11-12",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "902315c2-b39ce9c9.th",
@@ -1930,7 +2120,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2022-08-30",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "9a6b4851-03af0aa6.th",
@@ -1950,7 +2142,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2022-08-30",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "cfa93e08-61801ae1.th",
@@ -1970,7 +2164,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2021-11-12",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "demucs-e07c671f.th",
@@ -1990,7 +2186,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2021-04-28",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "demucs.th",
@@ -2010,7 +2208,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2020-01-31",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "demucs48_hq-28a1282c.th",
@@ -2030,7 +2230,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2021-05-11",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "demucs_extra-3646af93.th",
@@ -2050,7 +2252,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2021-04-28",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "demucs_extra.th",
@@ -2070,7 +2274,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2020-01-31",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "demucs_unittest-09ebc15f.th",
@@ -2090,7 +2296,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2021-04-28",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "e51eebcc-c1b80bdd.th",
@@ -2110,7 +2318,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2021-11-12",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "ebf34a2db.th",
@@ -2130,7 +2340,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "fa0cb7f9-100d8bf4.th",
@@ -2150,7 +2362,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2022-08-30",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "HTDemucs4_FT_other.th",
@@ -2170,7 +2384,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2022-11-16",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "light.th",
@@ -2190,7 +2406,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2020-01-31",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "tasnet-beb46fac.th",
@@ -2210,7 +2428,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2021-04-28",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "tasnet.th",
@@ -2230,7 +2450,9 @@
       "primary_category_cn": "传统非 VR 模型",
       "secondary_category": "",
       "secondary_category_cn": "Demucs/HTDemucs 系列",
-      "target_stem": ""
+      "target_stem": "",
+      "publish_date": "2020-01-31",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "UVR-BVE-4B_SN-44100-1.pth",
@@ -2250,7 +2472,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_backing_vocal",
       "secondary_category_cn": "VR 伴唱/和声",
-      "target_stem": "Vocals/Instrumental"
+      "target_stem": "Vocals/Instrumental",
+      "publish_date": "2023-09-19",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "UVR-De-Echo-Aggressive.pth",
@@ -2270,7 +2494,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_deecho",
       "secondary_category_cn": "VR 去回声",
-      "target_stem": "No Echo/Echo"
+      "target_stem": "No Echo/Echo",
+      "publish_date": "2023-04-26",
+      "author": "FoxJoy, UVR"
     },
     {
       "name": "UVR-De-Echo-Normal.pth",
@@ -2290,7 +2516,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_deecho",
       "secondary_category_cn": "VR 去回声",
-      "target_stem": "No Echo/Echo"
+      "target_stem": "No Echo/Echo",
+      "publish_date": "2023-04-26",
+      "author": "FoxJoy, UVR"
     },
     {
       "name": "UVR-DeEcho-DeReverb.pth",
@@ -2310,7 +2538,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_deecho_dereverb",
       "secondary_category_cn": "VR 去回声+去混响",
-      "target_stem": "No Reverb/Reverb"
+      "target_stem": "No Reverb/Reverb",
+      "publish_date": "2023-05-09",
+      "author": "FoxJoy, UVR"
     },
     {
       "name": "UVR-DeNoise-Lite.pth",
@@ -2330,7 +2560,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_denoise",
       "secondary_category_cn": "VR 降噪",
-      "target_stem": "Noise/No Noise"
+      "target_stem": "Noise/No Noise",
+      "publish_date": "2023-06-14",
+      "author": "FoxJoy, UVR"
     },
     {
       "name": "UVR-DeNoise.pth",
@@ -2350,7 +2582,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_denoise",
       "secondary_category_cn": "VR 降噪",
-      "target_stem": "Noise/No Noise"
+      "target_stem": "Noise/No Noise",
+      "publish_date": "2023-06-14",
+      "author": "FoxJoy, UVR"
     },
     {
       "name": "UVR-DeReverb-aufr33-jarredou_4band_v4_ms_fullband.pth",
@@ -2370,7 +2604,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_dereverb",
       "secondary_category_cn": "VR 去混响",
-      "target_stem": "Dry/Reverb"
+      "target_stem": "Dry/Reverb",
+      "publish_date": "2024-09-12",
+      "author": "aufr33, jarredou"
     },
     {
       "name": "Harmonic_Noise_Separation_yxlllc.pth",
@@ -2390,7 +2626,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_harmonic_noise",
       "secondary_category_cn": "VR 谐波/噪声分离",
-      "target_stem": "No Aspiration/Aspiration"
+      "target_stem": "No Aspiration/Aspiration",
+      "publish_date": "2024-06-14",
+      "author": "yxlllc"
     },
     {
       "name": "7_HP2-UVR.pth",
@@ -2410,7 +2648,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_hp2",
       "secondary_category_cn": "VR HP2 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "8_HP2-UVR.pth",
@@ -2430,7 +2670,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_hp2",
       "secondary_category_cn": "VR HP2 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "9_HP2-UVR.pth",
@@ -2450,7 +2692,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_hp2",
       "secondary_category_cn": "VR HP2 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "1_HP-UVR.pth",
@@ -2470,7 +2714,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_instrumental_extraction",
       "secondary_category_cn": "VR 伴奏/无人声提取",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "2_HP-UVR.pth",
@@ -2490,7 +2736,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_instrumental_extraction",
       "secondary_category_cn": "VR 伴奏/无人声提取",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "5_HP-Karaoke-UVR.pth",
@@ -2510,7 +2758,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_karaoke",
       "secondary_category_cn": "VR 和声/伴唱",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "6_HP-Karaoke-UVR.pth",
@@ -2530,7 +2780,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_karaoke",
       "secondary_category_cn": "VR 和声/伴唱",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "MGM_HIGHEND_v4.pth",
@@ -2550,7 +2802,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_mgm",
       "secondary_category_cn": "VR MGM 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "MGM_LOWEND_A_v4.pth",
@@ -2570,7 +2824,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_mgm",
       "secondary_category_cn": "VR MGM 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "MGM_LOWEND_B_v4.pth",
@@ -2590,7 +2846,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_mgm",
       "secondary_category_cn": "VR MGM 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "MGM_MAIN_v4.pth",
@@ -2610,7 +2868,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_mgm",
       "secondary_category_cn": "VR MGM 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "10_SP-UVR-2B-32000-1.pth",
@@ -2630,7 +2890,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_sp",
       "secondary_category_cn": "VR SP 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "11_SP-UVR-2B-32000-2.pth",
@@ -2650,7 +2912,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_sp",
       "secondary_category_cn": "VR SP 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "12_SP-UVR-3B-44100.pth",
@@ -2670,7 +2934,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_sp",
       "secondary_category_cn": "VR SP 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "13_SP-UVR-4B-44100-1.pth",
@@ -2690,7 +2956,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_sp",
       "secondary_category_cn": "VR SP 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "14_SP-UVR-4B-44100-2.pth",
@@ -2710,7 +2978,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_sp",
       "secondary_category_cn": "VR SP 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "15_SP-UVR-MID-44100-1.pth",
@@ -2730,7 +3000,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_sp",
       "secondary_category_cn": "VR SP 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "16_SP-UVR-MID-44100-2.pth",
@@ -2750,7 +3022,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_sp",
       "secondary_category_cn": "VR SP 系列",
-      "target_stem": "Instrumental/Vocals"
+      "target_stem": "Instrumental/Vocals",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "3_HP-Vocal-UVR.pth",
@@ -2770,7 +3044,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_vocal_extraction",
       "secondary_category_cn": "VR 人声提取",
-      "target_stem": "Vocals/Instrumental"
+      "target_stem": "Vocals/Instrumental",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "4_HP-Vocal-UVR.pth",
@@ -2790,7 +3066,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_vocal_extraction",
       "secondary_category_cn": "VR 人声提取",
-      "target_stem": "Vocals/Instrumental"
+      "target_stem": "Vocals/Instrumental",
+      "publish_date": "2022-07-21",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "17_HP-Wind_Inst-UVR.pth",
@@ -2810,7 +3088,9 @@
       "primary_category_cn": "传统 VR 模型",
       "secondary_category": "vr_wind_instrumental",
       "secondary_category_cn": "VR 风声/管乐伴奏",
-      "target_stem": "No Woodwinds/Woodwinds"
+      "target_stem": "No Woodwinds/Woodwinds",
+      "publish_date": "2023-03-20",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "model_bandit_plus_dnr_sdr_11.47.ckpt",
@@ -2830,7 +3110,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "dnr_stems",
       "secondary_category_cn": "DNR 对话/音乐/音效分轨",
-      "target_stem": "Speech/Music/Effects"
+      "target_stem": "Speech/Music/Effects",
+      "publish_date": "2023-12-18",
+      "author": "Karn N. Watcharasupat, ZFTurbo"
     },
     {
       "name": "gilliaan_drumsV1.ckpt",
@@ -2850,7 +3132,9 @@
       "primary_category_cn": "单乐器/单音轨",
       "secondary_category": "drums_percussion",
       "secondary_category_cn": "鼓/打击乐",
-      "target_stem": "drums/other"
+      "target_stem": "drums/other",
+      "publish_date": "",
+      "author": "gilliaaan"
     },
     {
       "name": "bs_roformer_4stems_ft.ckpt",
@@ -2870,7 +3154,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2025-01-16",
+      "author": "SYH99999"
     },
     {
       "name": "HTDemucs4.th",
@@ -2890,7 +3176,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2022-11-16",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "mel_band_roformer_4stems_large_ver1.ckpt",
@@ -2910,7 +3198,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2025-04-12",
+      "author": "Aname-Tommy"
     },
     {
       "name": "mel_band_roformer_4stems_xl_ver1.ckpt",
@@ -2930,7 +3220,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2025-04-12",
+      "author": "Aname-Tommy"
     },
     {
       "name": "MelBandRoformer4StemFTLarge.ckpt",
@@ -2950,7 +3242,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2025-02-07",
+      "author": "SYH99999"
     },
     {
       "name": "model_bs_roformer_ep_17_sdr_9.6568.ckpt",
@@ -2970,7 +3264,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-11-28",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_mel_band_roformer_ep_168_sdr_7.8127.ckpt",
@@ -2990,7 +3286,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-11-27",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_mel_band_roformer_ep_1_sdr_8.2175.ckpt",
@@ -3010,7 +3308,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-11-27",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_mel_band_roformer_ep_38_sdr_6.4698.ckpt",
@@ -3030,7 +3330,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-11-27",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_mel_band_roformer_ep_7_sdr_6.8652.ckpt",
@@ -3050,7 +3352,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-11-27",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_mel_band_roformer_experimental_ep_15_sdr_6.4908.ckpt",
@@ -3070,7 +3374,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-11-27",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_mel_band_roformer_experimental_ep_166_sdr_6.7022.ckpt",
@@ -3090,7 +3396,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-11-27",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_mel_band_roformer_experimental_ep_48_sdr_7.0412.ckpt",
@@ -3110,7 +3418,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-11-27",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_mel_band_roformer_experimental_ep_53_sdr_5.1235.ckpt",
@@ -3130,7 +3440,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-11-27",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_mel_band_roformer_experimental_ep_9_sdr_6.5254.ckpt",
@@ -3150,7 +3462,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-11-27",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_scnet_ep_36_sdr_10.0891.ckpt",
@@ -3170,7 +3484,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2025-06-18",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_scnet_ep_54_sdr_9.8051.ckpt",
@@ -3190,7 +3506,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-12-12",
+      "author": "ZFTurbo"
     },
     {
       "name": "model_scnet_sdr_9.3244.ckpt",
@@ -3210,7 +3528,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-08-20",
+      "author": "ZFTurbo"
     },
     {
       "name": "SCNet-large_starrytong_fixed.ckpt",
@@ -3230,7 +3550,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-09-25",
+      "author": "starrytong, ZFTurbo"
     },
     {
       "name": "scnet_checkpoint_musdb18.ckpt",
@@ -3250,7 +3572,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2024-07-10",
+      "author": "starrytong, ZFTurbo"
     },
     {
       "name": "ver2.ckpt",
@@ -3270,7 +3594,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "four_stem",
       "secondary_category_cn": "四轨分离",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2025-03-02",
+      "author": "SYH99999"
     },
     {
       "name": "bs_mega_53stem_accordion_mvsep.ckpt",
@@ -3291,7 +3617,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "accordion",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_accordion_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_accordion_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_acoustic-guitar_mvsep.ckpt",
@@ -3312,7 +3640,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "acoustic-guitar",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_acoustic-guitar_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_acoustic-guitar_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_back-vocal_mvsep.ckpt",
@@ -3333,7 +3663,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "back-vocal",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_back-vocal_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_back-vocal_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_banjo_mvsep.ckpt",
@@ -3354,7 +3686,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "banjo",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_banjo_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_banjo_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_bass_mvsep.ckpt",
@@ -3375,7 +3709,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "bass",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bass_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bass_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_bassoon_mvsep.ckpt",
@@ -3396,7 +3732,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "bassoon",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bassoon_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bassoon_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_bells_mvsep.ckpt",
@@ -3417,7 +3755,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "bells",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bells_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bells_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_bowed_strings_mvsep.ckpt",
@@ -3438,7 +3778,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "bowed_strings",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bowed_strings_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_bowed_strings_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_brass_mvsep.ckpt",
@@ -3459,7 +3801,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "brass",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_brass_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_brass_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_cello_mvsep.ckpt",
@@ -3480,7 +3824,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "cello",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_cello_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_cello_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_clarinet_mvsep.ckpt",
@@ -3501,7 +3847,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "clarinet",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_clarinet_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_clarinet_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_congas_mvsep.ckpt",
@@ -3522,7 +3870,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "congas",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_congas_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_congas_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_digital-piano_mvsep.ckpt",
@@ -3543,7 +3893,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "digital-piano",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_digital-piano_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_digital-piano_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_dobro_mvsep.ckpt",
@@ -3564,7 +3916,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "dobro",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_dobro_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_dobro_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_double-bass_mvsep.ckpt",
@@ -3585,7 +3939,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "double-bass",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_double-bass_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_double-bass_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_drums_mvsep.ckpt",
@@ -3606,7 +3962,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "drums",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_drums_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_drums_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_electric-guitar_mvsep.ckpt",
@@ -3627,7 +3985,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "electric-guitar",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_electric-guitar_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_electric-guitar_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_flute_mvsep.ckpt",
@@ -3648,7 +4008,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "flute",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_flute_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_flute_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_french-horn_mvsep.ckpt",
@@ -3669,7 +4031,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "french-horn",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_french-horn_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_french-horn_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_glockenspiel_mvsep.ckpt",
@@ -3690,7 +4054,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "glockenspiel",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_glockenspiel_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_glockenspiel_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_guitar_mvsep.ckpt",
@@ -3711,7 +4077,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "guitar",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_guitar_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_guitar_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_harmonica_mvsep.ckpt",
@@ -3732,7 +4100,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "harmonica",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_harmonica_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_harmonica_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_harp_mvsep.ckpt",
@@ -3753,7 +4123,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "harp",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_harp_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_harp_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_harpsichord_mvsep.ckpt",
@@ -3774,7 +4146,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "harpsichord",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_harpsichord_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_harpsichord_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_hh_mvsep.ckpt",
@@ -3795,7 +4169,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "hh",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_hh_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_hh_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_keys_mvsep.ckpt",
@@ -3816,7 +4192,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "keys",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_keys_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_keys_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_kick_mvsep.ckpt",
@@ -3837,7 +4215,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "kick",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_kick_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_kick_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_lead-vocal_mvsep.ckpt",
@@ -3858,7 +4238,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "lead-vocal",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_lead-vocal_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_lead-vocal_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_mandolin_mvsep.ckpt",
@@ -3879,7 +4261,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "mandolin",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_mandolin_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_mandolin_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_marimba_mvsep.ckpt",
@@ -3900,7 +4284,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "marimba",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_marimba_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_marimba_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_oboe_mvsep.ckpt",
@@ -3921,7 +4307,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "oboe",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_oboe_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_oboe_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_organ_mvsep.ckpt",
@@ -3942,7 +4330,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "organ",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_organ_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_organ_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_percussion_mvsep.ckpt",
@@ -3963,7 +4353,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "percussion",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_percussion_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_percussion_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_piano_mvsep.ckpt",
@@ -3984,7 +4376,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "piano",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_piano_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_piano_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_saxophone_mvsep.ckpt",
@@ -4005,7 +4399,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "saxophone",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_saxophone_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_saxophone_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_sitar_mvsep.ckpt",
@@ -4026,7 +4422,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "sitar",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_sitar_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_sitar_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_snare_mvsep.ckpt",
@@ -4047,7 +4445,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "snare",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_snare_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_snare_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_strings_mvsep.ckpt",
@@ -4068,7 +4468,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "strings",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_strings_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_strings_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_synth_mvsep.ckpt",
@@ -4089,7 +4491,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "synth",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_synth_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_synth_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_tambourine_mvsep.ckpt",
@@ -4110,7 +4514,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "tambourine",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_tambourine_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_tambourine_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_timpani_mvsep.ckpt",
@@ -4131,7 +4537,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "timpani",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_timpani_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_timpani_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_toms_mvsep.ckpt",
@@ -4152,7 +4560,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "toms",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_toms_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_toms_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_triangle_mvsep.ckpt",
@@ -4173,7 +4583,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "triangle",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_triangle_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_triangle_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_trombone_mvsep.ckpt",
@@ -4194,7 +4606,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "trombone",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_trombone_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_trombone_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_trumpet_mvsep.ckpt",
@@ -4215,7 +4629,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "trumpet",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_trumpet_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_trumpet_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_tuba_mvsep.ckpt",
@@ -4236,7 +4652,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "tuba",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_tuba_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_tuba_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_ukulele_mvsep.ckpt",
@@ -4257,7 +4675,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "ukulele",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_ukulele_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_ukulele_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_viola_mvsep.ckpt",
@@ -4278,7 +4698,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "viola",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_viola_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_viola_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_violin_mvsep.ckpt",
@@ -4299,7 +4721,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "violin",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_violin_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_violin_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_vocal_mvsep.ckpt",
@@ -4320,7 +4744,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "vocal",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_vocal_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_vocal_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_wind-chimes_mvsep.ckpt",
@@ -4341,7 +4767,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "wind-chimes",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_wind-chimes_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_wind-chimes_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_wind_mvsep.ckpt",
@@ -4362,7 +4790,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "wind",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_wind_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_wind_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "bs_mega_53stem_woodwind_mvsep.ckpt",
@@ -4383,7 +4813,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "woodwind",
-      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_woodwind_mvsep.ckpt"
+      "sort_key": "bs_mega_53stem_100_bs_mega_53stem_woodwind_mvsep.ckpt",
+      "publish_date": "2026-04-22",
+      "author": "ZFTurbo, MVSEP, noblebarkrr"
     },
     {
       "name": "mvsep_mega_model_bs_roformer_53_stems_v1.ckpt",
@@ -4404,7 +4836,9 @@
       "secondary_category": "mega_53_stems",
       "secondary_category_cn": "MVSep 53 轨分离",
       "target_stem": "accordion/acoustic-guitar/back-vocal/banjo/bass/bassoon/bells/bowed_strings/brass/cello/clarinet/congas/digital-piano/dobro/double-bass/drums/electric-guitar/flute/french-horn/glockenspiel/guitar/harmonica/harp/harpsichord/hh/keys/kick/lead-vocal/mandolin/marimba/oboe/organ/percussion/piano/saxophone/sitar/snare/strings/synth/tambourine/timpani/toms/triangle/trombone/trumpet/tuba/ukulele/viola/violin/vocal/wind/wind-chimes/woodwind",
-      "sort_key": "bs_mega_53stem_000"
+      "sort_key": "bs_mega_53stem_000",
+      "publish_date": "2026-04-20",
+      "author": "MVSep, ZFTurbo"
     },
     {
       "name": "BS-Roformer-SW.ckpt",
@@ -4424,7 +4858,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "six_stem",
       "secondary_category_cn": "六轨分离",
-      "target_stem": "bass/drums/other/vocals/guitar/piano"
+      "target_stem": "bass/drums/other/vocals/guitar/piano",
+      "publish_date": "2025-08-20",
+      "author": "jarredou"
     },
     {
       "name": "HTDemucs4_6stems.th",
@@ -4444,7 +4880,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "six_stem",
       "secondary_category_cn": "六轨分离",
-      "target_stem": "drums/bass/other/vocals/guitar/piano"
+      "target_stem": "drums/bass/other/vocals/guitar/piano",
+      "publish_date": "2022-12-07",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "logic_bs_roformer.ckpt",
@@ -4464,7 +4902,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "six_stem",
       "secondary_category_cn": "六轨分离",
-      "target_stem": "bass/drums/other/vocals/guitar/piano"
+      "target_stem": "bass/drums/other/vocals/guitar/piano",
+      "publish_date": "2025-08-11",
+      "author": "ChanTrail"
     },
     {
       "name": "de_big_reverb_mbr_ep_362.ckpt",
@@ -4484,7 +4924,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "dry"
+      "target_stem": "dry",
+      "publish_date": "2024-12-27",
+      "author": "Sucial"
     },
     {
       "name": "dereverb_bs_roformer_anvuew_sdr_22.5050.ckpt",
@@ -4504,7 +4946,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "noreverb"
+      "target_stem": "noreverb",
+      "publish_date": "2026-02-13",
+      "author": "anvuew"
     },
     {
       "name": "dereverb_mel_band_roformer_anvuew_sdr_19.1729.ckpt",
@@ -4524,7 +4968,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "noreverb"
+      "target_stem": "noreverb",
+      "publish_date": "2024-09-03",
+      "author": "anvuew"
     },
     {
       "name": "dereverb_mel_band_roformer_less_aggressive_anvuew_sdr_18.8050.ckpt",
@@ -4544,7 +4990,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "noreverb"
+      "target_stem": "noreverb",
+      "publish_date": "2024-09-03",
+      "author": "anvuew"
     },
     {
       "name": "dereverb_mel_band_roformer_mono_anvuew.ckpt",
@@ -4564,7 +5012,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "noreverb"
+      "target_stem": "noreverb",
+      "publish_date": "2025-02-07",
+      "author": "anvuew"
     },
     {
       "name": "dereverb_room_anvuew_sdr_13.7432.ckpt",
@@ -4584,7 +5034,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "noreverb"
+      "target_stem": "noreverb",
+      "publish_date": "2025-09-10",
+      "author": "anvuew"
     },
     {
       "name": "dereverb_super_big_mbr_ep_346.ckpt",
@@ -4604,7 +5056,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "dry"
+      "target_stem": "dry",
+      "publish_date": "2024-12-27",
+      "author": "Sucial"
     },
     {
       "name": "deverb_bs_roformer_8_256dim_8depth.ckpt",
@@ -4624,7 +5078,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "No Reverb"
+      "target_stem": "No Reverb",
+      "publish_date": "2024-07-15",
+      "author": "anvuew"
     },
     {
       "name": "deverb_bs_roformer_8_384dim_10depth.ckpt",
@@ -4644,7 +5100,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "noreverb"
+      "target_stem": "noreverb",
+      "publish_date": "2024-08-04",
+      "author": "anvuew"
     },
     {
       "name": "deverb_mel_band_roformer_8_256dim_6depth.ckpt",
@@ -4664,7 +5122,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "noreverb"
+      "target_stem": "noreverb",
+      "publish_date": "2024-07-12",
+      "author": "anvuew"
     },
     {
       "name": "deverb_mel_band_roformer_8_512dim_12depth.ckpt",
@@ -4684,7 +5144,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "noreverb"
+      "target_stem": "noreverb",
+      "publish_date": "2024-07-12",
+      "author": "anvuew"
     },
     {
       "name": "deverb_mel_band_roformer_ep_27_sdr_10.4567.ckpt",
@@ -4704,7 +5166,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "noreverb"
+      "target_stem": "noreverb",
+      "publish_date": "2024-07-13",
+      "author": ""
     },
     {
       "name": "Lead_VocalDereverb.ckpt",
@@ -4724,7 +5188,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "noreverb"
+      "target_stem": "noreverb",
+      "publish_date": "2025-07-31",
+      "author": "GaboxR67"
     },
     {
       "name": "dereverb-echo_mel_band_roformer_sdr_10.0169.ckpt",
@@ -4744,7 +5210,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb_deecho",
       "secondary_category_cn": "去混响+去回声",
-      "target_stem": "dry/No dry"
+      "target_stem": "dry/No dry",
+      "publish_date": "2024-11-22",
+      "author": "Sucial"
     },
     {
       "name": "dereverb-echo_mel_band_roformer_sdr_13.4843_v2.ckpt",
@@ -4764,7 +5232,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb_deecho",
       "secondary_category_cn": "去混响+去回声",
-      "target_stem": "dry"
+      "target_stem": "dry",
+      "publish_date": "2024-12-11",
+      "author": "Sucial"
     },
     {
       "name": "dereverb_echo_mbr_fused_0.5_v2_0.25_big_0.25_super.ckpt",
@@ -4784,7 +5254,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb_deecho",
       "secondary_category_cn": "去混响+去回声",
-      "target_stem": "dry"
+      "target_stem": "dry",
+      "publish_date": "2024-12-27",
+      "author": "Sucial"
     },
     {
       "name": "HTDemucs4_FT_bass.th",
@@ -4804,7 +5276,9 @@
       "primary_category_cn": "单乐器/单音轨",
       "secondary_category": "bass",
       "secondary_category_cn": "贝斯",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2022-11-16",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "model_jazz_scnet_bass_drums.ckpt",
@@ -4824,7 +5298,9 @@
       "primary_category_cn": "单乐器/单音轨",
       "secondary_category": "bass",
       "secondary_category_cn": "贝斯",
-      "target_stem": "drums/bass/piano/other"
+      "target_stem": "drums/bass/piano/other",
+      "publish_date": "2025-06-29",
+      "author": "jorisvaneyghen"
     },
     {
       "name": "HTDemucs4_FT_drums.th",
@@ -4844,7 +5320,9 @@
       "primary_category_cn": "单乐器/单音轨",
       "secondary_category": "drums_percussion",
       "secondary_category_cn": "鼓/打击乐",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2022-11-16",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "model_jazz_scnet_piano_drums.ckpt",
@@ -4864,7 +5342,9 @@
       "primary_category_cn": "单乐器/单音轨",
       "secondary_category": "drums_percussion",
       "secondary_category_cn": "鼓/打击乐",
-      "target_stem": "drums/bass/piano/other"
+      "target_stem": "drums/bass/piano/other",
+      "publish_date": "2025-06-29",
+      "author": "jorisvaneyghen"
     },
     {
       "name": "becruily_guitar.ckpt",
@@ -4884,7 +5364,9 @@
       "primary_category_cn": "单乐器/单音轨",
       "secondary_category": "guitar",
       "secondary_category_cn": "吉他",
-      "target_stem": "Guitar"
+      "target_stem": "Guitar",
+      "publish_date": "2025-05-20",
+      "author": "becruily"
     },
     {
       "name": "model_mel_band_roformer_ep_314_sdr_7.9825.ckpt",
@@ -4904,7 +5386,9 @@
       "primary_category_cn": "单乐器/单音轨",
       "secondary_category": "guitar",
       "secondary_category_cn": "吉他",
-      "target_stem": "guitar"
+      "target_stem": "guitar",
+      "publish_date": "2026-01-23",
+      "author": "chenCFD"
     },
     {
       "name": "gilliaan_bowedstrings_bs_v1.ckpt",
@@ -4924,7 +5408,9 @@
       "primary_category_cn": "单乐器/单音轨",
       "secondary_category": "strings",
       "secondary_category_cn": "弦乐",
-      "target_stem": "strings/other"
+      "target_stem": "strings/other",
+      "publish_date": "",
+      "author": "gilliaaan"
     },
     {
       "name": "gilliaan_MonoStereo_Dual_Beta1.ckpt",
@@ -4944,7 +5430,9 @@
       "primary_category_cn": "声像/空间分离",
       "secondary_category": "mono_stereo_duality",
       "secondary_category_cn": "单声道/立体声分离",
-      "target_stem": "center/wide"
+      "target_stem": "center/wide",
+      "publish_date": "",
+      "author": "gilliaaan"
     },
     {
       "name": "gilliaan_MonoStereo_Dual_Beta2.ckpt",
@@ -4964,7 +5452,9 @@
       "primary_category_cn": "声像/空间分离",
       "secondary_category": "mono_stereo_duality",
       "secondary_category_cn": "单声道/立体声分离",
-      "target_stem": "center/wide"
+      "target_stem": "center/wide",
+      "publish_date": "",
+      "author": "gilliaaan"
     },
     {
       "name": "gilliaan_CenterExtractor_Single_StemV1.ckpt",
@@ -4984,7 +5474,9 @@
       "primary_category_cn": "声像/空间分离",
       "secondary_category": "phantom_center_wide",
       "secondary_category_cn": "中央/宽声像提取",
-      "target_stem": "center"
+      "target_stem": "center",
+      "publish_date": "",
+      "author": "gilliaaan"
     },
     {
       "name": "gilliaan_CenterExtractor_Single_StemV2.ckpt",
@@ -5004,7 +5496,9 @@
       "primary_category_cn": "声像/空间分离",
       "secondary_category": "phantom_center_wide",
       "secondary_category_cn": "中央/宽声像提取",
-      "target_stem": "center"
+      "target_stem": "center",
+      "publish_date": "",
+      "author": "gilliaaan"
     },
     {
       "name": "gilliaan_scnet_centerwide_dual.ckpt",
@@ -5024,7 +5518,9 @@
       "primary_category_cn": "声像/空间分离",
       "secondary_category": "phantom_center_wide",
       "secondary_category_cn": "中央/宽声像提取",
-      "target_stem": "center/wide"
+      "target_stem": "center/wide",
+      "publish_date": "",
+      "author": "gilliaaan"
     },
     {
       "name": "model_htdemucs_ep_21_sdr_13.6970.ckpt",
@@ -5044,7 +5540,9 @@
       "primary_category_cn": "特殊目标/差异提取",
       "secondary_category": "",
       "secondary_category_cn": "相似/差异分离",
-      "target_stem": "similarity/difference"
+      "target_stem": "similarity/difference",
+      "publish_date": "2025-10-22",
+      "author": "wesleyr36, jarredou"
     },
     {
       "name": "model_scnet_ep_102_sdr_12.8941.ckpt",
@@ -5064,7 +5562,9 @@
       "primary_category_cn": "特殊目标/差异提取",
       "secondary_category": "",
       "secondary_category_cn": "相似/差异分离",
-      "target_stem": "difference"
+      "target_stem": "difference",
+      "publish_date": "",
+      "author": ""
     },
     {
       "name": "model_scnet_ep_30_sdr_15.1291.ckpt",
@@ -5084,7 +5584,9 @@
       "primary_category_cn": "特殊目标/差异提取",
       "secondary_category": "",
       "secondary_category_cn": "相似/差异分离",
-      "target_stem": "difference"
+      "target_stem": "difference",
+      "publish_date": "",
+      "author": ""
     },
     {
       "name": "aspiration_mel_band_roformer_less_aggr_sdr_18.1201.ckpt",
@@ -5104,7 +5606,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "aspiration_breath",
       "secondary_category_cn": "气声/呼吸声分离",
-      "target_stem": "aspiration/other"
+      "target_stem": "aspiration/other",
+      "publish_date": "2024-09-13",
+      "author": "Sucial"
     },
     {
       "name": "aspiration_mel_band_roformer_sdr_18.9845.ckpt",
@@ -5124,7 +5628,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "aspiration_breath",
       "secondary_category_cn": "气声/呼吸声分离",
-      "target_stem": "aspiration/other"
+      "target_stem": "aspiration/other",
+      "publish_date": "2024-09-13",
+      "author": "Sucial"
     },
     {
       "name": "model_scnet_ep_36_sdr_5.4596.ckpt",
@@ -5144,7 +5650,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "choir_vocal",
       "secondary_category_cn": "四部和声分离",
-      "target_stem": "alto/bass/soprano/tenor"
+      "target_stem": "alto/bass/soprano/tenor",
+      "publish_date": "2026-01-03",
+      "author": "rbustos89"
     },
     {
       "name": "model_scnet_ep_42_sdr_5.2559.ckpt",
@@ -5164,7 +5672,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "choir_vocal",
       "secondary_category_cn": "四部和声分离",
-      "target_stem": "alto/bass/soprano/tenor"
+      "target_stem": "alto/bass/soprano/tenor",
+      "publish_date": "2026-01-03",
+      "author": "rbustos89"
     },
     {
       "name": "model_mel_band_roformer_ep_0_sdr_7.9319_fixed.ckpt",
@@ -5184,7 +5694,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "duet_vocal",
       "secondary_category_cn": "双人/二重唱分离",
-      "target_stem": "singer_1/singer_2"
+      "target_stem": "singer_1/singer_2",
+      "publish_date": "2026-05-12",
+      "author": "DryPaintMan"
     },
     {
       "name": "speech_bs_roformer_AliceN_sdr_20.4440.ckpt",
@@ -5204,7 +5716,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "speech_vocal",
       "secondary_category_cn": "语音/说话人声分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2026-04-15",
+      "author": "AliceN"
     },
     {
       "name": "speech_mel_roformer_AliceN_sdr_16.5716.ckpt",
@@ -5224,7 +5738,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "speech_vocal",
       "secondary_category_cn": "语音/说话人声分离",
-      "target_stem": "vocals/other"
+      "target_stem": "vocals/other",
+      "publish_date": "2026-04-15",
+      "author": "AliceN"
     },
     {
       "name": "big_beta5e.ckpt",
@@ -5244,7 +5760,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-11-23",
+      "author": "pcunwa"
     },
     {
       "name": "big_beta6.ckpt",
@@ -5264,7 +5782,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-02-17",
+      "author": "pcunwa"
     },
     {
       "name": "big_beta6x.ckpt",
@@ -5284,7 +5804,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-03-30",
+      "author": "pcunwa"
     },
     {
       "name": "big_beta7.ckpt",
@@ -5304,7 +5826,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2026-02-13",
+      "author": "pcunwa"
     },
     {
       "name": "BS-Roformer-Resurrection.ckpt",
@@ -5324,7 +5848,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-07-19",
+      "author": "pcunwa"
     },
     {
       "name": "bs_roformer_voc_hyperacev2.ckpt",
@@ -5344,7 +5870,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-12-18",
+      "author": "pcunwa"
     },
     {
       "name": "bs_roformer_vocals_gabox.ckpt",
@@ -5364,7 +5892,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-01-23",
+      "author": "GaboxR67"
     },
     {
       "name": "HTDemucs4_FT_vocals_official.th",
@@ -5384,7 +5914,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "drums/bass/other/vocals"
+      "target_stem": "drums/bass/other/vocals",
+      "publish_date": "2022-11-16",
+      "author": "Facebook Research, Alexandre Défossez"
     },
     {
       "name": "inst_fv7b.ckpt",
@@ -5404,7 +5936,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-11-22",
+      "author": "GaboxR67"
     },
     {
       "name": "instv7beta2.ckpt",
@@ -5424,7 +5958,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-02-27",
+      "author": "GaboxR67"
     },
     {
       "name": "instv7beta3.ckpt",
@@ -5444,7 +5980,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-02-27",
+      "author": "GaboxR67"
     },
     {
       "name": "instv7plus.ckpt",
@@ -5464,7 +6002,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-05-31",
+      "author": "GaboxR67"
     },
     {
       "name": "Kim_MelBandRoformer.ckpt",
@@ -5484,7 +6024,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-08-06",
+      "author": "KimberleyJSN"
     },
     {
       "name": "kimmel_unwa_ft.ckpt",
@@ -5504,7 +6046,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-12-06",
+      "author": "pcunwa"
     },
     {
       "name": "kimmel_unwa_ft2.ckpt",
@@ -5524,7 +6068,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-01-01",
+      "author": "pcunwa"
     },
     {
       "name": "kimmel_unwa_ft3_prev.ckpt",
@@ -5544,7 +6090,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-03-12",
+      "author": "pcunwa"
     },
     {
       "name": "last_bs_roformer.ckpt",
@@ -5564,7 +6112,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2026-02-22",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_vocal_fullness_aname.ckpt",
@@ -5584,7 +6134,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-02-23",
+      "author": "Aname-Tommy"
     },
     {
       "name": "mel_band_roformer_vocals_becruily.ckpt",
@@ -5604,7 +6156,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-12-27",
+      "author": "becruily"
     },
     {
       "name": "mel_band_roformer_vocals_fv1_gabox.ckpt",
@@ -5624,7 +6178,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-01-22",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_vocals_fv2_gabox.ckpt",
@@ -5644,7 +6200,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-01-22",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_vocals_fv3_gabox.ckpt",
@@ -5664,7 +6222,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-02-09",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_vocals_fv4_gabox.ckpt",
@@ -5684,7 +6244,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-02-17",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_vocals_fv5_gabox.ckpt",
@@ -5704,7 +6266,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-05-06",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_vocals_fv6_gabox.ckpt",
@@ -5724,7 +6288,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-08-07",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_vocals_fv7b_gabox.ckpt",
@@ -5744,7 +6310,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-10-18",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_vocals_gabox.ckpt",
@@ -5764,7 +6332,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-01-21",
+      "author": "GaboxR67"
     },
     {
       "name": "mel_band_roformer_vocals_v2_gabox.ckpt",
@@ -5784,7 +6354,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-07-19",
+      "author": "GaboxR67"
     },
     {
       "name": "melband_roformer_big_beta1.ckpt",
@@ -5804,7 +6376,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-09-24",
+      "author": "pcunwa"
     },
     {
       "name": "melband_roformer_big_beta2.ckpt",
@@ -5824,7 +6398,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-09-26",
+      "author": "pcunwa"
     },
     {
       "name": "melband_roformer_big_beta3.ckpt",
@@ -5844,7 +6420,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-09-30",
+      "author": "pcunwa"
     },
     {
       "name": "melband_roformer_big_beta4.ckpt",
@@ -5864,7 +6442,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2024-10-19",
+      "author": "pcunwa"
     },
     {
       "name": "model_bs_roformer_ep_317_sdr_12.9755.ckpt",
@@ -5884,7 +6464,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2024-03-29",
+      "author": "viperx, playdasegunda"
     },
     {
       "name": "model_bs_roformer_ep_368_sdr_12.9628.ckpt",
@@ -5904,7 +6486,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2024-03-29",
+      "author": "viperx, playdasegunda"
     },
     {
       "name": "model_bsrofomer_essid_vocals.ckpt",
@@ -5924,7 +6508,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-05-14",
+      "author": "Essid"
     },
     {
       "name": "model_mel_band_roformer_ep_3005_sdr_11.4360.ckpt",
@@ -5944,7 +6530,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2024-03-29",
+      "author": "viperx, playdasegunda"
     },
     {
       "name": "model_vocals.ckpt",
@@ -5964,7 +6552,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-10-02",
+      "author": "Aname-Tommy"
     },
     {
       "name": "model_vocals_mel_band_roformer_sdr_8.42.ckpt",
@@ -5984,7 +6574,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2023-11-06",
+      "author": "ZFTurbo"
     },
     {
       "name": "voc_fv7.ckpt",
@@ -6004,7 +6596,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2026-01-27",
+      "author": "GaboxR67"
     },
     {
       "name": "vocfv7beta2.ckpt",
@@ -6024,7 +6618,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-11-13",
+      "author": "GaboxR67"
     },
     {
       "name": "vocfv7beta3.ckpt",
@@ -6044,7 +6640,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "Vocals"
+      "target_stem": "Vocals",
+      "publish_date": "2025-11-22",
+      "author": "GaboxR67"
     },
     {
       "name": "bs_roformer_male_female_by_aufr33_sdr_7.2889.ckpt",
@@ -6064,7 +6662,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_gender_chorus",
       "secondary_category_cn": "男女声/合唱分离",
-      "target_stem": "male/female"
+      "target_stem": "male/female",
+      "publish_date": "2025-01-18",
+      "author": "aufr33"
     },
     {
       "name": "model_chorus_bs_roformer_ep_146_sdr_23.8613.ckpt",
@@ -6084,7 +6684,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_gender_chorus",
       "secondary_category_cn": "男女声/合唱分离",
-      "target_stem": "male/female"
+      "target_stem": "male/female",
+      "publish_date": "2024-12-07",
+      "author": "Sucial"
     },
     {
       "name": "model_chorus_bs_roformer_ep_267_sdr_24.1275.ckpt",
@@ -6104,7 +6706,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_gender_chorus",
       "secondary_category_cn": "男女声/合唱分离",
-      "target_stem": "male/female"
+      "target_stem": "male/female",
+      "publish_date": "2024-12-07",
+      "author": "Sucial"
     },
     {
       "name": "becruily_deux.ckpt",
@@ -6124,7 +6728,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "Vocals/Instrumental"
+      "target_stem": "Vocals/Instrumental",
+      "publish_date": "2025-12-29",
+      "author": "becruily"
     },
     {
       "name": "BS-Roformer-Resurrection-Inst.ckpt",
@@ -6144,7 +6750,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2025-07-31",
+      "author": "pcunwa"
     },
     {
       "name": "bs_roformer_instrumental_resurrection_gabox.ckpt",
@@ -6164,7 +6772,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2025-09-10",
+      "author": "GaboxR67"
     },
     {
       "name": "duality_v1.ckpt",
@@ -6184,7 +6794,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "vocals"
+      "target_stem": "vocals",
+      "publish_date": "2025-09-21",
+      "author": "Aname-Tommy"
     },
     {
       "name": "essid_mel_vocal_v1.ckpt",
@@ -6204,7 +6816,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2025-05-14",
+      "author": "Essid"
     },
     {
       "name": "essid_mel_vocal_v2.ckpt",
@@ -6224,7 +6838,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2025-05-14",
+      "author": "Essid"
     },
     {
       "name": "inst_v1_plus_test.ckpt",
@@ -6244,7 +6860,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2025-04-03",
+      "author": "pcunwa"
     },
     {
       "name": "inst_v1e.ckpt",
@@ -6264,7 +6882,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2024-11-20",
+      "author": "pcunwa"
     },
     {
       "name": "inst_v1e_plus.ckpt",
@@ -6284,7 +6904,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2025-04-04",
+      "author": "pcunwa"
     },
     {
       "name": "INSTV10.ckpt",
@@ -6304,7 +6926,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2025-03-05",
+      "author": "GaboxR67"
     },
     {
       "name": "melband_roformer_inst_v1.ckpt",
@@ -6324,7 +6948,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2024-10-22",
+      "author": "pcunwa"
     },
     {
       "name": "melband_roformer_inst_v2.ckpt",
@@ -6344,7 +6970,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2024-11-04",
+      "author": "pcunwa"
     },
     {
       "name": "melband_roformer_instvoc_duality_v1.ckpt",
@@ -6366,7 +6994,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "Vocals/Instrumental"
+      "target_stem": "Vocals/Instrumental",
+      "publish_date": "2024-10-29",
+      "author": "pcunwa"
     },
     {
       "name": "melband_roformer_instvox_duality_v2.ckpt",
@@ -6388,7 +7018,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "Vocals/Instrumental"
+      "target_stem": "Vocals/Instrumental",
+      "publish_date": "2024-10-30",
+      "author": "pcunwa"
     },
     {
       "name": "metal_roformer_inst_mesk_preview.ckpt",
@@ -6408,7 +7040,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2025-04-01",
+      "author": "meskvlla33"
     },
     {
       "name": "model_vocals_htdemucs_sdr_8.78.ckpt",
@@ -6428,7 +7062,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "vocals/other"
+      "target_stem": "vocals/other",
+      "publish_date": "2023-11-06",
+      "author": "ZFTurbo"
     },
     {
       "name": "neo_inst_beta.ckpt",
@@ -6448,7 +7084,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "other"
+      "target_stem": "other",
+      "publish_date": "2026-05-16",
+      "author": "natanworkspace"
     },
     {
       "name": "MDX23C-8KFFT-InstVoc_HQ.ckpt",
@@ -6468,7 +7106,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "Vocals/Instrumental"
+      "target_stem": "Vocals/Instrumental",
+      "publish_date": "2023-09-26",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "MDX23C-8KFFT-InstVoc_HQ_2.ckpt",
@@ -6488,7 +7128,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "Vocals/Instrumental"
+      "target_stem": "Vocals/Instrumental",
+      "publish_date": "2024-02-16",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "MDX23C_D1581.ckpt",
@@ -6508,7 +7150,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_instrumental_dual",
       "secondary_category_cn": "人声-伴奏双向分离",
-      "target_stem": "Vocals/Instrumental"
+      "target_stem": "Vocals/Instrumental",
+      "publish_date": "2023-07-09",
+      "author": "UVR, TRvlvr"
     },
     {
       "name": "model_mdx23c_ep_0_sdr_14.6632.ckpt",
@@ -6528,7 +7172,9 @@
       "primary_category_cn": "人声",
       "secondary_category": "vocal_extraction",
       "secondary_category_cn": "人声提取",
-      "target_stem": "vocals/other"
+      "target_stem": "vocals/other",
+      "publish_date": "2025-05-17",
+      "author": "Essid"
     },
     {
       "name": "MDX23C-De-Reverb-aufr33-jarredou.ckpt",
@@ -6548,7 +7194,9 @@
       "primary_category_cn": "混响/回声处理",
       "secondary_category": "dereverb",
       "secondary_category_cn": "去混响",
-      "target_stem": "dry/No dry"
+      "target_stem": "dry/No dry",
+      "publish_date": "2024-09-12",
+      "author": "aufr33, jarredou"
     },
     {
       "name": "MDX23C-DrumSep-aufr33-jarredou.ckpt",
@@ -6568,7 +7216,9 @@
       "primary_category_cn": "音乐多轨/分轨",
       "secondary_category": "drum_stems",
       "secondary_category_cn": "鼓组细分",
-      "target_stem": "kick/snare/toms/hh/ride/crash"
+      "target_stem": "kick/snare/toms/hh/ride/crash",
+      "publish_date": "2024-07-13",
+      "author": "aufr33, jarredou"
     },
     {
       "name": "model_mdx23c_ep_271_l1_freq_72.2383.ckpt",
@@ -6588,7 +7238,9 @@
       "primary_category_cn": "声像/空间分离",
       "secondary_category": "phantom_center_wide",
       "secondary_category_cn": "中央/宽声像提取",
-      "target_stem": "Similarity"
+      "target_stem": "Similarity",
+      "publish_date": "2024-10-21",
+      "author": "wesleyr36, ZFTurbo"
     }
   ],
   "skipped": [],
