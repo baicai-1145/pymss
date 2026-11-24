@@ -1,0 +1,14 @@
+{
+  "512": {
+    "complex_ms": 505.6,
+    "realview_ms": 319.8
+  },
+  "1024": {
+    "complex_ms": 520.7,
+    "realview_ms": 280.4
+  },
+  "2048": {
+    "complex_ms": 530.4,
+    "realview_ms": 312.4
+  }
+}

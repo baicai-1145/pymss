@@ -151,3 +151,36 @@ for `stft_npu`), so neither changes the recipe. The real-view variant needs the 
 plain `sqrt(0)` gave infinite gradients and NaN weights, the same trap as `leakage_loss`.
 Loss-in-autocast gains nothing (−9 ms), resolutions/hop changes do help but they change
 the loss definition and therefore break equivalence with the G4 reference.
+
+---
+
+## Peak calibration of this 950PR (`calibrate_peak.py`)
+
+Everything downstream should be quoted against these measured denominators
+(`results/peak_calib.json`):
+
+| quantity | measured | nominal | ratio |
+|---|---|---|---|
+| bf16 GEMM peak | **377.5 TFLOPS** @ 16384³ | 425 (28-core tier) | 88.8% |
+| fp32 GEMM peak | **23.64 TFLOPS** | TF32 212 | 11.2% of TF32 |
+| fp16 GEMM peak | 370.6 TFLOPS | 425 | 87.2% |
+| d2d bandwidth | **1439 GB/s** | 1.6 TB/s | 90.0% |
+| single kernel launch | **4.47 µs** | — | — |
+
+The GEMM curve matters: 512³ reaches only 14.5 TFLOPS (3.8% of peak), 2048³ 253,
+4096³ 354 — you need M=K=N≥4096 before the cube cores are fed. fp32 has no tensor
+path at all, which is the real reason fp32 training is 2.4x slower, not scheduling.
+
+Elementwise on the real activation shape (690,62,192): SiLU/sigmoid sit at 90% of the
+measured bandwidth roof, GELU(tanh) and RMSNorm only at 43% (ALU bound, ~2.3x headroom).
+
+The 62-band Linear group is the clearest example of the launch problem: 62 individual
+GEMMs cost 4.91 µs each of which **91% is pure launch** (4.47 µs); packing them into one
+`bmm` is 10.0x faster (0.030 vs 0.298 ms), at the price of 2.0x padding waste.
+
+Current model: 187.5 GFLOP / 13.79 ms bf16 = **13.6 TFLOPS = 3.6% of measured peak**, with
+5670 aten calls and **1910 device kernels** per forward. 1910 x 4.47 µs = 8.54 ms, i.e. 62%
+of the forward is launch floor. Compute would allow 0.497 ms (28x), the kernel count only
+allows 1.62x — so the model is launch/granularity bound, not compute or bandwidth bound.
+Getting 10x needs 1910 -> 308 kernels; the FLOPs budget (520 GFLOP) already fits the
+current 187.5 GFLOP, so the model does **not** need to shrink — it needs fusion.

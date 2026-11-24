@@ -1,0 +1,841 @@
+{
+  "device": {
+    "name": "Ascend950PR_9579",
+    "count": 1,
+    "torch": "2.13.0+cpu",
+    "torch_npu": "2.13.0",
+    "hbm_total_mb": 126112
+  },
+  "nominal": {
+    "hbm_tb_s": 1.6,
+    "bf16_tflops_28core": 425.0,
+    "bf16_tflops_32core": 486.0,
+    "tf32_tflops_28core": 212.0,
+    "source": "HiSilicon 950 series spec table (Cube+Vector totals)"
+  },
+  "gemm": {
+    "bf16": {
+      "rows": [
+        {
+          "M": 512,
+          "K": 512,
+          "N": 512,
+          "shape": "(512,512)@(512,512)",
+          "gflop": 0.3,
+          "median_ms": 0.019,
+          "tflops": 14.13,
+          "reps": 30
+        },
+        {
+          "M": 1024,
+          "K": 1024,
+          "N": 1024,
+          "shape": "(1024,1024)@(1024,1024)",
+          "gflop": 2.1,
+          "median_ms": 0.025,
+          "tflops": 85.9,
+          "reps": 30
+        },
+        {
+          "M": 2048,
+          "K": 2048,
+          "N": 2048,
+          "shape": "(2048,2048)@(2048,2048)",
+          "gflop": 17.2,
+          "median_ms": 0.0678,
+          "tflops": 253.39,
+          "reps": 30
+        },
+        {
+          "M": 4096,
+          "K": 4096,
+          "N": 4096,
+          "shape": "(4096,4096)@(4096,4096)",
+          "gflop": 137.4,
+          "median_ms": 0.3878,
+          "tflops": 354.41,
+          "reps": 30
+        },
+        {
+          "M": 8192,
+          "K": 8192,
+          "N": 8192,
+          "shape": "(8192,8192)@(8192,8192)",
+          "gflop": 1099.5,
+          "median_ms": 2.9681,
+          "tflops": 370.44,
+          "reps": 5
+        },
+        {
+          "M": 16384,
+          "K": 16384,
+          "N": 16384,
+          "shape": "(16384,16384)@(16384,16384)",
+          "gflop": 8796.1,
+          "median_ms": 23.3007,
+          "tflops": 377.5,
+          "reps": 5
+        },
+        {
+          "M": 4096,
+          "K": 4096,
+          "N": 1024,
+          "shape": "(4096,4096)@(4096,1024)",
+          "gflop": 34.4,
+          "median_ms": 0.1174,
+          "tflops": 292.67,
+          "reps": 30
+        },
+        {
+          "M": 1024,
+          "K": 4096,
+          "N": 4096,
+          "shape": "(1024,4096)@(4096,4096)",
+          "gflop": 34.4,
+          "median_ms": 0.1146,
+          "tflops": 299.82,
+          "reps": 30
+        },
+        {
+          "M": 8192,
+          "K": 8192,
+          "N": 2048,
+          "shape": "(8192,8192)@(8192,2048)",
+          "gflop": 274.9,
+          "median_ms": 0.7934,
+          "tflops": 346.46,
+          "reps": 30
+        },
+        {
+          "M": 2048,
+          "K": 8192,
+          "N": 8192,
+          "shape": "(2048,8192)@(8192,8192)",
+          "gflop": 274.9,
+          "median_ms": 0.7986,
+          "tflops": 344.2,
+          "reps": 30
+        },
+        {
+          "M": 16384,
+          "K": 4096,
+          "N": 4096,
+          "shape": "(16384,4096)@(4096,4096)",
+          "gflop": 549.8,
+          "median_ms": 1.493,
+          "tflops": 368.22,
+          "reps": 5
+        },
+        {
+          "M": 4096,
+          "K": 16384,
+          "N": 4096,
+          "shape": "(4096,16384)@(16384,4096)",
+          "gflop": 549.8,
+          "median_ms": 1.4806,
+          "tflops": 371.31,
+          "reps": 5
+        },
+        {
+          "M": 16384,
+          "K": 8192,
+          "N": 8192,
+          "shape": "(16384,8192)@(8192,8192)",
+          "gflop": 2199.0,
+          "median_ms": 6.2206,
+          "tflops": 353.51,
+          "reps": 5
+        }
+      ],
+      "peak": {
+        "M": 16384,
+        "K": 16384,
+        "N": 16384,
+        "shape": "(16384,16384)@(16384,16384)",
+        "gflop": 8796.1,
+        "median_ms": 23.3007,
+        "tflops": 377.5,
+        "reps": 5
+      },
+      "peak_tflops": 377.5,
+      "peak_shape": "(16384,16384)@(16384,16384)",
+      "nominal_tflops": 425.0,
+      "share_of_nominal_pct": 88.8
+    },
+    "fp32": {
+      "rows": [
+        {
+          "M": 512,
+          "K": 512,
+          "N": 512,
+          "shape": "(512,512)@(512,512)",
+          "gflop": 0.3,
+          "median_ms": 0.0311,
+          "tflops": 8.63,
+          "reps": 30
+        },
+        {
+          "M": 1024,
+          "K": 1024,
+          "N": 1024,
+          "shape": "(1024,1024)@(1024,1024)",
+          "gflop": 2.1,
+          "median_ms": 0.1189,
+          "tflops": 18.06,
+          "reps": 30
+        },
+        {
+          "M": 2048,
+          "K": 2048,
+          "N": 2048,
+          "shape": "(2048,2048)@(2048,2048)",
+          "gflop": 17.2,
+          "median_ms": 0.7648,
+          "tflops": 22.46,
+          "reps": 30
+        },
+        {
+          "M": 4096,
+          "K": 4096,
+          "N": 4096,
+          "shape": "(4096,4096)@(4096,4096)",
+          "gflop": 137.4,
+          "median_ms": 5.8382,
+          "tflops": 23.54,
+          "reps": 30
+        },
+        {
+          "M": 8192,
+          "K": 8192,
+          "N": 8192,
+          "shape": "(8192,8192)@(8192,8192)",
+          "gflop": 1099.5,
+          "median_ms": 46.6939,
+          "tflops": 23.55,
+          "reps": 5
+        },
+        {
+          "M": 16384,
+          "K": 16384,
+          "N": 16384,
+          "shape": "(16384,16384)@(16384,16384)",
+          "gflop": 8796.1,
+          "median_ms": 372.1378,
+          "tflops": 23.64,
+          "reps": 5
+        },
+        {
+          "M": 4096,
+          "K": 4096,
+          "N": 1024,
+          "shape": "(4096,4096)@(4096,1024)",
+          "gflop": 34.4,
+          "median_ms": 1.5068,
+          "tflops": 22.8,
+          "reps": 30
+        },
+        {
+          "M": 1024,
+          "K": 4096,
+          "N": 4096,
+          "shape": "(1024,4096)@(4096,4096)",
+          "gflop": 34.4,
+          "median_ms": 1.508,
+          "tflops": 22.78,
+          "reps": 30
+        },
+        {
+          "M": 8192,
+          "K": 8192,
+          "N": 2048,
+          "shape": "(8192,8192)@(8192,2048)",
+          "gflop": 274.9,
+          "median_ms": 11.6488,
+          "tflops": 23.6,
+          "reps": 30
+        },
+        {
+          "M": 2048,
+          "K": 8192,
+          "N": 8192,
+          "shape": "(2048,8192)@(8192,8192)",
+          "gflop": 274.9,
+          "median_ms": 11.6498,
+          "tflops": 23.6,
+          "reps": 30
+        },
+        {
+          "M": 16384,
+          "K": 4096,
+          "N": 4096,
+          "shape": "(16384,4096)@(4096,4096)",
+          "gflop": 549.8,
+          "median_ms": 23.3658,
+          "tflops": 23.53,
+          "reps": 5
+        },
+        {
+          "M": 4096,
+          "K": 16384,
+          "N": 4096,
+          "shape": "(4096,16384)@(16384,4096)",
+          "gflop": 549.8,
+          "median_ms": 23.2746,
+          "tflops": 23.62,
+          "reps": 5
+        },
+        {
+          "M": 16384,
+          "K": 8192,
+          "N": 8192,
+          "shape": "(16384,8192)@(8192,8192)",
+          "gflop": 2199.0,
+          "median_ms": 93.0133,
+          "tflops": 23.64,
+          "reps": 5
+        }
+      ],
+      "peak": {
+        "M": 16384,
+        "K": 8192,
+        "N": 8192,
+        "shape": "(16384,8192)@(8192,8192)",
+        "gflop": 2199.0,
+        "median_ms": 93.0133,
+        "tflops": 23.64,
+        "reps": 5
+      },
+      "peak_tflops": 23.64,
+      "peak_shape": "(16384,8192)@(8192,8192)",
+      "nominal_tflops": 425.0,
+      "share_of_nominal_pct": null,
+      "nominal_note": "no native fp32 cube path; measured includes the fp32 fallback. TF32 nominal is 212.0 TFLOPS for the 28-core tier, fp32 measured is 23.64 TFLOPS = 11.2% of the TF32 number"
+    },
+    "fp16": {
+      "rows": [
+        {
+          "M": 512,
+          "K": 512,
+          "N": 512,
+          "shape": "(512,512)@(512,512)",
+          "gflop": 0.3,
+          "median_ms": 0.0189,
+          "tflops": 14.2,
+          "reps": 30
+        },
+        {
+          "M": 1024,
+          "K": 1024,
+          "N": 1024,
+          "shape": "(1024,1024)@(1024,1024)",
+          "gflop": 2.1,
+          "median_ms": 0.025,
+          "tflops": 85.9,
+          "reps": 30
+        },
+        {
+          "M": 2048,
+          "K": 2048,
+          "N": 2048,
+          "shape": "(2048,2048)@(2048,2048)",
+          "gflop": 17.2,
+          "median_ms": 0.0679,
+          "tflops": 253.02,
+          "reps": 30
+        },
+        {
+          "M": 4096,
+          "K": 4096,
+          "N": 4096,
+          "shape": "(4096,4096)@(4096,4096)",
+          "gflop": 137.4,
+          "median_ms": 0.3889,
+          "tflops": 353.4,
+          "reps": 30
+        },
+        {
+          "M": 8192,
+          "K": 8192,
+          "N": 8192,
+          "shape": "(8192,8192)@(8192,8192)",
+          "gflop": 1099.5,
+          "median_ms": 2.9669,
+          "tflops": 370.59,
+          "reps": 5
+        },
+        {
+          "M": 16384,
+          "K": 16384,
+          "N": 16384,
+          "shape": "(16384,16384)@(16384,16384)",
+          "gflop": 8796.1,
+          "median_ms": 27.1258,
+          "tflops": 324.27,
+          "reps": 5
+        },
+        {
+          "M": 4096,
+          "K": 4096,
+          "N": 1024,
+          "shape": "(4096,4096)@(4096,1024)",
+          "gflop": 34.4,
+          "median_ms": 0.1173,
+          "tflops": 292.92,
+          "reps": 30
+        },
+        {
+          "M": 1024,
+          "K": 4096,
+          "N": 4096,
+          "shape": "(1024,4096)@(4096,4096)",
+          "gflop": 34.4,
+          "median_ms": 0.117,
+          "tflops": 293.67,
+          "reps": 30
+        },
+        {
+          "M": 8192,
+          "K": 8192,
+          "N": 2048,
+          "shape": "(8192,8192)@(8192,2048)",
+          "gflop": 274.9,
+          "median_ms": 0.8034,
+          "tflops": 342.14,
+          "reps": 30
+        },
+        {
+          "M": 2048,
+          "K": 8192,
+          "N": 8192,
+          "shape": "(2048,8192)@(8192,8192)",
+          "gflop": 274.9,
+          "median_ms": 0.856,
+          "tflops": 321.12,
+          "reps": 30
+        },
+        {
+          "M": 16384,
+          "K": 4096,
+          "N": 4096,
+          "shape": "(16384,4096)@(4096,4096)",
+          "gflop": 549.8,
+          "median_ms": 1.7175,
+          "tflops": 320.09,
+          "reps": 5
+        },
+        {
+          "M": 4096,
+          "K": 16384,
+          "N": 4096,
+          "shape": "(4096,16384)@(16384,4096)",
+          "gflop": 549.8,
+          "median_ms": 1.6739,
+          "tflops": 328.43,
+          "reps": 5
+        },
+        {
+          "M": 16384,
+          "K": 8192,
+          "N": 8192,
+          "shape": "(16384,8192)@(8192,8192)",
+          "gflop": 2199.0,
+          "median_ms": 6.6571,
+          "tflops": 330.33,
+          "reps": 5
+        }
+      ],
+      "peak": {
+        "M": 8192,
+        "K": 8192,
+        "N": 8192,
+        "shape": "(8192,8192)@(8192,8192)",
+        "gflop": 1099.5,
+        "median_ms": 2.9669,
+        "tflops": 370.59,
+        "reps": 5
+      },
+      "peak_tflops": 370.59,
+      "peak_shape": "(8192,8192)@(8192,8192)",
+      "nominal_tflops": 425.0,
+      "share_of_nominal_pct": 87.2
+    }
+  },
+  "bandwidth": {
+    "nominal_hbm_tb_s": 1.6,
+    "rows": [
+      {
+        "op": "d2d copy_ (copy 1-pass)",
+        "size_gib": 1.0,
+        "bytes_moved_gb": 2.147,
+        "median_ms": 1.4989,
+        "effective_gb_s": 1432.7
+      },
+      {
+        "op": "add_(1) read+write",
+        "size_gib": 1.0,
+        "bytes_moved_gb": 2.147,
+        "median_ms": 1.5309,
+        "effective_gb_s": 1402.8
+      },
+      {
+        "op": "mul out= (read+write)",
+        "size_gib": 1.0,
+        "bytes_moved_gb": 2.147,
+        "median_ms": 1.533,
+        "effective_gb_s": 1400.8
+      },
+      {
+        "op": "d2d copy_ (copy 1-pass)",
+        "size_gib": 2.0,
+        "bytes_moved_gb": 4.295,
+        "median_ms": 2.9842,
+        "effective_gb_s": 1439.2
+      },
+      {
+        "op": "add_(1) read+write",
+        "size_gib": 2.0,
+        "bytes_moved_gb": 4.295,
+        "median_ms": 3.007,
+        "effective_gb_s": 1428.3
+      },
+      {
+        "op": "mul out= (read+write)",
+        "size_gib": 2.0,
+        "bytes_moved_gb": 4.295,
+        "median_ms": 2.993,
+        "effective_gb_s": 1435.0
+      }
+    ],
+    "best_effective_gb_s": 1439.2,
+    "best_tb_s": 1.439,
+    "share_of_nominal_pct": 90.0
+  },
+  "elementwise": {
+    "shape": [
+      690,
+      62,
+      192
+    ],
+    "numel": 8213760,
+    "rows": [
+      {
+        "op": "gelu(tanh)",
+        "dtype": "bf16",
+        "median_ms": 0.0533,
+        "effective_gb_s": 616.4,
+        "launch_share_pct": 54.1,
+        "bw_roof_pct": 42.8
+      },
+      {
+        "op": "silu",
+        "dtype": "bf16",
+        "median_ms": 0.0254,
+        "effective_gb_s": 1293.5,
+        "launch_share_pct": 54.1,
+        "bw_roof_pct": 89.9
+      },
+      {
+        "op": "sigmoid",
+        "dtype": "bf16",
+        "median_ms": 0.025,
+        "effective_gb_s": 1314.2,
+        "launch_share_pct": 54.1,
+        "bw_roof_pct": 91.3
+      },
+      {
+        "op": "rmsnorm(dim=-1)",
+        "dtype": "bf16",
+        "median_ms": 0.0527,
+        "effective_gb_s": 623.4,
+        "launch_share_pct": 54.1,
+        "bw_roof_pct": 43.3
+      },
+      {
+        "op": "add_(1) in-place",
+        "dtype": "bf16",
+        "median_ms": 0.0227,
+        "effective_gb_s": 1447.4,
+        "launch_share_pct": 54.1,
+        "bw_roof_pct": 100.6
+      },
+      {
+        "op": "gelu(tanh)",
+        "dtype": "fp32",
+        "median_ms": 0.0624,
+        "effective_gb_s": 1053.0,
+        "launch_share_pct": null
+      },
+      {
+        "op": "silu",
+        "dtype": "fp32",
+        "median_ms": 0.0253,
+        "effective_gb_s": 2597.2,
+        "launch_share_pct": null
+      },
+      {
+        "op": "sigmoid",
+        "dtype": "fp32",
+        "median_ms": 0.0263,
+        "effective_gb_s": 2498.5,
+        "launch_share_pct": null
+      },
+      {
+        "op": "rmsnorm(dim=-1)",
+        "dtype": "fp32",
+        "median_ms": 0.0579,
+        "effective_gb_s": 1134.9,
+        "launch_share_pct": null
+      },
+      {
+        "op": "add_(1) in-place",
+        "dtype": "fp32",
+        "median_ms": 0.0245,
+        "effective_gb_s": 2682.0,
+        "launch_share_pct": null
+      }
+    ]
+  },
+  "launch": {
+    "tiny_op_per_call_us": 4.47,
+    "activation_op_per_call_us": {
+      "bf16": 8.27,
+      "fp32": 9.91
+    },
+    "activation_op_synced_ms": {
+      "bf16": 0.0222,
+      "fp32": 0.0239
+    }
+  },
+  "band_split": {
+    "n_bands": 62,
+    "in_features_per_band": [
+      4,
+      4,
+      4,
+      4,
+      12,
+      12,
+      12,
+      16,
+      20,
+      20,
+      20,
+      24,
+      28,
+      28,
+      32,
+      32,
+      36,
+      36,
+      40,
+      44,
+      44,
+      44,
+      48,
+      52,
+      52,
+      52,
+      56,
+      60,
+      60,
+      64,
+      64,
+      68,
+      68,
+      72,
+      76,
+      76,
+      76,
+      80,
+      84,
+      84,
+      84,
+      88,
+      92,
+      92,
+      96,
+      96,
+      100,
+      100,
+      104,
+      108,
+      108,
+      108,
+      112,
+      116,
+      116,
+      116,
+      120,
+      124,
+      124,
+      128,
+      128,
+      132
+    ],
+    "total_in_features": 4100,
+    "dim": 192,
+    "rows": [
+      {
+        "dtype": "bf16",
+        "flops": 1.09,
+        "loop_62_gemms_ms": 0.2977,
+        "loop_ms_per_62_gemms": 0.3042,
+        "loop_per_single_gemm_us": 4.91,
+        "launch_share_of_single_gemm_pct": 91.1,
+        "packed_bmm_ms": 0.0297,
+        "speedup_packed": 10.024,
+        "ach_tflops_loop": 3.649,
+        "ach_tflops_packed": 36.577,
+        "padding_waste_ratio": 1.996
+      },
+      {
+        "dtype": "fp32",
+        "flops": 1.09,
+        "loop_62_gemms_ms": 0.2988,
+        "loop_ms_per_62_gemms": 0.3026,
+        "loop_per_single_gemm_us": 4.88,
+        "launch_share_of_single_gemm_pct": 91.6,
+        "packed_bmm_ms": 0.1197,
+        "speedup_packed": 2.496,
+        "ach_tflops_loop": 3.636,
+        "ach_tflops_packed": 9.075,
+        "padding_waste_ratio": 1.996
+      }
+    ],
+    "model_band_split_grouped_ms": 1.8849,
+    "model_band_split_perband_ms": 2.6912
+  },
+  "model": {
+    "params": 20874036,
+    "input_frames": 690,
+    "forward_median_ms": 13.789,
+    "forward_flops": 187480750080,
+    "forward_gflop": 187.48,
+    "forward_tflops": 13.6,
+    "flop_counter_ops": 5670,
+    "device_kernels_per_forward": 1910,
+    "top_aten_ops": [
+      [
+        "aten::to",
+        774
+      ],
+      [
+        "aten::as_strided",
+        582
+      ],
+      [
+        "aten::copy_",
+        580
+      ],
+      [
+        "aten::_to_copy",
+        579
+      ],
+      [
+        "aten::empty_strided",
+        579
+      ],
+      [
+        "aten::transpose",
+        284
+      ],
+      [
+        "aten::view",
+        265
+      ],
+      [
+        "aten::reshape",
+        204
+      ],
+      [
+        "aten::stack",
+        162
+      ],
+      [
+        "aten::mul",
+        159
+      ]
+    ],
+    "flop_counter_top": [
+      [
+        "BandUNetSeparator.aten.addmm",
+        109612892160
+      ],
+      [
+        "Global.aten.addmm",
+        109612892160
+      ],
+      [
+        "BandUNetSeparator.aten.convolution",
+        36052577280
+      ],
+      [
+        "Global.aten.convolution",
+        36052577280
+      ],
+      [
+        "BandUNetSeparator.aten.baddbmm",
+        22393359360
+      ],
+      [
+        "Global.aten.baddbmm",
+        22393359360
+      ],
+      [
+        "BandUNetSeparator.enc32.aten.addmm",
+        21976842240
+      ],
+      [
+        "BandUNetSeparator.dec32.aten.addmm",
+        21976842240
+      ]
+    ],
+    "reference_claim": {
+      "gflop": 116.0,
+      "ms": 8.45,
+      "tflops": 13.7,
+      "source": "user-supplied figure, not reproducible on this box (our measured forward is different, see forward_median_ms)"
+    },
+    "launch_us_used": 4.47
+  },
+  "conclusions": {
+    "measured_peak_bf16_tflops": 377.5,
+    "measured_peak_bf16_shape": "(16384,16384)@(16384,16384)",
+    "measured_peak_fp32_tflops": 23.64,
+    "measured_peak_fp32_shape": "(16384,8192)@(8192,8192)",
+    "measured_peak_fp16_tflops": 370.59,
+    "d2d_bandwidth_gb_s": 1439.2,
+    "d2d_bandwidth_share_of_nominal_pct": 90.0,
+    "launch_overhead_us": 4.47,
+    "current_forward_ms": 13.789,
+    "current_tflops_measured": 13.6,
+    "current_tflops_reference_claim": 13.7,
+    "utilization_pct_measured": 3.6,
+    "utilization_pct_reference_claim": 3.63,
+    "compute_ideal_ms": 0.497,
+    "speedup_ceiling_compute_x": 27.76,
+    "speedup_ceiling_launch_x": 0.54,
+    "band_split_launch_share_pct": 93.1,
+    "measured_peak_bf16_share_of_nominal_pct": 88.8,
+    "notes": [
+      "nominal bf16 = 425 TFLOPS for the 28-core tier of 950PR (486 for the 32-core tier); utilization is quoted against the measured peak, and the measured/nominal ratio separately",
+      "all GB/s numbers count read+write bytes actually touched"
+    ],
+    "launch_bound_ms_device_kernels": 8.538,
+    "launch_bound_device_kernels_x_speedup_ceiling": 1.62,
+    "launch_bound_ms_all_aten_ops": 25.345,
+    "device_kernels_per_forward": 1910
+  },
+  "ten_x": {
+    "target_ms": 1.379,
+    "launch_bound_max_ops": 308,
+    "current_ops": 5670,
+    "ops_reduction_needed_x": 18.4,
+    "compute_bound_flops_budget_gflop": 520.5,
+    "flops_reduction_needed_x": 0.36,
+    "implied_params_at_10x": 57956142,
+    "params_needed_if_only_shrinking": 3371551,
+    "verdict": "compute is not the limit at 10x: 187.48 GFLOP in 1.379 ms is 36.0% of peak; the limit is 1910 device kernels x 4.47 us = 8.538 ms launch floor",
+    "kernels_budget_at_10x": 308
+  }
+}
