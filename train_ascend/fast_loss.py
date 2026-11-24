@@ -127,8 +127,10 @@ def stft_adjoint(grad_spec: torch.Tensor, window: torch.Tensor, n_fft: int, hop:
     frames_len = length + 2 * pad
     frames = 1 + (frames_len - n_fft) // hop
     b = grad_spec.shape[0]
-    # grad_spec: (B, F, T) -> (B, T, F)
-    g = grad_spec.transpose(-1, -2).contiguous()
+    # grad_spec: (B, F, T) -> (B, T, F). Move the planes on the REAL view: a complex
+    # transpose+copy costs ~150 ms here (AI_CPU fallback), the real permute ~1 ms.
+    g = torch.view_as_complex(
+        torch.view_as_real(grad_spec).permute(0, 2, 1, 3).contiguous())
     with torch.enable_grad():
         z = torch.zeros(b, frames, n_fft, dtype=window.dtype, device=window.device).requires_grad_(True)
         spec = torch.fft.rfft(z, dim=-1)
@@ -156,23 +158,22 @@ class StftMagnitude(torch.autograd.Function):
     def forward(ctx, x: torch.Tensor, window: torch.Tensor, n_fft: int, hop: int) -> torch.Tensor:
         spec = torch.stft(x, n_fft=n_fft, hop_length=hop, window=window, center=True,
                           return_complex=True)
-        sr = torch.view_as_real(spec)
+        sr = torch.view_as_real(spec)                      # kept for the backward
         mag = torch.sqrt(sr.pow(2).sum(-1) + _eps_like(sr))
-        ctx.save_for_backward(x, window)
+        # Save the spectrum instead of x: the backward needs its phase, and re-running
+        # torch.stft there cost another 13-30 ms per resolution.
+        ctx.save_for_backward(window, sr)
         ctx.cfg = (n_fft, hop, x.shape[-1])
         return mag  # (B, F, T), same layout as torch.stft(...).abs()
 
     @staticmethod
     def backward(ctx, grad_mag: torch.Tensor) -> tuple[torch.Tensor | None, None, None, None]:
-        x, window = ctx.saved_tensors
+        window, sr = ctx.saved_tensors
         n_fft, hop, length = ctx.cfg
-        spec = torch.stft(x, n_fft=n_fft, hop_length=hop, window=window, center=True,
-                          return_complex=True)
-        if grad_mag.dtype != spec.real.dtype:
-            grad_mag = grad_mag.to(spec.real.dtype)
+        if grad_mag.dtype != sr.dtype:
+            grad_mag = grad_mag.to(sr.dtype)
         # dL/dz = g * z / |z| (verified against autograd to 6e-17). Doing it by hand
         # avoids the complex-abs backward, which costs ~250 ms on this device.
-        sr = torch.view_as_real(spec)
         mag = torch.sqrt(sr.pow(2).sum(-1) + _eps_like(sr)).clamp_min(_eps_like(sr))
         gz = grad_mag.unsqueeze(-1) * sr / mag.unsqueeze(-1)
         gspec = torch.view_as_complex(gz.contiguous())
