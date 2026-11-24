@@ -299,3 +299,37 @@ EMA 权重（-18.5 dB）远差于 raw 权重（-3.8 dB）。这不是 bug，是 
 6. `pymss_core.modules.bandit.maskestim.MaskEstimationModule` 在上游是坏的
    （`check_*` 先调用后赋值 → `UnboundLocalError`），本实现改用 `bands.MaskEstimator`；
    若要回上游应先修这个 bug。
+
+## 13. 交付（Phase H）
+
+- 分支：`feat/ascend-band-unet`（基于 `pymss@feat/adaptive-speaker-roformer`）
+- **commit：`873086a3ed92baa50c3dbb762a6174594aa3e7f3`**，已 push 到 `git@github.com:baicai-1145/pymss.git`
+- 代码：`/workspace/pymss/train_ascend/`（`freq_unet.py` 模型、`train.py` 裸循环、
+  `align_check.py` 对齐、`evaluate.py` 协议、`npu_kernels_bandunet.py` triton 槽位、
+  `selfcheck.py`、`bench_infer.py`、`sweep_params.py`、`download_musdb.py`、`prepare_dataset.py`）
+- 产物：`train_ascend/results/*.json`（对齐表、吞吐、评测、kernel 状态原始数据）
+- 本报告同步入库：`docs/ascend_band_unet_report.md`
+- 运行产物（checkpoint / 日志）在 `/workspace/runs/`，未入库（`.gitignore`）
+
+### 13.1 关键数字一览
+
+| 维度 | 结果 |
+|---|---|
+| NPU | Ascend950PR ×1，HBM 128 GB，空闲基线 5281 MB |
+| 环境 | py3.12.16 · torch 2.12.0+cpu · torch_npu 2.12.0.post3 · CANN 9.2.1 |
+| 模型 | 20,874,036 参数（上限 21.63M ✅，参考 20,961,844，差 -0.42%） |
+| 数据 | MUSDB18-HQ：train 100 / test 50 曲，29.04 GiB，check-musdb 通过 |
+| 训练吞吐 (bs24) | fp32 3.345 s/step（17.9 steps/min）· bf16 2.737 s/step（21.8 steps/min） |
+| 等效样本吞吐 | 7.2 / 8.8 samples/s vs G4 9.3 samples/s → **0.77x / 0.95x** |
+| fp32 一致性 | 输出 rel RMS **9.34e-07**，逐层最差 1.51e-06（686 层） |
+| bf16 一致性 | 输出 rel RMS 9.25e-03，逐层最差 1.37e-02 |
+| 8 s 推理 | fp32 23.30 ms · **bf16 13.84 ms**（G4 11.691 ms → 1.18x） |
+| Triton | 不可用（无 cp312 wheel）；kernel 已写、未验证；eager 回退 0 差异 |
+| 评测协议 | 56 窗已冻结；100 步 raw 权重中位 SI-SDR -3.82 dB（仅管线证明） |
+
+### 13.2 未解决 / 需要外部条件
+
+1. triton-ascend 需要 cp311 解释器或华为出 cp312 wheel，否则第 8 节三个 kernel 只能停留在"未验证"。
+2. 62 段 MaskEstimator 的小 GEMM 是主要瓶颈（预计 1.5–2x 可挖）。
+3. 多分辨率 STFT 损失目前在 NPU 上走 istft+重 STFT，可改频域直接计算。
+4. 只有 100 步，无质量结论；下一阶段应 ≥10k 步并同时评 raw/EMA。
