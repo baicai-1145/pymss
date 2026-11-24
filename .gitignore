@@ -193,3 +193,7 @@ input.wav
 input2.wav
 .pi
 .tmp/
+
+# ascend bring-up artifacts
+.tmp/
+__pycache__/
