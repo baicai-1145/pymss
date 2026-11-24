@@ -141,15 +141,23 @@ def si_sdr(pred: torch.Tensor, target: torch.Tensor, eps: float = 1e-8) -> torch
 
 
 def multi_res_stft_loss(pred_wav: torch.Tensor, target_wav: torch.Tensor, resolutions=(512, 1024, 2048)) -> torch.Tensor:
+    """torch.stft (2.12) only accepts 1-D/2-D input, so flatten (B, C) into the batch axis."""
+    lead = pred_wav.shape[:-1]
+    pred_flat = pred_wav.float().reshape(-1, pred_wav.shape[-1])
+    target_flat = target_wav.float().reshape(-1, target_wav.shape[-1])
     loss = pred_wav.new_zeros(())
     for n_fft in resolutions:
-        window = torch.hann_window(n_fft, device=pred_wav.device, dtype=torch.float32)
+        window = torch.hann_window(n_fft).to(device=pred_wav.device, dtype=torch.float32)
         hop = n_fft // 4
-        p = torch.stft(pred_wav.float(), n_fft=n_fft, hop_length=hop, window=window, center=True, return_complex=True)
-        t = torch.stft(target_wav.float(), n_fft=n_fft, hop_length=hop, window=window, center=True, return_complex=True)
+        p = torch.stft(pred_flat, n_fft=n_fft, hop_length=hop, window=window, center=True, return_complex=True)
+        t = torch.stft(target_flat, n_fft=n_fft, hop_length=hop, window=window, center=True, return_complex=True)
         pm, tm = p.abs(), t.abs()
-        sc = torch.linalg.vector_norm(tm - pm, dim=(-2, -1)) / (torch.linalg.vector_norm(tm, dim=(-2, -1)) + 1e-7)
-        mag = F.l1_loss(torch.log(pm + 1e-7), torch.log(tm + 1e-7))
+        # Near-silent windows make the plain ratio explode (||tm|| ~ 0); floor the
+        # denominator with a scale-relative epsilon and clamp the ratio.
+        scale = tm.max().detach().clamp_min(1e-4)
+        den = torch.linalg.vector_norm(tm, dim=(-2, -1)).clamp_min(1e-3 * scale)
+        sc = (torch.linalg.vector_norm(tm - pm, dim=(-2, -1)) / den).clamp(max=10.0)
+        mag = F.l1_loss(torch.log(pm + 1e-3 * scale), torch.log(tm + 1e-3 * scale))
         loss = loss + sc.mean() + mag
     return loss / len(resolutions)
 
@@ -164,12 +172,15 @@ def leakage_loss(pred_wav: torch.Tensor, target_wav: torch.Tensor, rms_threshold
         return pred_wav.new_zeros(())
     tgt = target_wav[..., :n].reshape(*target_wav.shape[:-1], -1, frame)
     prd = pred_wav[..., :n].reshape(*pred_wav.shape[:-1], -1, frame)
-    tgt_rms = tgt.pow(2).mean(dim=-1).sqrt()
+    # +1e-10 inside the sqrt only floors d(sqrt)/dx at exactly-silent windows
+    # (upstream `sqrt(0)` gives an infinite gradient -> NaN weights). It does not
+    # change any value above ~1e-5 RMS, i.e. nothing near the 0.005 threshold.
+    tgt_rms = tgt.pow(2).mean(dim=-1).add(1e-10).sqrt()
     quiet = tgt_rms < rms_threshold
     if not bool(quiet.any()):
         return pred_wav.new_zeros(())
     # dB domain penalty above the threshold, i.e. 20*log10(rms / thr) for loud errors
-    prd_rms = prd.pow(2).mean(dim=-1).sqrt()
+    prd_rms = prd.pow(2).mean(dim=-1).add(1e-10).sqrt()
     ratio = (prd_rms[quiet] + 1e-8) / rms_threshold
     return F.relu(torch.log10(ratio)).mean()
 
@@ -324,7 +335,7 @@ def main(argv=None) -> int:
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=0.01)
     ema = EMA(model, decay=args.ema_decay)
-    window = torch.hann_window(args.n_fft, device=device, dtype=torch.float32)
+    window = torch.hann_window(args.n_fft).to(device=device, dtype=torch.float32)
     channels = cfg.audio_channels
 
     step = 0

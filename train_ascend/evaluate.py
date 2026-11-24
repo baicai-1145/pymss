@@ -28,18 +28,21 @@ from train import MusdbChunkDataset, scan_musdb, si_sdr, split_fc  # noqa: E402
 N_WINDOWS = 56
 
 
+# Deterministic relative positions inside each track. Fractions (not absolute
+# offsets) so the protocol survives any re-download with identical durations,
+# and they avoid the instrumental intro that an "offset = 1 chunk" rule hits.
+WINDOW_FRACTIONS = (0.25, 0.45, 0.65, 0.85)
+
+
 def build_protocol(test_tracks: list[dict[str, Path]], chunk: int, n_windows: int = N_WINDOWS) -> list[dict]:
     protocol = []
-    offsets_per_track = max(1, n_windows // max(1, len(test_tracks)) + 1)
     for i in range(n_windows):
         track = test_tracks[i % len(test_tracks)]
         with wave.open(str(track["mixture"]), "rb") as handle:
             total = handle.getnframes()
-        slot = i // len(test_tracks)
-        margin = chunk
-        usable = max(0, total - chunk - 2 * margin)
-        offset = margin + int(usable * slot / max(1, offsets_per_track - 1)) if usable > 0 else 0
-        protocol.append({"index": i, "song": track["mixture"].parent.name, "offset": int(offset)})
+        frac = WINDOW_FRACTIONS[(i // len(test_tracks)) % len(WINDOW_FRACTIONS)]
+        offset = int(max(0, min(total - chunk, total * frac)))
+        protocol.append({"index": i, "song": track["mixture"].parent.name, "offset": int(offset), "fraction": frac})
     return protocol
 
 
@@ -109,6 +112,9 @@ def main(argv=None) -> int:
     parser.add_argument("--data-root", type=Path, default=Path("/workspace/musdb18hq"))
     parser.add_argument("--ckpt", type=Path)
     parser.add_argument("--precision", default="bf16", choices=("32", "bf16"))
+    # EMA with decay 0.999 is still ~0.905 * init weights after 100 steps, so a short
+    # smoke run must be scored with the raw weights; long runs use ema.
+    parser.add_argument("--weights", default="ema", choices=("ema", "raw"))
     parser.add_argument("--chunk-size", type=int, default=352800)
     parser.add_argument("--n-fft", type=int, default=2048)
     parser.add_argument("--hop", type=int, default=512)
@@ -136,7 +142,7 @@ def main(argv=None) -> int:
     model = build_model(cfg).to(device)
     if args.ckpt:
         payload = torch.load(args.ckpt, map_location=device, weights_only=False)
-        if "ema" in payload:
+        if args.weights == "ema" and "ema" in payload:
             from train import EMA
 
             ema = EMA(model)
@@ -148,14 +154,19 @@ def main(argv=None) -> int:
 
     tracks_by_song = {t["mixture"].parent.name: t for t in test_tracks}
     dataset = MusdbChunkDataset(test_tracks, args.chunk_size, args.n_fft, args.hop)
-    window = torch.hann_window(args.n_fft, device=device, dtype=torch.float32)
+    window = torch.hann_window(args.n_fft).to(device=device, dtype=torch.float32)
     result = evaluate(model, dataset, tracks_by_song, protocol, device, args.n_fft, args.hop, args.chunk_size, window, args.precision)
     stats = bootstrap_by_song(result["windows"])
+    active = [r for r in result["windows"] if r["quiet_frac"] < 0.5]
+    stats["n_active_windows"] = len(active)
+    stats["median_si_sdr_active"] = float(np.median([r["si_sdr"] for r in active])) if active else None
+    stats["n_near_silent_windows"] = len(result["windows"]) - len(active)
     quiet = [r["leakage_rms"] for r in result["windows"] if r["leakage_rms"] == r["leakage_rms"]]
     payload = {
         "device": str(device),
         "precision": args.precision,
         "ckpt": str(args.ckpt) if args.ckpt else None,
+        "weights": args.weights,
         "protocol": str(args.protocol_out),
         "stats": stats,
         "leakage_rms_mean": float(np.mean(quiet)) if quiet else None,

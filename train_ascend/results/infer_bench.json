@@ -1,0 +1,27 @@
+{
+  "params": 20874036,
+  "frames": 690,
+  "g4_ref_ms": 11.691,
+  "32": {
+    "device": "npu:0",
+    "precision": "32",
+    "iters": 30,
+    "median_ms": 23.297,
+    "mean_ms": 23.342,
+    "min_ms": 23.258,
+    "max_ms": 23.782,
+    "p90_ms": 23.538,
+    "vs_g4": 1.99
+  },
+  "bf16": {
+    "device": "npu:0",
+    "precision": "bf16",
+    "iters": 30,
+    "median_ms": 13.84,
+    "mean_ms": 13.839,
+    "min_ms": 13.766,
+    "max_ms": 13.9,
+    "p90_ms": 13.896,
+    "vs_g4": 1.18
+  }
+}

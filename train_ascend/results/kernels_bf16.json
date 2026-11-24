@@ -1,0 +1,37 @@
+{
+  "status": {
+    "available": false,
+    "reason": "ModuleNotFoundError: No module named 'triton'",
+    "env": "PYMSS_NPU_TRITON",
+    "triton_version": null,
+    "triton_ascend_version": null
+  },
+  "device": "npu:0",
+  "dtype": "bf16",
+  "kernels": [
+    {
+      "kernel": "bandsplit_linear",
+      "max_abs": 0.0,
+      "rel_rms": 0.0,
+      "eager_ms": 0.0365,
+      "fused_ms": 0.037,
+      "triton_path_taken": false
+    },
+    {
+      "kernel": "attention_gated_out",
+      "max_abs": 0.0,
+      "rel_rms": 0.0,
+      "eager_ms": 0.0213,
+      "fused_ms": 0.0313,
+      "triton_path_taken": false
+    },
+    {
+      "kernel": "rope",
+      "max_abs": 0.0,
+      "rel_rms": 0.0,
+      "eager_ms": 0.0342,
+      "fused_ms": 0.073,
+      "triton_path_taken": false
+    }
+  ]
+}

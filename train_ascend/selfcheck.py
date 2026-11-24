@@ -33,7 +33,7 @@ def run(device: torch.device, frames: int, n_fft: int, hop: int, length: int, ch
     pred_c = mix_c * torch.view_as_complex(mask.float().contiguous())
     from pymss_core.npu_fft import istft_npu
 
-    window = torch.hann_window(n_fft, device=device, dtype=torch.float32)
+    window = torch.hann_window(n_fft).to(device=device, dtype=torch.float32)
     flat = pred_c.reshape(1, f, channels, pred_c.shape[-1]).permute(0, 2, 1, 3).reshape(channels, f, pred_c.shape[-1])
     wav = istft_npu(flat, n_fft=n_fft, hop_length=hop, window=window, length=length, return_complex=False)
     if device.type == "npu":

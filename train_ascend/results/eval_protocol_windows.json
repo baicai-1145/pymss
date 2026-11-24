@@ -1,0 +1,341 @@
+{
+  "n_windows": 56,
+  "windows": [
+    {
+      "index": 0,
+      "song": "AM Contra - Heart Peripheral",
+      "offset": 2316416,
+      "fraction": 0.25
+    },
+    {
+      "index": 1,
+      "song": "Al James - Schoolboy Facination",
+      "offset": 2210807,
+      "fraction": 0.25
+    },
+    {
+      "index": 2,
+      "song": "Angels In Amplifiers - I'm Alright",
+      "offset": 1980021,
+      "fraction": 0.25
+    },
+    {
+      "index": 3,
+      "song": "Arise - Run Run Run",
+      "offset": 2418806,
+      "fraction": 0.25
+    },
+    {
+      "index": 4,
+      "song": "BKS - Bulldozer",
+      "offset": 3715868,
+      "fraction": 0.25
+    },
+    {
+      "index": 5,
+      "song": "BKS - Too Much",
+      "offset": 2426878,
+      "fraction": 0.25
+    },
+    {
+      "index": 6,
+      "song": "Ben Carrigan - We'll Talk About It All Tonight",
+      "offset": 2810390,
+      "fraction": 0.25
+    },
+    {
+      "index": 7,
+      "song": "Bobby Nobody - Stitch Up",
+      "offset": 2439281,
+      "fraction": 0.25
+    },
+    {
+      "index": 8,
+      "song": "Buitraker - Revo X",
+      "offset": 3040980,
+      "fraction": 0.25
+    },
+    {
+      "index": 9,
+      "song": "Carlos Gonzalez - A Place For Us",
+      "offset": 2758661,
+      "fraction": 0.25
+    },
+    {
+      "index": 10,
+      "song": "Cristina Vane - So Easy",
+      "offset": 2801826,
+      "fraction": 0.25
+    },
+    {
+      "index": 11,
+      "song": "Detsky Sad - Walkie Talkie",
+      "offset": 2100065,
+      "fraction": 0.25
+    },
+    {
+      "index": 12,
+      "song": "Enda Reilly - Cur An Long Ag Seol",
+      "offset": 2061625,
+      "fraction": 0.25
+    },
+    {
+      "index": 13,
+      "song": "Forkupines - Semantics",
+      "offset": 3016272,
+      "fraction": 0.25
+    },
+    {
+      "index": 14,
+      "song": "Georgia Wonder - Siren",
+      "offset": 4744884,
+      "fraction": 0.25
+    },
+    {
+      "index": 15,
+      "song": "Girls Under Glass - We Feel Alright",
+      "offset": 3498025,
+      "fraction": 0.25
+    },
+    {
+      "index": 16,
+      "song": "Hollow Ground - Ill Fate",
+      "offset": 1561957,
+      "fraction": 0.25
+    },
+    {
+      "index": 17,
+      "song": "James Elder & Mark M Thompson - The English Actor",
+      "offset": 2265342,
+      "fraction": 0.25
+    },
+    {
+      "index": 18,
+      "song": "Juliet's Rescue - Heartbeats",
+      "offset": 2950861,
+      "fraction": 0.25
+    },
+    {
+      "index": 19,
+      "song": "Little Chicago's Finest - My Own",
+      "offset": 3104768,
+      "fraction": 0.25
+    },
+    {
+      "index": 20,
+      "song": "Louis Cressy Band - Good Time",
+      "offset": 3228356,
+      "fraction": 0.25
+    },
+    {
+      "index": 21,
+      "song": "Lyndsey Ollard - Catching Up",
+      "offset": 2507400,
+      "fraction": 0.25
+    },
+    {
+      "index": 22,
+      "song": "M.E.R.C. Music - Knockout",
+      "offset": 2976750,
+      "fraction": 0.25
+    },
+    {
+      "index": 23,
+      "song": "Moosmusic - Big Dummy Shake",
+      "offset": 2192400,
+      "fraction": 0.25
+    },
+    {
+      "index": 24,
+      "song": "Motor Tapes - Shore",
+      "offset": 2720123,
+      "fraction": 0.25
+    },
+    {
+      "index": 25,
+      "song": "Mu - Too Bright",
+      "offset": 3000621,
+      "fraction": 0.25
+    },
+    {
+      "index": 26,
+      "song": "Nerve 9 - Pray For The Rain",
+      "offset": 3789450,
+      "fraction": 0.25
+    },
+    {
+      "index": 27,
+      "song": "PR - Happy Daze",
+      "offset": 1793792,
+      "fraction": 0.25
+    },
+    {
+      "index": 28,
+      "song": "PR - Oh No",
+      "offset": 840044,
+      "fraction": 0.25
+    },
+    {
+      "index": 29,
+      "song": "Punkdisco - Oral Hygiene",
+      "offset": 2443120,
+      "fraction": 0.25
+    },
+    {
+      "index": 30,
+      "song": "Raft Monk - Tiring",
+      "offset": 2340007,
+      "fraction": 0.25
+    },
+    {
+      "index": 31,
+      "song": "Sambasevam Shanmugam - Kaathaadi",
+      "offset": 3504621,
+      "fraction": 0.25
+    },
+    {
+      "index": 32,
+      "song": "Secretariat - Borderline",
+      "offset": 3162473,
+      "fraction": 0.25
+    },
+    {
+      "index": 33,
+      "song": "Secretariat - Over The Top",
+      "offset": 2768332,
+      "fraction": 0.25
+    },
+    {
+      "index": 34,
+      "song": "Side Effects Project - Sing With Me",
+      "offset": 2686605,
+      "fraction": 0.25
+    },
+    {
+      "index": 35,
+      "song": "Signe Jakobsen - What Have You Done To Me",
+      "offset": 1955805,
+      "fraction": 0.25
+    },
+    {
+      "index": 36,
+      "song": "Skelpolu - Resurrection",
+      "offset": 4362183,
+      "fraction": 0.25
+    },
+    {
+      "index": 37,
+      "song": "Speak Softly - Broken Man",
+      "offset": 2791091,
+      "fraction": 0.25
+    },
+    {
+      "index": 38,
+      "song": "Speak Softly - Like Horses",
+      "offset": 3447150,
+      "fraction": 0.25
+    },
+    {
+      "index": 39,
+      "song": "The Doppler Shift - Atrophy",
+      "offset": 3654147,
+      "fraction": 0.25
+    },
+    {
+      "index": 40,
+      "song": "The Easton Ellises (Baumi) - SDRNR",
+      "offset": 2587392,
+      "fraction": 0.25
+    },
+    {
+      "index": 41,
+      "song": "The Easton Ellises - Falcon 69",
+      "offset": 2723072,
+      "fraction": 0.25
+    },
+    {
+      "index": 42,
+      "song": "The Long Wait - Dark Horses",
+      "offset": 3370573,
+      "fraction": 0.25
+    },
+    {
+      "index": 43,
+      "song": "The Mountaineering Club - Mallory",
+      "offset": 2695169,
+      "fraction": 0.25
+    },
+    {
+      "index": 44,
+      "song": "The Sunshine Garcia Band - For I Am The Moon",
+      "offset": 3531270,
+      "fraction": 0.25
+    },
+    {
+      "index": 45,
+      "song": "Timboz - Pony",
+      "offset": 2789862,
+      "fraction": 0.25
+    },
+    {
+      "index": 46,
+      "song": "Tom McKenzie - Directions",
+      "offset": 1938775,
+      "fraction": 0.25
+    },
+    {
+      "index": 47,
+      "song": "Triviul feat. The Fiend - Widow",
+      "offset": 2592084,
+      "fraction": 0.25
+    },
+    {
+      "index": 48,
+      "song": "We Fell From The Sky - Not You",
+      "offset": 2292068,
+      "fraction": 0.25
+    },
+    {
+      "index": 49,
+      "song": "Zeno - Signs",
+      "offset": 2584082,
+      "fraction": 0.25
+    },
+    {
+      "index": 50,
+      "song": "AM Contra - Heart Peripheral",
+      "offset": 4169548,
+      "fraction": 0.45
+    },
+    {
+      "index": 51,
+      "song": "Al James - Schoolboy Facination",
+      "offset": 3979453,
+      "fraction": 0.45
+    },
+    {
+      "index": 52,
+      "song": "Angels In Amplifiers - I'm Alright",
+      "offset": 3564037,
+      "fraction": 0.45
+    },
+    {
+      "index": 53,
+      "song": "Arise - Run Run Run",
+      "offset": 4353851,
+      "fraction": 0.45
+    },
+    {
+      "index": 54,
+      "song": "BKS - Bulldozer",
+      "offset": 6688562,
+      "fraction": 0.45
+    },
+    {
+      "index": 55,
+      "song": "BKS - Too Much",
+      "offset": 4368380,
+      "fraction": 0.45
+    }
+  ]
+}

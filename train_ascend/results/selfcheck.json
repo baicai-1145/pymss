@@ -1,0 +1,57 @@
+{
+  "frames": 690,
+  "cpu": {
+    "device": "cpu",
+    "params": 20873908,
+    "mask_shape": [
+      1,
+      2050,
+      690,
+      2
+    ],
+    "mask_finite": true,
+    "waveform_shape": [
+      2,
+      352800
+    ],
+    "waveform_finite": true,
+    "waveform_absmax": 0.0024754952173680067,
+    "loss": 0.021021435037255287,
+    "params_without_grad": [],
+    "params_without_grad_count": 0,
+    "params_nonfinite_grad": [],
+    "params_nonfinite_grad_count": 0,
+    "params_zero_grad_count": 0,
+    "param_groups": 589,
+    "forward_s": 0.688,
+    "backward_s": 1.774,
+    "peak_mem_mb": null
+  },
+  "npu": {
+    "device": "npu:0",
+    "params": 20873908,
+    "mask_shape": [
+      1,
+      2050,
+      690,
+      2
+    ],
+    "mask_finite": true,
+    "waveform_shape": [
+      2,
+      352800
+    ],
+    "waveform_finite": true,
+    "waveform_absmax": 0.002374056726694107,
+    "loss": 0.021014995872974396,
+    "params_without_grad": [],
+    "params_without_grad_count": 0,
+    "params_nonfinite_grad": [],
+    "params_nonfinite_grad_count": 0,
+    "params_zero_grad_count": 0,
+    "param_groups": 589,
+    "forward_s": 0.255,
+    "backward_s": 0.324,
+    "peak_mem_mb": 2892.5
+  }
+}

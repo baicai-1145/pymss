@@ -197,3 +197,9 @@ input2.wav
 # ascend bring-up artifacts
 .tmp/
 __pycache__/
+
+# ascend bring-up artifacts
+.tmp/
+runs/
+__pycache__/
+*.pyc
