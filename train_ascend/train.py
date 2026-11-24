@@ -295,11 +295,16 @@ def split_fc(spec_c: torch.Tensor, channels: int) -> torch.Tensor:
 
 
 def waveform(x, channels: int, n_fft: int, hop: int, length: int, window) -> torch.Tensor:
-    from pymss_core.npu_fft import istft_npu
+    """Per-channel iSTFT with an explicit adjoint.
 
-    flat = split_fc(x, channels)
-    wav = istft_npu(flat, n_fft=n_fft, hop_length=hop, window=window, length=length, return_complex=False)
-    return wav.reshape(x.shape[0], channels, -1)
+    Two wins over the old path (measured in istft_check.py):
+    * the channel split runs on the real view: complex reshape/permute costs 73 ms
+      per call here, the real-plane version 0.4 ms (that, not iSTFT, was the 83 ms)
+    * iSTFT's backward is replaced by the exact adjoint (fast_istft.IstftChannels)
+    """
+    from fast_istft import istft_channels
+
+    return istft_channels(x, window, n_fft, hop, length, channels)
 
 
 # ------------------------------------------------------------------ main

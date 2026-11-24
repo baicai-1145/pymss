@@ -1,0 +1,19 @@
+{
+  "batch": 48,
+  "length": 352800,
+  "n_fft": 2048,
+  "hop": 512,
+  "frames": 690,
+  "forward_rel_rms": 6.95374495762735e-08,
+  "grad_rel_rms": 1.5174317979926855e-07,
+  "grad_max_abs": 2.2429217594321926e-08,
+  "fwd_ms": {
+    "vendor": 9.13,
+    "adjoint_fn": 9.14
+  },
+  "fwd_bwd_ms": {
+    "vendor": 52.45,
+    "adjoint_fn": 51.01
+  },
+  "fwd_bwd_speedup": 1.03
+}
