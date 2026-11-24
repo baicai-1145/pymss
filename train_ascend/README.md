@@ -117,3 +117,37 @@ chain, not the mask head alone.
 
 New tools: `profile_infer.py` (NPU-event stage breakdown), `bench_infer_fused.py`
 (baseline vs per-band vs per-band+RoPE, 3 repeats).
+
+---
+
+## Where does the training step go? (`profile_train.py`)
+
+Sync-bounded phase profiling of one bs24 step on real MUSDB data (100 steps,
+3 warmup dropped). Results: `results/profile_train_{bf16,fp32}.json`.
+
+| phase | bf16 ms | share |
+|---|---|---|
+| **backward (incl. loss graph)** | 2194.7 | 80.3% |
+| forward | 202.9 | 7.4% |
+| istft_tgt / istft_pred | 82.8 / 82.8 | 6.0% |
+| h2d_copy (543 MB) | 77.6 | 2.8% |
+| loss_mrstft 2048/1024/512 | 28.1 / 16.0 / 9.7 | 2.0% |
+| optimizer_step / grad_clip / ema | 14.8 / 7.6 / 7.8 | 1.1% |
+| dataloader_wait | 0.9 | 0.03% |
+| total | 2732.2 | 100% |
+
+Segments reconcile with wall time to 0.00%, so nothing is unaccounted for.
+
+Splitting `backward` with loss-less ablations: the multi-resolution STFT loss costs
+**1392 ms (51%)**, istft+SI-SDR+leakage 469 ms (17%), the model forward+backward only
+763 ms (28%). The root cause is that Ascend has no native complex STFT —
+`torch.stft` backward measures ~480 ms per call (see `results/stft_fwd_bwd_microbench.json`),
+and the loss calls it three times per step.
+
+Cheapest implementation-only fix (measured, 23 steps each): swap the loss's `torch.stft`
+for `pymss_core.npu_fft.stft_npu` → 2098 ms, or take the magnitude from the real view
+`sqrt(re^2+im^2+1e-12)` → 2084 ms. Both are algebraically the same loss (rel_rms ≤ 8.3e-7
+for `stft_npu`), so neither changes the recipe. The real-view variant needs the epsilon:
+plain `sqrt(0)` gave infinite gradients and NaN weights, the same trap as `leakage_loss`.
+Loss-in-autocast gains nothing (−9 ms), resolutions/hop changes do help but they change
+the loss definition and therefore break equivalence with the G4 reference.

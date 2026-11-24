@@ -1,0 +1,206 @@
+{
+  "config": {
+    "precision": "32",
+    "batch_size": 24,
+    "steps_measured": 97,
+    "warmup_steps_dropped": 3,
+    "chunk_size": 352800,
+    "n_fft": 2048,
+    "model_hop": 512,
+    "mrstft_resolutions": [
+      512,
+      1024,
+      2048
+    ],
+    "mrstft_dropped": null,
+    "mrstft_fixed_hop": null,
+    "num_workers": 4,
+    "prefetch_factor": 2,
+    "persistent_workers": true,
+    "pin_memory": false,
+    "loss_weights": {
+      "mrstft": 0.5,
+      "sisdr": 0.1,
+      "leak": 0.1
+    },
+    "grad_clip": 1.0,
+    "ema_decay": 0.999
+  },
+  "phases": {
+    "dataloader_wait": {
+      "sum_ms": 115.16,
+      "mean_ms": 1.19,
+      "median_ms": 1.02,
+      "share_pct": 0.04
+    },
+    "h2d_copy": {
+      "sum_ms": 8427.23,
+      "mean_ms": 86.88,
+      "median_ms": 83.34,
+      "share_pct": 2.59
+    },
+    "forward": {
+      "sum_ms": 37409.61,
+      "mean_ms": 385.67,
+      "median_ms": 385.54,
+      "share_pct": 11.5
+    },
+    "prep_complex": {
+      "sum_ms": 116.53,
+      "mean_ms": 1.2,
+      "median_ms": 1.18,
+      "share_pct": 0.04
+    },
+    "loss_complex": {
+      "sum_ms": 129.83,
+      "mean_ms": 1.34,
+      "median_ms": 1.34,
+      "share_pct": 0.04
+    },
+    "istft_pred": {
+      "sum_ms": 8072.44,
+      "mean_ms": 83.22,
+      "median_ms": 83.41,
+      "share_pct": 2.48
+    },
+    "istft_tgt": {
+      "sum_ms": 8030.44,
+      "mean_ms": 82.79,
+      "median_ms": 82.8,
+      "share_pct": 2.47
+    },
+    "loss_mrstft_512": {
+      "sum_ms": 942.0,
+      "mean_ms": 9.71,
+      "median_ms": 9.7,
+      "share_pct": 0.29
+    },
+    "loss_mrstft_1024": {
+      "sum_ms": 1553.18,
+      "mean_ms": 16.01,
+      "median_ms": 16.01,
+      "share_pct": 0.48
+    },
+    "loss_mrstft_2048": {
+      "sum_ms": 2743.03,
+      "mean_ms": 28.28,
+      "median_ms": 28.05,
+      "share_pct": 0.84
+    },
+    "loss_sisdr": {
+      "sum_ms": 79.55,
+      "mean_ms": 0.82,
+      "median_ms": 0.82,
+      "share_pct": 0.02
+    },
+    "loss_leak": {
+      "sum_ms": 94.33,
+      "mean_ms": 0.97,
+      "median_ms": 0.94,
+      "share_pct": 0.03
+    },
+    "backward": {
+      "sum_ms": 254543.62,
+      "mean_ms": 2624.16,
+      "median_ms": 2623.58,
+      "share_pct": 78.25
+    },
+    "grad_clip": {
+      "sum_ms": 705.36,
+      "mean_ms": 7.27,
+      "median_ms": 6.98,
+      "share_pct": 0.22
+    },
+    "grad_norm_to_host": {
+      "sum_ms": 6.05,
+      "mean_ms": 0.06,
+      "median_ms": 0.06,
+      "share_pct": 0.0
+    },
+    "optimizer_step": {
+      "sum_ms": 1555.77,
+      "mean_ms": 16.04,
+      "median_ms": 14.96,
+      "share_pct": 0.48
+    },
+    "ema_update": {
+      "sum_ms": 757.89,
+      "mean_ms": 7.81,
+      "median_ms": 7.85,
+      "share_pct": 0.23
+    },
+    "total": {
+      "sum_ms": 325283.6,
+      "mean_ms": 3353.44,
+      "median_ms": 3350.82,
+      "share_pct": 100.0,
+      "note": "sync-free wall time per step (start->end without intra-step syncs)"
+    }
+  },
+  "reconciliation": {
+    "wall_total_ms": 325283.6,
+    "sum_of_segments_ms": 325282.02,
+    "error_pct": -0.0,
+    "per_step_wall_median_ms": 3350.82,
+    "note": "segments are sync-bounded, so sum >= wall by the cost of ~16 syncs/step"
+  },
+  "loss_values": {
+    "loss": 4.313198,
+    "loss_spec": 0.300499,
+    "loss_mrstft": 7.783537,
+    "loss_sisdr": 0.940756,
+    "loss_leak": 0.268554
+  },
+  "clip_grad_norm_syncs": [
+    0
+  ],
+  "fft_stats": {
+    "signal_length": 352800,
+    "signals_per_batch": 48,
+    "resolutions": [
+      {
+        "n_fft": 512,
+        "hop": 128,
+        "frames_measured": 2757,
+        "bins": 257,
+        "elements_per_signal": 708549,
+        "elements_all_signals": 5668392,
+        "ffts_pred_plus_target": 22056
+      },
+      {
+        "n_fft": 1024,
+        "hop": 256,
+        "frames_measured": 1379,
+        "bins": 513,
+        "elements_per_signal": 707427,
+        "elements_all_signals": 5659416,
+        "ffts_pred_plus_target": 11032
+      },
+      {
+        "n_fft": 2048,
+        "hop": 512,
+        "frames_measured": 690,
+        "bins": 1025,
+        "elements_per_signal": 707250,
+        "elements_all_signals": 5658000,
+        "ffts_pred_plus_target": 5520
+      }
+    ],
+    "total_ffts_per_step": 38608,
+    "istft_hop": 512,
+    "isframes_per_step": 690,
+    "total_iffts_per_step": 66240,
+    "note": "frames/bins measured from torch.stft shapes on device; 8 s @44.1 kHz with model hop 512 -> 690 frames"
+  },
+  "worker_costs": {
+    "source": "measured serially with num_workers=0, same __getitem__ code path",
+    "per_item_decode_ms_median": 1.79,
+    "per_item_stft_ms_median": 1.45,
+    "per_item_total_ms_median": 3.18,
+    "decoded_bytes_per_item": 5644800,
+    "decoded_bytes_per_step_bs": null,
+    "wav_decode_in_worker_threads": true,
+    "decoded_bytes_per_step": 135475200,
+    "logical_read_mb_per_step": 129.2
+  }
+}

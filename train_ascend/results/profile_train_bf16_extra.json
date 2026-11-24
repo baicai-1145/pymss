@@ -1,0 +1,72 @@
+{
+  "note": "extra ablations: loss-graph cost attribution and the two candidate implementation fixes",
+  "steps_per_config": 23,
+  "precision": "bf16",
+  "runs": [
+    {
+      "label": "no_mrstft",
+      "config": {
+        "resolutions": []
+      },
+      "median_step_ms": 1340.3,
+      "backward_ms": 866.01,
+      "mrstft_forward_sum_ms": 0,
+      "loss": 0.499153,
+      "delta_step_mm": -1391.9
+    },
+    {
+      "label": "stft_backend_npu",
+      "config": {
+        "stft_backend": "npu"
+      },
+      "median_step_ms": 2098.4,
+      "backward_ms": 1570.74,
+      "mrstft_forward_sum_ms": 1133.49,
+      "loss": 4.66787,
+      "delta_step_mm": -633.8
+    },
+    {
+      "label": "loss_autocast_bf16",
+      "config": {
+        "loss_autocast": true
+      },
+      "median_step_ms": 2723.0,
+      "backward_ms": 2193.35,
+      "mrstft_forward_sum_ms": 1076.9,
+      "loss": 4.636608,
+      "delta_step_mm": -9.2
+    },
+    {
+      "label": "stft_npu_plus_loss_autocast",
+      "config": {
+        "stft_backend": "npu",
+        "loss_autocast": true
+      },
+      "median_step_ms": 2118.62,
+      "backward_ms": 1573.21,
+      "mrstft_forward_sum_ms": 1204.06,
+      "loss": 4.62359,
+      "delta_step_mm": -613.6
+    }
+  ],
+  "baseline_step_ms": 2732.24,
+  "baseline_backward_ms": 2194.74,
+  "baseline_loss": 4.547224,
+  "stft_npu_vs_torch": [
+    {
+      "n_fft": 512,
+      "max_abs": 6.108170055085793e-05,
+      "rel_rms": 4.3549485440053104e-07
+    },
+    {
+      "n_fft": 1024,
+      "max_abs": 0.00012971373507753015,
+      "rel_rms": 5.98787607941631e-07
+    },
+    {
+      "n_fft": 2048,
+      "max_abs": 0.0002908956666942686,
+      "rel_rms": 8.310960879498452e-07
+    }
+  ]
+}

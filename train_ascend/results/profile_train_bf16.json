@@ -1,0 +1,461 @@
+{
+  "config": {
+    "precision": "bf16",
+    "batch_size": 24,
+    "steps_measured": 97,
+    "warmup_steps_dropped": 3,
+    "chunk_size": 352800,
+    "n_fft": 2048,
+    "model_hop": 512,
+    "mrstft_resolutions": [
+      512,
+      1024,
+      2048
+    ],
+    "mrstft_dropped": null,
+    "mrstft_fixed_hop": null,
+    "num_workers": 4,
+    "prefetch_factor": 2,
+    "persistent_workers": true,
+    "pin_memory": false,
+    "loss_weights": {
+      "mrstft": 0.5,
+      "sisdr": 0.1,
+      "leak": 0.1
+    },
+    "grad_clip": 1.0,
+    "ema_decay": 0.999
+  },
+  "phases": {
+    "dataloader_wait": {
+      "sum_ms": 87.45,
+      "mean_ms": 0.9,
+      "median_ms": 0.91,
+      "share_pct": 0.03
+    },
+    "h2d_copy": {
+      "sum_ms": 7550.91,
+      "mean_ms": 77.84,
+      "median_ms": 77.59,
+      "share_pct": 2.85
+    },
+    "forward": {
+      "sum_ms": 19679.18,
+      "mean_ms": 202.88,
+      "median_ms": 202.85,
+      "share_pct": 7.42
+    },
+    "prep_complex": {
+      "sum_ms": 115.97,
+      "mean_ms": 1.2,
+      "median_ms": 1.19,
+      "share_pct": 0.04
+    },
+    "loss_complex": {
+      "sum_ms": 129.5,
+      "mean_ms": 1.34,
+      "median_ms": 1.33,
+      "share_pct": 0.05
+    },
+    "istft_pred": {
+      "sum_ms": 8030.96,
+      "mean_ms": 82.79,
+      "median_ms": 82.77,
+      "share_pct": 3.03
+    },
+    "istft_tgt": {
+      "sum_ms": 8033.18,
+      "mean_ms": 82.82,
+      "median_ms": 82.84,
+      "share_pct": 3.03
+    },
+    "loss_mrstft_512": {
+      "sum_ms": 941.68,
+      "mean_ms": 9.71,
+      "median_ms": 9.71,
+      "share_pct": 0.36
+    },
+    "loss_mrstft_1024": {
+      "sum_ms": 1553.62,
+      "mean_ms": 16.02,
+      "median_ms": 16.01,
+      "share_pct": 0.59
+    },
+    "loss_mrstft_2048": {
+      "sum_ms": 2722.78,
+      "mean_ms": 28.07,
+      "median_ms": 28.05,
+      "share_pct": 1.03
+    },
+    "loss_sisdr": {
+      "sum_ms": 78.54,
+      "mean_ms": 0.81,
+      "median_ms": 0.81,
+      "share_pct": 0.03
+    },
+    "loss_leak": {
+      "sum_ms": 92.44,
+      "mean_ms": 0.95,
+      "median_ms": 0.93,
+      "share_pct": 0.03
+    },
+    "backward": {
+      "sum_ms": 212860.5,
+      "mean_ms": 2194.44,
+      "median_ms": 2194.74,
+      "share_pct": 80.31
+    },
+    "grad_clip": {
+      "sum_ms": 746.41,
+      "mean_ms": 7.69,
+      "median_ms": 7.56,
+      "share_pct": 0.28
+    },
+    "grad_norm_to_host": {
+      "sum_ms": 6.29,
+      "mean_ms": 0.06,
+      "median_ms": 0.06,
+      "share_pct": 0.0
+    },
+    "optimizer_step": {
+      "sum_ms": 1654.46,
+      "mean_ms": 17.06,
+      "median_ms": 14.78,
+      "share_pct": 0.62
+    },
+    "ema_update": {
+      "sum_ms": 761.82,
+      "mean_ms": 7.85,
+      "median_ms": 7.79,
+      "share_pct": 0.29
+    },
+    "total": {
+      "sum_ms": 265047.18,
+      "mean_ms": 2732.45,
+      "median_ms": 2732.24,
+      "share_pct": 100.0,
+      "note": "sync-free wall time per step (start->end without intra-step syncs)"
+    }
+  },
+  "reconciliation": {
+    "wall_total_ms": 265047.18,
+    "sum_of_segments_ms": 265045.69,
+    "error_pct": -0.0,
+    "per_step_wall_median_ms": 2732.24,
+    "note": "segments are sync-bounded, so sum >= wall by the cost of ~16 syncs/step"
+  },
+  "loss_values": {
+    "loss": 4.547224,
+    "loss_spec": 0.299417,
+    "loss_mrstft": 8.238061,
+    "loss_sisdr": 0.947046,
+    "loss_leak": 0.340716
+  },
+  "clip_grad_norm_syncs": [
+    0
+  ],
+  "fft_stats": {
+    "signal_length": 352800,
+    "signals_per_batch": 48,
+    "resolutions": [
+      {
+        "n_fft": 512,
+        "hop": 128,
+        "frames_measured": 2757,
+        "bins": 257,
+        "elements_per_signal": 708549,
+        "elements_all_signals": 5668392,
+        "ffts_pred_plus_target": 22056
+      },
+      {
+        "n_fft": 1024,
+        "hop": 256,
+        "frames_measured": 1379,
+        "bins": 513,
+        "elements_per_signal": 707427,
+        "elements_all_signals": 5659416,
+        "ffts_pred_plus_target": 11032
+      },
+      {
+        "n_fft": 2048,
+        "hop": 512,
+        "frames_measured": 690,
+        "bins": 1025,
+        "elements_per_signal": 707250,
+        "elements_all_signals": 5658000,
+        "ffts_pred_plus_target": 5520
+      }
+    ],
+    "total_ffts_per_step": 38608,
+    "istft_hop": 512,
+    "isframes_per_step": 690,
+    "total_iffts_per_step": 66240,
+    "note": "frames/bins measured from torch.stft shapes on device; 8 s @44.1 kHz with model hop 512 -> 690 frames"
+  },
+  "worker_costs": {
+    "source": "measured serially with num_workers=0, same __getitem__ code path",
+    "per_item_decode_ms_median": 1.39,
+    "per_item_stft_ms_median": 1.34,
+    "per_item_total_ms_median": 2.73,
+    "decoded_bytes_per_item": 5644800,
+    "decoded_bytes_per_step_bs": null,
+    "wav_decode_in_worker_threads": true,
+    "decoded_bytes_per_step": 135475200,
+    "logical_read_mb_per_step": 129.2
+  },
+  "ablation": {
+    "note": "speed-only runs; loss values are logged so any numeric drift is visible",
+    "steps_per_config": 20,
+    "precision": "bf16",
+    "runs": [
+      {
+        "kind": "toggle_resolution",
+        "n_fft": 256,
+        "action": "added",
+        "resolutions": [
+          512,
+          1024,
+          2048,
+          256
+        ],
+        "median_step_ms": 3164.23,
+        "delta_vs_baseline_ms": 432.0,
+        "mrstft_forward_sum_ms": 1228.13,
+        "loss": 6.05648,
+        "loss_changed": true
+      },
+      {
+        "kind": "toggle_resolution",
+        "n_fft": 512,
+        "action": "dropped",
+        "resolutions": [
+          1024,
+          2048
+        ],
+        "median_step_ms": 2280.98,
+        "delta_vs_baseline_ms": -451.3,
+        "mrstft_forward_sum_ms": 886.38,
+        "loss": 3.242364,
+        "loss_changed": true
+      },
+      {
+        "kind": "toggle_resolution",
+        "n_fft": 1024,
+        "action": "dropped",
+        "resolutions": [
+          512,
+          2048
+        ],
+        "median_step_ms": 2247.86,
+        "delta_vs_baseline_ms": -484.4,
+        "mrstft_forward_sum_ms": 755.06,
+        "loss": 3.267878,
+        "loss_changed": true
+      },
+      {
+        "kind": "toggle_resolution",
+        "n_fft": 2048,
+        "action": "dropped",
+        "resolutions": [
+          512,
+          1024
+        ],
+        "median_step_ms": 2250.68,
+        "delta_vs_baseline_ms": -481.6,
+        "mrstft_forward_sum_ms": 514.11,
+        "loss": 3.33365,
+        "loss_changed": true
+      },
+      {
+        "kind": "toggle_resolution",
+        "n_fft": 4096,
+        "action": "added",
+        "resolutions": [
+          512,
+          1024,
+          2048,
+          4096
+        ],
+        "median_step_ms": 3237.0,
+        "delta_vs_baseline_ms": 504.8,
+        "mrstft_forward_sum_ms": 2111.12,
+        "loss": 5.936527,
+        "loss_changed": true
+      },
+      {
+        "kind": "fixed_hop",
+        "hop": 147,
+        "median_step_ms": 4463.47,
+        "mrstft_ms": 2618.6,
+        "loss": 4.711447,
+        "loss_changed": true
+      },
+      {
+        "kind": "fixed_hop",
+        "hop": 512,
+        "median_step_ms": 2141.26,
+        "mrstft_ms": 781.0300000000001,
+        "loss": 4.658018,
+        "loss_changed": true
+      },
+      {
+        "kind": "backward_split",
+        "loss_mode": "spec_only",
+        "label": "complex_l1_only",
+        "median_step_ms": 1263.6,
+        "backward_median_ms": 784.61,
+        "loss": 0.275278,
+        "loss_changed": true
+      },
+      {
+        "kind": "backward_split",
+        "loss_mode": "mask_scalar",
+        "label": "model_fwd_bwd_only",
+        "median_step_ms": 871.66,
+        "backward_median_ms": 0.96,
+        "loss": -3.381836,
+        "loss_changed": true
+      },
+      {
+        "kind": "num_workers",
+        "num_workers": 0,
+        "median_step_ms": 2878.44,
+        "dataloader_wait_ms": 136.99,
+        "loss": 4.679201,
+        "loss_changed": false
+      },
+      {
+        "kind": "num_workers",
+        "num_workers": 4,
+        "median_step_ms": 2727.52,
+        "dataloader_wait_ms": 1.01,
+        "loss": 4.598922,
+        "loss_changed": false
+      },
+      {
+        "kind": "num_workers",
+        "num_workers": 8,
+        "median_step_ms": 2719.34,
+        "dataloader_wait_ms": 0.87,
+        "loss": 4.62728,
+        "loss_changed": false
+      },
+      {
+        "kind": "num_workers",
+        "num_workers": 16,
+        "median_step_ms": 2722.85,
+        "dataloader_wait_ms": 0.13,
+        "loss": 4.657264,
+        "loss_changed": false
+      }
+    ],
+    "baseline_step_ms": 2732.24,
+    "baseline_loss": 4.547224
+  },
+  "ablation_extra": {
+    "note": "extra ablations: loss-graph cost attribution and the two candidate implementation fixes; median of 23 measured steps per config, bf16, bs24",
+    "baseline_step_ms": 2732.24,
+    "baseline_backward_ms": 2194.74,
+    "runs": [
+      {
+        "label": "no_mrstft",
+        "config": {
+          "resolutions": []
+        },
+        "median_step_ms": 1340.3,
+        "backward_ms": 866.01,
+        "mrstft_forward_sum_ms": 0,
+        "loss": 0.499153,
+        "delta_step_mm": -1391.9
+      },
+      {
+        "label": "stft_backend_npu",
+        "config": {
+          "stft_backend": "npu"
+        },
+        "median_step_ms": 2098.4,
+        "backward_ms": 1570.74,
+        "mrstft_forward_sum_ms": 1133.49,
+        "loss": 4.66787,
+        "delta_step_mm": -633.8
+      },
+      {
+        "label": "loss_autocast_bf16",
+        "config": {
+          "loss_autocast": true
+        },
+        "median_step_ms": 2723.0,
+        "backward_ms": 2193.35,
+        "mrstft_forward_sum_ms": 1076.9,
+        "loss": 4.636608,
+        "delta_step_mm": -9.2
+      },
+      {
+        "label": "stft_npu_plus_loss_autocast",
+        "config": {
+          "stft_backend": "npu",
+          "loss_autocast": true
+        },
+        "median_step_ms": 2118.62,
+        "backward_ms": 1573.21,
+        "mrstft_forward_sum_ms": 1204.06,
+        "loss": 4.62359,
+        "delta_step_mm": -613.6
+      },
+      {
+        "error": "ValueError: stft_npu requires return_complex=True",
+        "label": "realview_plus_npu_stft"
+      },
+      {
+        "label": "realview_eps",
+        "median_step_ms": 2083.55,
+        "backward_ms": 1528.52,
+        "mrstft_forward_sum_ms": 1201.29,
+        "loss": 4.650259,
+        "losses": {
+          "loss": 4.650259,
+          "loss_spec": 0.349122,
+          "loss_mrstft": 8.304705,
+          "loss_sisdr": 1.00863,
+          "loss_leak": 0.479217
+        }
+      }
+    ],
+    "stft_npu_vs_torch": [
+      {
+        "n_fft": 512,
+        "max_abs": 6.108170055085793e-05,
+        "rel_rms": 4.3549485440053104e-07
+      },
+      {
+        "n_fft": 1024,
+        "max_abs": 0.00012971373507753015,
+        "rel_rms": 5.98787607941631e-07
+      },
+      {
+        "n_fft": 2048,
+        "max_abs": 0.0002908956666942686,
+        "rel_rms": 8.310960879498452e-07
+      }
+    ],
+    "stft_fwd_bwd_microbench_ms": {
+      "512": {
+        "complex_ms": 505.6,
+        "realview_ms": 319.8
+      },
+      "1024": {
+        "complex_ms": 520.7,
+        "realview_ms": 280.4
+      },
+      "2048": {
+        "complex_ms": 530.4,
+        "realview_ms": 312.4
+      }
+    },
+    "notes": {
+      "realview": "|z| = sqrt(re^2+im^2+1e-12); the plain sqrt(0) version produced NaN weights (infinite grad), same failure mode as leakage_loss",
+      "realview_plus_npu_stft": "not runnable: stft_npu requires return_complex=True",
+      "loss_autocast_bf16": "no gain (-9 ms); the loss graph is memory/latency bound, not precision bound"
+    }
+  }
+}
