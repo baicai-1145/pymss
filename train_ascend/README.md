@@ -184,3 +184,34 @@ of the forward is launch floor. Compute would allow 0.497 ms (28x), the kernel c
 allows 1.62x — so the model is launch/granularity bound, not compute or bandwidth bound.
 Getting 10x needs 1910 -> 308 kernels; the FLOPs budget (520 GFLOP) already fits the
 current 187.5 GFLOP, so the model does **not** need to shrink — it needs fusion.
+
+---
+
+## Speeding up the step: what worked and what did not
+
+`fast_loss.py` replaces the backward of the MR-STFT loss with an explicit adjoint
+(analytic `d|z|/dz` -> rfft adjoint -> window -> `F.fold` -> reflect-pad adjoint), so
+`aten::stft`'s ~480 ms backward is never executed. Verified against `torch.stft`:
+forward rel_rms 3.3e-08, gradient rel_rms <= 6.9e-07.
+
+| | before | after | speedup |
+|---|---|---|---|
+| bf16 bs24 | 2736.7 ms | **1992.5 ms** | 1.37x |
+| fp32 bs24 | 3364.6 ms | **2600.1 ms** | 1.29x |
+
+Enable with `train.py --fast-loss`. The whole gain is in `backward` (2194.7 -> 1443.8 ms);
+every other phase is unchanged. The requested 6-7x (390-450 ms) was **not** reached: only
+the STFT loss was attacked, while the model forward+backward (763 ms) and the
+istft/SI-SDR graph (469 ms) still need kernel-level fusion work.
+
+Two Ascend traps found on the way: `sqrt(0)` in the magnitude gives infinite gradients
+(NaN weights), and adding a **Python float to a large tensor** triggers a vector-core
+exception ("MTE instruction accesses an invalid GM address"), so epsilons must be 0-dim
+tensors.
+
+Graph capture (`graph_capture.py`): the API is `torch.npu.NPUGraph` (there is no
+`torch.npu.CUDAGraph`). A simple MLP captures and replays bit-exactly in 0.023 ms, but the
+U-Net forward fails with `endCaptureErr 107025` (cross-stream) in both `global` and
+`relaxed` modes; `band_split` and `enc62` do capture individually. Even a successful
+capture would only save the bs24 launch floor of 8.54 ms (0.4% of the step) — at bs24 the
+step is not launch-bound, unlike the 13.8 ms single-window inference.

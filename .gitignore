@@ -203,3 +203,6 @@ __pycache__/
 runs/
 __pycache__/
 *.pyc
+
+# CANN crash dumps
+train_ascend/extra-info/

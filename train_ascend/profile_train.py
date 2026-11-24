@@ -172,7 +172,7 @@ def run(args, precision: str, steps: int, resolutions=DEFAULT_RESOLUTIONS,
         num_workers: int | None = None, fixed_hop: int | None = None,
         drop: int | None = None, loss_mode: str = "full",
         stft_backend: str = "torch", loss_autocast: bool = False,
-        stft_mode: str = "complex") -> dict:
+        stft_mode: str = "complex", fast_loss: bool = False) -> dict:
     """loss_mode: 'full' (train.py recipe) | 'spec_only' | 'mask_scalar' (model fwd+bwd only).
 
     stft_backend: 'torch' uses torch.stft (what train.py does today on Ascend, where
@@ -180,6 +180,10 @@ def run(args, precision: str, steps: int, resolutions=DEFAULT_RESOLUTIONS,
     vendor/exact FFT path the rest of pymss already uses.
     loss_autocast: run istft + STFT + loss terms inside autocast (numerics change).
     """
+    if fast_loss:
+        from fast_loss import stft_mag_fast as _stft_mag
+    else:
+        _stft_mag = None
     if stft_backend == "npu":
         from pymss_core.npu_fft import stft_npu as _stft_impl
     else:
@@ -275,7 +279,11 @@ def run(args, precision: str, steps: int, resolutions=DEFAULT_RESOLUTIONS,
             flat_p = pred_wav.float().reshape(-1, pred_wav.shape[-1])
             flat_t = tgt_wav.float().reshape(-1, tgt_wav.shape[-1])
             win = torch.hann_window(n_fft).to(device=device, dtype=torch.float32)
-            if stft_mode == "realview":
+            if fast_loss:
+                pm = _stft_mag(flat_p, win, n_fft, hop)
+                with torch.no_grad():
+                    tm = _stft_mag(flat_t, win, n_fft, hop)
+            elif stft_mode == "realview":
                 # |z| = sqrt(re^2 + im^2) is the same magnitude, but keeps the backend on
                 # the real path (Ascend has no native complex STFT; the complex-abs ops and
                 # the complex grad are what cost ~480 ms per backward here).
@@ -364,6 +372,7 @@ def run(args, precision: str, steps: int, resolutions=DEFAULT_RESOLUTIONS,
 
     return {
         "config": {
+            "fast_loss": fast_loss,
             "precision": precision, "batch_size": args.batch_size, "steps_measured": len(per_step),
             "warmup_steps_dropped": warm_steps, "chunk_size": args.chunk_size, "n_fft": args.n_fft,
             "model_hop": args.hop, "mrstft_resolutions": list(res_list),
@@ -426,6 +435,7 @@ def main(argv=None) -> int:
     parser.add_argument("--data-root", type=Path, default=Path("/workspace/musdb18hq"))
     parser.add_argument("--precision", default="bf16", choices=("32", "bf16"))
     parser.add_argument("--steps", type=int, default=100)
+    parser.add_argument("--fast-loss", action="store_true")
     parser.add_argument("--ablation", action="store_true")
     parser.add_argument("--ablation-steps", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=24)
@@ -442,7 +452,7 @@ def main(argv=None) -> int:
     import torch_npu  # noqa: F401
 
     print(f"[profile] {args.precision} bs{args.batch_size} steps={args.steps}", flush=True)
-    main_run = run(args, args.precision, args.steps)
+    main_run = run(args, args.precision, args.steps, fast_loss=args.fast_loss)
     main_run["fft_stats"] = fft_stats(args, DEFAULT_RESOLUTIONS)
     main_run["worker_costs"] = measure_worker_costs(args, torch.device("npu:0"))
     per_item = main_run["worker_costs"]["decoded_bytes_per_item"]

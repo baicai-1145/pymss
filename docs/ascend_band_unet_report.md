@@ -856,3 +856,113 @@ fp32 没有原生 cube 通路，只有 **bf16 的 1/16.0**；
 
 **给后续优化的分母**：bf16 算是 377.5 TFLOPS、带宽 1.44 TB/s、启动 4.47 µs。
 任何优化提案都应该回答"它减少了多少 kernel 数 / 多少 ALU 受限算子"，而不是"它提高了多少 TFLOPS"。
+
+---
+
+# 第五轮：训练提速攻坚（目标 390–450 ms，实测未达成）
+
+工具：`train_ascend/fast_loss.py`（自研 STFT autograd）、`graph_capture.py`、`train.py --fast-loss`。
+数据：`train_ascend/results/speedup_final.json`、`graph_capture.json`。
+
+## 33. 结果先说
+
+| 指标 | 改前 | 改后 | 加速 | 目标 | 差距 |
+|---|---|---|---|---|---|
+| bf16 bs24 | 2736.7 ms | **1992.5 ms** | **1.37x** | 390–450 ms | 差 1542.5 ms |
+| fp32 bs24 | 3364.6 ms | **2600.1 ms** | **1.29x** | — | — |
+
+**6–7x 没达到。** 真正落地且数学等价的只有一项：自研 STFT autograd（打掉 aten::stft 反向），
+它把 backward 从 2194.7 ms 压到 1443.8 ms（−751 ms）。图形捕获在本模型上抓不住（见 35 节），
+分组打包虽测出 10x 但没有默认启用（理由见 36 节）。
+
+## 34. 自定义 STFT autograd（唯一落地项，全部数学等价）
+
+`fast_loss.py`：前向 `torch.stft` + 由 real/imag 求模；反向**不调用** aten::stft 的 backward，而是
+①解析式 `d|z|/dz = g·z/|z|`（与 autograd 对比 6.4e-17）→ ②rfft 的伴随（用 PyTorch 自己的 rfft backward，
+一次 FFT）→ ③乘窗 → ④`F.fold` 做 overlap-add → ⑤reflect-pad 的伴随（pad 自己的 backward）。
+
+（`unfold` 的 backward 在昇腾未实现，所以分帧用 `as_strided` 视图 + 自写 backward。）
+
+等价性（bs48、8 s、随机权重做 JVP 对比）：
+
+| n_fft | 前向 rel_rms | 梯度 rel_rms | 参考实现耗时 | 本实现耗时 | 加速 |
+|---|---|---|---|---|---|
+| 512 | 3.29e-08 | 2.23e-07 | 438.4 ms | 182.8 ms | **2.4x** |
+| 1024 | 3.29e-08 | 1.31e-07 | 459.5 ms | 211.8 ms | **2.17x** |
+| 2048 | 3.29e-08 | 6.92e-07 | 450.1 ms | 210.4 ms | **2.14x** |
+
+前向 3.3e-08、梯度 ≤6.9e-07，**都满足 ≤1e-6**。整步收益：`backward` 2194.74 → 1443.79 ms。
+
+途中踩到的两个昇腾坑（都写进代码注释）：`sqrt(0)` 的梯度是 inf → NaN；直接对**大张量加 Python float**
+会触发 vector core 异常（MTE invalid GM），必须用 0 维张量当 eps。
+
+## 35. NPU Graph 捕获
+
+| 项目 | 结果 |
+|---|---|
+| API | `torch.npu.NPUGraph` + `torch.npu.graph(...)`（**没有** `torch.npu.CUDAGraph`） |
+| 简单 MLP（Linear+GELU） | **可捕获**，replay 0.023 ms，与 eager 逐位相同 |
+| `band_split` / `enc62` 单独 | 可捕获 |
+| **整模型前向** | **失败**：`endCaptureErr 107025`（cross-stream），`global`/`relaxed` 两种模式均失败 |
+| 整训练步 | 失败（同一错误） |
+
+**但这不改变结论**：按第四轮标定，bs24 每步只有 1910 个 kernel × 4.47 µs = **8.54 ms 的启动地板**，
+占 1987 ms 的 **0.4%**。也就是说**图捕获在 bs24 上最多省不到 1%**，它不是 6x 的那根杠杆
+（它在 bs1 推理 13.79 ms 的场景里才重要，那里启动占 62%）。所以即便抓图成功也到不了目标。
+
+## 36. 分组打包 / 融合
+
+- 62 段 band-split 的打包实测：逐个 0.2977 ms → 一次 padded bmm 0.0297 ms（**10.0x**），但填充浪费 2.0x。
+- **没有默认启用**：在 bs24 下整段 band_split GEMM 只占 202 ms 前向里的一小部分，而填充会让有效 FLOPs 翻倍；
+  真正吃时间的是 62 段小 GEMM 的**碎片化**与 depthwise conv，需要单 kernel 融合（未完成）。
+- mask_head 同构，同样未启用。
+- LocalBandBlock / MSC 的 Triton 融合**未实现**（时间不够），这是到 450 ms 的主要缺口。
+
+## 37. 13 段复测（bf16，bs24，含 fast-loss）
+
+对账：分段求和 / wall 误差 **-0.0%**，每步 wall **1987.38 ms**。
+
+| 段 | 改前 ms | 改后 ms | Δ | 占比 |
+|---|---|---|---|---|
+| `total` | 2732.2 | 1987.4 | -744.9 | 100.0% |
+| `backward` | 2194.7 | 1443.8 | -750.9 | 72.67% |
+| `forward` | 202.8 | 202.9 | +0.0 | 10.21% |
+| `istft_tgt` | 82.8 | 82.9 | +0.1 | 4.17% |
+| `istft_pred` | 82.8 | 82.9 | +0.1 | 4.17% |
+| `h2d_copy` | 77.6 | 79.2 | +1.6 | 3.99% |
+| `loss_mrstft_2048` | 28.1 | 29.9 | +1.9 | 1.51% |
+| `loss_mrstft_1024` | 16.0 | 17.9 | +1.8 | 0.9% |
+| `optimizer_step` | 14.8 | 14.6 | -0.2 | 0.71% |
+| `loss_mrstft_512` | 9.7 | 11.6 | +1.9 | 0.58% |
+| `ema_update` | 7.8 | 8.1 | +0.3 | 0.4% |
+| `grad_clip` | 7.6 | 7.7 | +0.1 | 0.4% |
+| `loss_complex` | 1.3 | 1.3 | +0.0 | 0.07% |
+| `prep_complex` | 1.2 | 1.2 | +0.0 | 0.06% |
+| `loss_leak` | 0.9 | 1.0 | +0.1 | 0.05% |
+| `dataloader_wait` | 0.9 | 0.9 | -0.0 | 0.04% |
+| `loss_sisdr` | 0.8 | 0.8 | +0.0 | 0.04% |
+| `grad_norm_to_host` | 0.1 | 0.1 | +0.0 | 0.0% |
+
+被压缩的只有 `backward`（−751 ms）；其余段完全不变。`loss_mrstft_*` 前向略涨（+5.6 ms，多算了一次模）。
+
+## 38. 卡在哪 / 地板在哪 / 6x 还差什么
+
+| 段 | 现在 | 实测地板 | 为什么不能再降（本轮） |
+|---|---|---|---|
+| `backward` | 1443.79 ms | ≈ 560（模型）+ 300（istft/SI-SDR）+ ~120（MR-STFT 伴随） | 模型反向 560 ms 需要 kernel 融合；istft/SI-SDR 的 300 ms 需要把 istft 也做成自研伴随；MR-STFT 仍有 120 ms 是因为我的伴随里**重算了一次 torch.stft**（把谱存下来可再省 ~100–150 ms） |
+| `forward` | 202.9 ms | 4500 GFLOP / 377 TFLOPS ≈ 12 ms（算力），实际 22 TFLOPS = 5.9% 峰值 | 62 段小 GEMM + depthwise conv 的碎片化，需融合 |
+| `istft_pred`+`istft_tgt` | 165.8 ms | ~83 ms/次（vendor FFT 单次即 83 ms） | istft 是 vendor 路径，要更快只能自己写伴随 |
+| `h2d_copy` | 79.2 ms | ~40 ms（pinned memory 未接） | 543 MB/步，现在是 pageable |
+| 其余 | ≈ 46 ms | — | — |
+
+**6x 还差 1536.0 ms**（目标 456 ms，现状 1992 ms）。
+缺口唯一主要来源：**模型 fwd+bwd（763 ms）与 istft/SI-SDR 图（469 ms）这两块我本轮没有动**，
+只打了 STFT 损失。要进 450 ms，模型必须做到 ~150 ms（需要 62 段打包 + depthwise/attention 融合），
+istft 路径必须做到 ~50 ms（需要自研 istft 伴随）。
+
+## 39. 哪些能默认采用
+
+- **纯实现、数学等价、可默认采用**：`--fast-loss`（前向 3.3e-8、梯度 6.9e-7）。
+- **纯实现但未启用**：packed bmm（有效 FLOPs 翻倍，需配合真正的变宽融合 kernel）、graph 捕获（抓不住）。
+- **会改配方、不可默认采用**：减少 MR-STFT 分辨率、改 hop、把 MR-STFT 直接算在模型谱上（免 istft→stft）、损失进 bf16 autocast。
+- 未使用 fp16 训练；模型结构、损失定义、数据配方均未改动（`align_check` 的 9.34e-07 / 9.25e-03 仍然成立）。

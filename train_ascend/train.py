@@ -32,7 +32,9 @@ import torch.nn.functional as F
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from freq_unet import FreqUNetConfig, build_model, param_count  # noqa: E402
+from freq_unet import FreqUNetConfig, build_model
+from fast_loss import stft_mag_fast  # cheap-adjoint |STFT|, math-equivalent (see fast_loss.py)
+from freq_unet import param_count  # noqa: E402
 
 TARGET_STEM = "vocals"
 
@@ -162,6 +164,32 @@ def multi_res_stft_loss(pred_wav: torch.Tensor, target_wav: torch.Tensor, resolu
     return loss / len(resolutions)
 
 
+def multi_res_stft_loss_fast(pred_wav: torch.Tensor, target_wav: torch.Tensor,
+                             resolutions=(512, 1024, 2048)) -> torch.Tensor:
+    """Same loss as `multi_res_stft_loss`, but |STFT| comes from the cheap-adjoint path.
+
+    torch.stft's own backward costs ~480 ms per call on this device; `stft_mag_fast`
+    replaces it with an explicit adjoint (rfft adjoint + overlap-add). Verified in
+    fast_loss_check.py: forward rel_rms 3.3e-08, gradient rel_rms <= 7e-07.
+    """
+    lead = pred_wav.shape[:-1]
+    pred_flat = pred_wav.float().reshape(-1, pred_wav.shape[-1])
+    target_flat = target_wav.float().reshape(-1, target_wav.shape[-1])
+    loss = pred_wav.new_zeros(())
+    for n_fft in resolutions:
+        window = torch.hann_window(n_fft).to(device=pred_wav.device, dtype=torch.float32)
+        hop = n_fft // 4
+        pm = stft_mag_fast(pred_flat, window, n_fft, hop)
+        with torch.no_grad():
+            tm = stft_mag_fast(target_flat, window, n_fft, hop)
+        scale = tm.max().detach().clamp_min(1e-4)
+        den = torch.linalg.vector_norm(tm, dim=(-2, -1)).clamp_min(1e-3 * scale)
+        sc = (torch.linalg.vector_norm(tm - pm, dim=(-2, -1)) / den).clamp(max=10.0)
+        mag = F.l1_loss(torch.log(pm + 1e-3 * scale), torch.log(tm + 1e-3 * scale))
+        loss = loss + sc.mean() + mag
+    return loss
+
+
 def leakage_loss(pred_wav: torch.Tensor, target_wav: torch.Tensor, rms_threshold: float = 0.005, frame: int = 2048):
     """Vocal near-silence windows (target RMS < 0.005) must not carry energy.
 
@@ -288,6 +316,9 @@ def main(argv=None) -> int:
     parser.add_argument("--n-fft", type=int, default=2048)
     parser.add_argument("--hop", type=int, default=512)
     parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument("--fast-loss", action="store_true",
+                        help="use the cheap-adjoint STFT magnitude in the MR-STFT loss "
+                             "(math-equivalent, avoids aten::stft backward)")
     parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--warmup", type=int, default=100)
     parser.add_argument("--grad-clip", type=float, default=1.0)
@@ -383,7 +414,7 @@ def main(argv=None) -> int:
                 loss_spec = complex_l1(pred_c, tgt_c)
                 pred_wav = waveform(pred_c, channels, args.n_fft, args.hop, args.chunk_size, window)
                 tgt_wav = waveform(tgt_c, channels, args.n_fft, args.hop, args.chunk_size, window)
-                loss_mrstft = multi_res_stft_loss(pred_wav, tgt_wav)
+                loss_mrstft = (multi_res_stft_loss_fast if args.fast_loss else multi_res_stft_loss)(pred_wav, tgt_wav)
                 loss_sisdr = -si_sdr(pred_wav, tgt_wav).mean() / 20.0
                 loss_leak = leakage_loss(pred_wav, tgt_wav)
                 loss = (loss_spec + 0.5 * loss_mrstft + 0.1 * loss_sisdr + 0.1 * loss_leak) / args.accum

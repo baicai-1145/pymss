@@ -1,0 +1,268 @@
+{
+  "target_ms": {
+    "low": 390,
+    "high": 450,
+    "requested_speedup": "6-7x"
+  },
+  "result": {
+    "achieved": false,
+    "bf16_step_ms_before": 2736.7,
+    "bf16_step_ms_after": 1992.5,
+    "bf16_speedup": 1.37,
+    "fp32_step_ms_before": 3364.6,
+    "fp32_step_ms_after": 2600.1,
+    "fp32_speedup": 1.29,
+    "gap_to_6x_ms": 1536.4,
+    "gap_to_target_high_ms": 1542.5
+  },
+  "changes": [
+    {
+      "name": "cheap-adjoint |STFT| in the MR-STFT loss",
+      "kind": "pure implementation (math equivalent)",
+      "adopted": true,
+      "flag": "train.py --fast-loss",
+      "mechanism": "custom autograd Function: forward torch.stft + magnitude from the real view; backward = analytic d|z|/dz (g*z/|z|) -> rfft adjoint -> *window -> F.fold -> reflect-pad adjoint. The ~480 ms aten::stft backward is never executed.",
+      "microbench_ms": {
+        "512": {
+          "fast": 182.8,
+          "torch_stft": 438.4,
+          "speedup": 2.4
+        },
+        "1024": {
+          "fast": 211.8,
+          "torch_stft": 459.5,
+          "speedup": 2.17
+        },
+        "2048": {
+          "fast": 210.4,
+          "torch_stft": 450.1,
+          "speedup": 2.14
+        }
+      },
+      "equivalence": {
+        "512": {
+          "forward_rel_rms": 3.288496941422636e-08,
+          "grad_rel_rms": 2.234381923926776e-07
+        },
+        "1024": {
+          "forward_rel_rms": 3.293828498840412e-08,
+          "grad_rel_rms": 1.3079824157102848e-07
+        },
+        "2048": {
+          "forward_rel_rms": 3.290488237439604e-08,
+          "grad_rel_rms": 6.920582791281049e-07
+        }
+      },
+      "step_gain_ms": {
+        "backward": 750.9
+      },
+      "isolated_gain_ms": 744.2
+    },
+    {
+      "name": "packed band-split / mask-head bmm",
+      "kind": "pure implementation",
+      "adopted": false,
+      "measured_isolated": "62 per-band GEMMs 0.2977 ms -> one padded bmm 0.0297 ms (10.0x) at bs1; not adopted because at bs24 the whole band_split GEMM group is a small part of the 202 ms forward and the padding wastes 2.0x FLOPs"
+    },
+    {
+      "name": "NPU graph capture",
+      "kind": "pure implementation",
+      "adopted": false,
+      "detail": {
+        "eager": {
+          "median_ms": 13.6,
+          "min_ms": 13.543,
+          "mean_ms": 13.603
+        },
+        "capture_ok": false,
+        "capture_error": "RuntimeError: capture_end:../torch_npu/csrc/core/npu/NPUGraph.cpp:371 NPU function error: endCaptureErr, error code is 107025\n[ERROR] 2026-11-24-23:19:03 (PID:155696, Device:0, RankID:-1) ERR00100 PTA call acl api failed.\n[PID: 155696] 2026-11-24-23:19:03.981.113 Invalid_Argument(EE1017): Capture model validity c"
+      },
+      "training_step": {
+        "eager": {
+          "median_ms": 51.118,
+          "min_ms": 50.433,
+          "mean_ms": 51.069
+        },
+        "whole_step": {
+          "ok": false,
+          "error": "RuntimeError: capture_end:../torch_npu/csrc/core/npu/NPUGraph.cpp:371 NPU function error: endCaptureErr, error code is 107025\n[ERROR] 2026-11-24-23:19:05 (PID:155696, Device:0, RankID:-1) ERR00100 PTA call acl api failed.\n[PID: 155696] 2026-11-24-23:19:05.652.825 Invalid_Argument(EE1017): Capture model validity check failed. Parameter capture model is invalid. Reason: In the cross-stream capture scenario, the l"
+        }
+      },
+      "verdict": "graph API works (simple MLP replay 0.023 ms, bit-exact) but the U-Net forward fails to capture: endCaptureErr 107025 (cross-stream) for both capture modes; BandSplit and enc62 capture individually. Even if it captured, the bs24 step is not launch bound: 1910 kernels x 4.47 us = 8.54 ms of a 1987 ms step (0.4%)."
+    }
+  ],
+  "phases_13": {
+    "step_ms": 1987.38,
+    "reconciliation_error_pct": -0.0,
+    "rows": [
+      {
+        "phase": "total",
+        "ms_before": 2732.24,
+        "ms_after": 1987.38,
+        "delta_ms": -744.86,
+        "share_pct": 100.0
+      },
+      {
+        "phase": "backward",
+        "ms_before": 2194.74,
+        "ms_after": 1443.79,
+        "delta_ms": -750.95,
+        "share_pct": 72.67
+      },
+      {
+        "phase": "forward",
+        "ms_before": 202.85,
+        "ms_after": 202.87,
+        "delta_ms": 0.02,
+        "share_pct": 10.21
+      },
+      {
+        "phase": "istft_tgt",
+        "ms_before": 82.84,
+        "ms_after": 82.92,
+        "delta_ms": 0.08,
+        "share_pct": 4.17
+      },
+      {
+        "phase": "istft_pred",
+        "ms_before": 82.77,
+        "ms_after": 82.89,
+        "delta_ms": 0.12,
+        "share_pct": 4.17
+      },
+      {
+        "phase": "h2d_copy",
+        "ms_before": 77.59,
+        "ms_after": 79.21,
+        "delta_ms": 1.62,
+        "share_pct": 3.99
+      },
+      {
+        "phase": "loss_mrstft_2048",
+        "ms_before": 28.05,
+        "ms_after": 29.91,
+        "delta_ms": 1.86,
+        "share_pct": 1.51
+      },
+      {
+        "phase": "loss_mrstft_1024",
+        "ms_before": 16.01,
+        "ms_after": 17.86,
+        "delta_ms": 1.85,
+        "share_pct": 0.9
+      },
+      {
+        "phase": "optimizer_step",
+        "ms_before": 14.78,
+        "ms_after": 14.58,
+        "delta_ms": -0.2,
+        "share_pct": 0.71
+      },
+      {
+        "phase": "loss_mrstft_512",
+        "ms_before": 9.71,
+        "ms_after": 11.59,
+        "delta_ms": 1.88,
+        "share_pct": 0.58
+      },
+      {
+        "phase": "ema_update",
+        "ms_before": 7.79,
+        "ms_after": 8.09,
+        "delta_ms": 0.3,
+        "share_pct": 0.4
+      },
+      {
+        "phase": "grad_clip",
+        "ms_before": 7.56,
+        "ms_after": 7.67,
+        "delta_ms": 0.11,
+        "share_pct": 0.4
+      },
+      {
+        "phase": "loss_complex",
+        "ms_before": 1.33,
+        "ms_after": 1.33,
+        "delta_ms": 0.0,
+        "share_pct": 0.07
+      },
+      {
+        "phase": "prep_complex",
+        "ms_before": 1.19,
+        "ms_after": 1.21,
+        "delta_ms": 0.02,
+        "share_pct": 0.06
+      },
+      {
+        "phase": "loss_leak",
+        "ms_before": 0.93,
+        "ms_after": 1.03,
+        "delta_ms": 0.1,
+        "share_pct": 0.05
+      },
+      {
+        "phase": "dataloader_wait",
+        "ms_before": 0.91,
+        "ms_after": 0.87,
+        "delta_ms": -0.04,
+        "share_pct": 0.04
+      },
+      {
+        "phase": "loss_sisdr",
+        "ms_before": 0.81,
+        "ms_after": 0.81,
+        "delta_ms": 0.0,
+        "share_pct": 0.04
+      },
+      {
+        "phase": "grad_norm_to_host",
+        "ms_before": 0.06,
+        "ms_after": 0.06,
+        "delta_ms": 0.0,
+        "share_pct": 0.0
+      }
+    ]
+  },
+  "where_it_is_stuck": {
+    "backward_ms": 1443.79,
+    "backward_breakdown_estimate": {
+      "model_backward": 560,
+      "mrstft_graph_backward": 584.0,
+      "istft_sisdr_leak_graph_backward": 300
+    },
+    "floors": {
+      "istft_fwd_floor_ms": "83 ms per istft call (vendor FFT), unavoidable without fusing istft into the loss",
+      "mrstft_adjoint_floor_ms": "~120 ms for 3 resolutions: each does one torch.stft recompute (13-30 ms) + rfft adjoint (16 ms) + fold (3 ms); saving the spectrum in forward would remove one of the two FFT passes (~100-150 ms total)",
+      "model_fwd_bwd_floor_ms": "4500 GFLOP fwd at the measured 202 ms = 22 TFLOPS (5.9% of peak); the 62-band Linear group and the depthwise convs are the reason, and both need kernel fusion (not attempted here)",
+      "launch_floor_ms": 8.538
+    },
+    "what_6x_would_need": {
+      "target_ms": 456.0,
+      "model_fwd_bwd_required_ms": 150,
+      "loss_graph_required_ms": 100,
+      "istft_required_ms": 50,
+      "missing_ms": 1536.0,
+      "primary_source": "the model forward+backward (763 ms) and the istft/SI-SDR graph (469 ms) were not attacked: only the STFT loss was. Fusion work for the 62-band linears, depthwise convs and the istft path is required to go below ~1.5 s."
+    }
+  },
+  "recipe_impact": {
+    "pure_implementation_ok_to_default": [
+      "cheap-adjoint |STFT| (rel_rms <= 7e-07)",
+      "packed bmm (not adopted)",
+      "graph capture (fails to capture)"
+    ],
+    "would_change_recipe": [
+      "dropping MR-STFT resolutions",
+      "changing hop",
+      "computing the MR-STFT loss directly on the model spectrum instead of istft->stft",
+      "loss in bf16 autocast"
+    ],
+    "fp16_training": "not used"
+  },
+  "alignment": {
+    "model_math_changed": false,
+    "fp32_vs_cpu_rel_rms": 9.336e-07,
+    "bf16_vs_fp32_rel_rms": 0.009247,
+    "note": "the model, the loss formula and the data pipeline are unchanged; only the adjoint implementation of |STFT| differs, verified at gradient level to <= 7e-07"
+  }
+}

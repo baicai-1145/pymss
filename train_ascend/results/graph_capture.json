@@ -1,0 +1,29 @@
+{
+  "device": "Ascend950PR_9579",
+  "frames": 690,
+  "graph_api": {
+    "CUDAGraph": true,
+    "graph_ctx": true,
+    "torch_npu": "2.13.0"
+  },
+  "inference": {
+    "eager": {
+      "median_ms": 13.6,
+      "min_ms": 13.543,
+      "mean_ms": 13.603
+    },
+    "capture_ok": false,
+    "capture_error": "RuntimeError: capture_end:../torch_npu/csrc/core/npu/NPUGraph.cpp:371 NPU function error: endCaptureErr, error code is 107025\n[ERROR] 2026-11-24-23:19:03 (PID:155696, Device:0, RankID:-1) ERR00100 PTA call acl api failed.\n[PID: 155696] 2026-11-24-23:19:03.981.113 Invalid_Argument(EE1017): Capture model validity c"
+  },
+  "training": {
+    "eager": {
+      "median_ms": 51.118,
+      "min_ms": 50.433,
+      "mean_ms": 51.069
+    },
+    "whole_step": {
+      "ok": false,
+      "error": "RuntimeError: capture_end:../torch_npu/csrc/core/npu/NPUGraph.cpp:371 NPU function error: endCaptureErr, error code is 107025\n[ERROR] 2026-11-24-23:19:05 (PID:155696, Device:0, RankID:-1) ERR00100 PTA call acl api failed.\n[PID: 155696] 2026-11-24-23:19:05.652.825 Invalid_Argument(EE1017): Capture model validity check failed. Parameter capture model is invalid. Reason: In the cross-stream capture scenario, the l"
+    }
+  }
+}
