@@ -1,12 +1,9 @@
-"""Phase F drivers: does triton-ascend work here, and are the fused kernels correct/faster?
+"""Phase F drivers: are the triton-ascend fused kernels correct and faster than eager?
 
-On this box triton-ascend publishes cp39/cp310/cp311 wheels only while the
-interpreter is CPython 3.12.16, so the kernels cannot be compiled. This script is
-still the deliverable: it (a) prints the probed status, (b) when triton is
-available, compares each fused kernel against its eager reference and times
-both, and (c) always verifies that the *fallback* path used in production is
-numerically equivalent to the plain eager expression, so the fused slot can be
-enabled later without further work.
+For each kernel: compile status, eager vs fused latency, and the numerical delta
+against the exact eager expression that the model path uses.
+
+    python kernels_test.py --dtype fp16 --out /workspace/.tmp/kernels.json
 """
 
 from __future__ import annotations
@@ -23,7 +20,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from npu_kernels_bandunet import (  # noqa: E402
-    fused_bandsplit_linear,
+    bandsplit_norm_scale,
     fused_gated_out,
     fused_rope,
     triton_status,
@@ -45,72 +42,86 @@ def timeit(fn, device, iters=30, warmup=5) -> float:
     return statistics.median(times)
 
 
+def delta(out, ref) -> tuple[float, float]:
+    d = (out.float() - ref.float()).abs()
+    return float(d.max()), float(d.pow(2).mean().sqrt() / ref.float().pow(2).mean().sqrt().clamp_min(1e-12))
+
+
+def check_bandsplit(device, dtype) -> dict:
+    """Real band-split shape: 62 bands, per-band feature widths 1..60, dim=192."""
+    n_bands, dim = 62, 64  # rows = bands*t, one band-width per launch in production
+    for n_feat in (16, 32, 60):
+        rows = n_bands * 64
+        x = torch.randn(rows, n_feat, device=device, dtype=dtype)
+        gamma = torch.randn(n_feat, device=device, dtype=dtype).abs() + 0.5
+
+        def eager():
+            return torch.nn.functional.normalize(x, dim=-1) * (n_feat ** 0.5) * gamma
+
+        ref, out = eager(), bandsplit_norm_scale(x, gamma)
+        mx, rr = delta(out, ref)
+        entry = {
+            "kernel": "bandsplit_norm_scale",
+            "n_feat": n_feat,
+            "rows": rows,
+            "max_abs": mx,
+            "rel_rms": rr,
+            "eager_ms": round(timeit(eager, device), 5),
+            "fused_ms": round(timeit(lambda: bandsplit_norm_scale(x, gamma), device), 5),
+        }
+        entry["speedup"] = round(entry["eager_ms"] / entry["fused_ms"], 3) if entry["fused_ms"] else None
+        yield entry
+
+
+def check_rope(device, dtype) -> dict:
+    rows, d = 690 * 8, 64
+    half = d // 2
+    t = torch.randn(rows, d, device=device, dtype=dtype)
+    cos = torch.randn(1, 1, 1, half, device=device, dtype=dtype) * 0.1
+    sin = torch.randn(1, 1, 1, half, device=device, dtype=dtype) * 0.1
+
+    def eager():
+        even = t[..., ::2] * cos - t[..., 1::2] * sin
+        odd = t[..., 1::2] * cos + t[..., ::2] * sin
+        return torch.cat((even, odd), dim=-1)
+
+    ref = eager()
+    out = fused_rope(t, cos.reshape(-1), sin.reshape(-1))
+    mx, rr = delta(out, ref)
+    entry = {
+        "kernel": "fused_rope",
+        "rows": rows,
+        "max_abs": mx,
+        "rel_rms": rr,
+        "eager_ms": round(timeit(eager, device), 5),
+        "fused_ms": round(timeit(lambda: fused_rope(t, cos.reshape(-1), sin.reshape(-1)), device), 5),
+    }
+    entry["speedup"] = round(entry["eager_ms"] / entry["fused_ms"], 3) if entry["fused_ms"] else None
+    return entry
+
+
 def check_gated_out(device, dtype) -> dict:
     b, h, t, d = 2, 2, 690, 64
     attn = torch.randn(b, h, t, d, device=device, dtype=dtype)
     gates = torch.randn(b, h, t, device=device, dtype=dtype)
     eager = attn * gates.sigmoid().unsqueeze(-1)
-    fused = fused_gated_out(attn.clone(), gates)
-    diff = (fused.float() - eager.float()).abs()
-    return {
-        "kernel": "attention_gated_out",
-        "max_abs": float(diff.max()),
-        "rel_rms": float(diff.pow(2).mean().sqrt() / eager.float().pow(2).mean().sqrt()),
-        "eager_ms": round(timeit(lambda: attn * gates.sigmoid().unsqueeze(-1), device), 4),
-        "fused_ms": round(timeit(lambda: fused_gated_out(attn.clone(), gates), device), 4),
+    out = fused_gated_out(attn.clone(), gates)
+    mx, rr = delta(out, eager)
+    entry = {
+        "kernel": "fused_gated_out",
+        "shape": [b, h, t, d],
+        "max_abs": mx,
+        "rel_rms": rr,
+        "eager_ms": round(timeit(lambda: attn * gates.sigmoid().unsqueeze(-1), device), 5),
+        "fused_ms": round(timeit(lambda: fused_gated_out(attn.clone(), gates), device), 5),
     }
-
-
-def check_rope(device, dtype) -> dict:
-    n, d = 690 * 8, 64
-    q = torch.randn(n, d, device=device, dtype=dtype)
-    k = torch.randn(n, d, device=device, dtype=dtype)
-    half = d // 2
-    cos = torch.randn(n, d, device=device, dtype=dtype) * 0.1
-    sin = torch.randn(n, d, device=device, dtype=dtype) * 0.1
-
-    def eager(x):
-        rotated = torch.cat((-x[..., half:], x[..., :half]), dim=-1)
-        return x * cos + rotated * sin
-
-    q_ref, k_ref = eager(q), eager(k)
-    q_f, k_f = fused_rope(q.clone(), k.clone(), cos, sin)
-    diff = max(float((q_f.float() - q_ref.float()).abs().max()), float((k_f.float() - k_ref.float()).abs().max()))
-    rms = float((q_f.float() - q_ref.float()).pow(2).mean().sqrt() / q_ref.float().pow(2).mean().sqrt())
-    return {
-        "kernel": "rope",
-        "max_abs": diff,
-        "rel_rms": rms,
-        "eager_ms": round(timeit(lambda: eager(q), device), 4),
-        "fused_ms": round(timeit(lambda: fused_rope(q.clone(), k.clone(), cos, sin), device), 4),
-    }
-
-
-def check_bandsplit(device, dtype) -> dict:
-    bands, feat, dim = 62, 92, 192
-    x = torch.randn(bands, feat, device=device, dtype=dtype)
-    weight = torch.randn(dim, feat, device=device, dtype=dtype) * 0.02
-    bias = torch.zeros(dim, device=device, dtype=dtype)
-
-    def eager():
-        normed = torch.nn.functional.normalize(x, dim=-1) * (feat ** 0.5)
-        return torch.nn.functional.linear(normed, weight, bias)
-
-    ref = eager()
-    out = fused_bandsplit_linear(x, weight, bias)
-    diff = (out.float() - ref.float()).abs()
-    return {
-        "kernel": "bandsplit_linear",
-        "max_abs": float(diff.max()),
-        "rel_rms": float(diff.pow(2).mean().sqrt() / ref.float().pow(2).mean().sqrt()),
-        "eager_ms": round(timeit(eager, device), 4),
-        "fused_ms": round(timeit(lambda: fused_bandsplit_linear(x, weight, bias), device), 4),
-    }
+    entry["speedup"] = round(entry["eager_ms"] / entry["fused_ms"], 3) if entry["fused_ms"] else None
+    return entry
 
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dtype", default="bf16", choices=("bf16", "fp16", "fp32"))
+    parser.add_argument("--dtype", default="fp16", choices=("bf16", "fp16", "fp32"))
     parser.add_argument("--out", type=Path, default=Path("/workspace/.tmp/kernels.json"))
     args = parser.parse_args(argv)
 
@@ -130,12 +141,14 @@ def main(argv=None) -> int:
     results = {"status": status, "device": str(device), "dtype": args.dtype, "kernels": []}
     for fn in (check_bandsplit, check_gated_out, check_rope):
         try:
-            row = fn(device, dtype)
+            produced = fn(device, dtype)
+            rows = list(produced) if hasattr(produced, "__iter__") and not isinstance(produced, dict) else [produced]
         except Exception as exc:
-            row = {"kernel": fn.__name__, "error": f"{type(exc).__name__}: {exc}"}
-        row["triton_path_taken"] = bool(status["available"])
-        results["kernels"].append(row)
-        print(json.dumps(row), flush=True)
+            rows = [{"kernel": fn.__name__, "error": f"{type(exc).__name__}: {exc}"}]
+        for row in rows:
+            row["triton_path_taken"] = bool(status["available"])
+            results["kernels"].append(row)
+            print(json.dumps(row), flush=True)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(results, indent=2))

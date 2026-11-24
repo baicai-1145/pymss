@@ -1,0 +1,71 @@
+{
+  "status": {
+    "available": true,
+    "reason": "triton 3.6.0 + triton-ascend 3.6.0.post2 on npu",
+    "env": "PYMSS_NPU_TRITON",
+    "triton_version": "3.6.0",
+    "triton_ascend_version": "3.6.0.post2"
+  },
+  "device": "npu:0",
+  "dtype": "fp16",
+  "kernels": [
+    {
+      "kernel": "bandsplit_norm_scale",
+      "n_feat": 16,
+      "rows": 3968,
+      "max_abs": 0.0078125,
+      "rel_rms": 0.0004120121884625405,
+      "eager_ms": 0.04481,
+      "fused_ms": 0.03142,
+      "speedup": 1.426,
+      "triton_path_taken": true
+    },
+    {
+      "kernel": "bandsplit_norm_scale",
+      "n_feat": 32,
+      "rows": 3968,
+      "max_abs": 0.0078125,
+      "rel_rms": 0.0004574417835101485,
+      "eager_ms": 0.04518,
+      "fused_ms": 0.0308,
+      "speedup": 1.467,
+      "triton_path_taken": true
+    },
+    {
+      "kernel": "bandsplit_norm_scale",
+      "n_feat": 60,
+      "rows": 3968,
+      "max_abs": 0.0078125,
+      "rel_rms": 0.0004602810658980161,
+      "eager_ms": 0.04596,
+      "fused_ms": 0.03054,
+      "speedup": 1.505,
+      "triton_path_taken": true
+    },
+    {
+      "kernel": "fused_gated_out",
+      "shape": [
+        2,
+        2,
+        690,
+        64
+      ],
+      "max_abs": 0.001953125,
+      "rel_rms": 0.0003520002937875688,
+      "eager_ms": 0.02625,
+      "fused_ms": 0.03999,
+      "speedup": 0.656,
+      "triton_path_taken": true
+    },
+    {
+      "kernel": "fused_rope",
+      "rows": 5520,
+      "max_abs": 0.0009765625,
+      "rel_rms": 0.0003587640530895442,
+      "eager_ms": 0.0608,
+      "fused_ms": 0.03299,
+      "speedup": 1.843,
+      "triton_path_taken": true
+    }
+  ]
+}

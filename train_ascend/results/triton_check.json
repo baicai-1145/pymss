@@ -1,0 +1,43 @@
+{
+  "versions": {
+    "torch": "2.13.0+cpu",
+    "torch-npu": "2.13.0",
+    "triton": "3.6.0",
+    "triton-ascend": "3.6.0.post2",
+    "cann": null,
+    "npu_available": true,
+    "npu_count": 1,
+    "npu_name": "Ascend950PR_9579",
+    "triton_backend": "npu",
+    "triton_arch": "Ascend950PR_9579",
+    "triton_version_attr": "3.6.0"
+  },
+  "vector_add": [
+    {
+      "kernel": "vector_add",
+      "dtype": "float32",
+      "compiled": true,
+      "first_call_ms": 830.49,
+      "max_abs": 0.0,
+      "rel_rms": 0.0,
+      "steady_ms": 0.0259,
+      "eager_ms": 0.0191
+    },
+    {
+      "kernel": "vector_add",
+      "dtype": "float16",
+      "compiled": true,
+      "first_call_ms": 680.48,
+      "max_abs": 0.0,
+      "rel_rms": 0.0,
+      "steady_ms": 0.0246,
+      "eager_ms": 0.0188
+    }
+  ],
+  "fma_chain": {
+    "kernel": "fma_chain",
+    "compiled": true,
+    "max_abs": 0.003902435302734375,
+    "rel_rms": 0.0002070670307148248
+  }
+}

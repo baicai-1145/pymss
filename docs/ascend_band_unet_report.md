@@ -333,3 +333,198 @@ EMA 权重（-18.5 dB）远差于 raw 权重（-3.8 dB）。这不是 bug，是 
 2. 62 段 MaskEstimator 的小 GEMM 是主要瓶颈（预计 1.5–2x 可挖）。
 3. 多分辨率 STFT 损失目前在 NPU 上走 istft+重 STFT，可改频域直接计算。
 4. 只有 100 步，无质量结论；下一阶段应 ≥10k 步并同时评 raw/EMA。
+
+---
+
+# 第二轮：镜像源修正 + Triton 打通 + 全量重测
+
+## 14. 镜像源修正（上一轮的 Triton 结论是错的）
+
+上一轮判定"triton-ascend 无 cp312 wheel"是**用错了索引**：我只查了通用 PyPI（最高 3.2.0，确实没有 cp312）。
+华为**昇腾专用索引**里有 cp312：
+
+```
+https://mirrors.huaweicloud.com/ascend/repos/pypi/triton-ascend/
+  triton_ascend-3.6.0.post2-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl   ✅
+```
+
+安装命令（只用昇腾索引，不走通用 PyPI 的 3.2.0）：
+
+```bash
+python -m pip install "triton-ascend==3.6.0.post2" \
+    --extra-index-url https://mirrors.huaweicloud.com/ascend/repos/pypi
+```
+
+## 15. 版本矩阵对齐
+
+triton-ascend 3.6 的兼容矩阵是 CANN 9.2.0 + TorchNPU 2.10.0.post7 或 **2.13.0**；
+上一轮的 torch_npu 2.12.0.post3 不在矩阵内，因此整体换到 2.13.0：
+
+| 组件 | 上一轮 | **本轮** | 说明 |
+|---|---|---|---|
+| torch | 2.12.0+cpu | **2.13.0+cpu** | 仍从 `download.pytorch.org/whl/cpu` 取，**绝不装 CUDA 版**（dlopen abort 已复现过） |
+| torch_npu | 2.12.0.post3 | **2.13.0** | 通用索引 `mirrors.huaweicloud.com/repository/pypi/simple` |
+| triton | 无 | **3.6.0** | triton-ascend 依赖里指定 |
+| triton-ascend | 安装失败 | **3.6.0.post2** | 昇腾专用索引 |
+| numpy | 2.5.4 | **1.26.4** | triton-ascend 硬 pin `numpy==1.26.4`，随包降级 |
+| scipy | 1.18.1 | **1.13.1** | 同上，`python_version < 3.13` 分支 pin |
+| CANN / driver | 9.2.1 / 25.7.rc1.10 | 同 | 未动 |
+
+`npu-smi info`（重测时）：`Ascend950PR · OK · HBM 5813 / 131072 MB · 无用户进程`；
+`torch.npu.is_available()=True`、`device_count()=1`、`get_device_name(0)=Ascend950PR_9579`。
+
+**升级后无回归**：`selfcheck.py` 的 NPU 8 s 前向+反向、梯度完整性、数值对齐结果与 2.12 完全一致（见 16 节，数字逐位相同）。
+
+## 16. Triton 可用性证据
+
+```
+torch      2.13.0+cpu
+torch_npu  2.13.0
+triton     3.6.0
+triton-ascend 3.6.0.post2
+npu avail  True  count 1  Ascend950PR_9579
+triton target GPUTarget(backend='npu', arch='Ascend950PR_9579', warp_size=0)
+```
+
+`train_ascend/triton_check.py` 跑了官方 vector-add 教程 kernel 与一条 `x*y+z` 融合链：
+
+| kernel | dtype | 编译 | 首次调用 | 稳态 | eager | 与 eager 差异 |
+|---|---|---|---|---|---|---|
+| vector_add | fp32 | ✅ | 830.49 ms | 0.0259 ms | 0.0191 ms | max_abs 0.0（逐位相同） |
+| vector_add | fp16 | ✅ | 680.48 ms | 0.0246 ms | 0.0188 ms | max_abs 0.0（逐位相同） |
+| fma_chain | fp16 | ✅ | — | — | — | max_abs 3.902e-03 / rel_rms 2.071e-04 |
+
+结论：**triton-ascend 在 950PR 上能真正编译并在 NPU 执行**，首次调用 ~0.7-0.8 s 是编译开销。
+纯 elementwise 拷贝/加法仍略慢于 aclnn（0.0259 vs 0.0191 ms，1.36x）——与上游"aclnn 元素级已接近 HBM 带宽上限"的判断一致。
+
+## 17. 三个融合 kernel 结果（fp16，实测）
+
+| kernel | 形状 | 编译 | eager | fused | **加速比** | max_abs | rel_rms |
+|---|---|---|---|---|---|---|---|
+| bandsplit_norm_scale | rows=3968, n_feat=16 | ✅ | 0.04481 ms | 0.03142 ms | **1.426x** | 7.812e-03 | 4.120e-04 |
+| bandsplit_norm_scale | rows=3968, n_feat=32 | ✅ | 0.04518 ms | 0.0308 ms | **1.467x** | 7.812e-03 | 4.574e-04 |
+| bandsplit_norm_scale | rows=3968, n_feat=60 | ✅ | 0.04596 ms | 0.03054 ms | **1.505x** | 7.812e-03 | 4.603e-04 |
+| fused_rope | rows=5520, D=64 | ✅ | 0.0608 ms | 0.03299 ms | **1.843x** | 9.766e-04 | 3.588e-04 |
+| fused_gated_out | [2, 2, 690, 64] | ✅ | 0.02625 ms | 0.03999 ms | **0.656x（更慢）** | 1.953e-03 | 3.520e-04 |
+
+要点：
+- **band-split 归一化链 1.43–1.51x**（把 `normalize → *scale → *gamma` 三次访存合成一次读写），fp16 误差是单次舍入（max_abs 恰为 1/128 = 0.0078，rel_rms 4.6e-4）。
+- **RoPE 1.84x**（交织读、`[even|odd]` 连续写，一次读写完成 q/k 旋转）。
+- **门控输出 0.66x——慢了**。该形状只有 176k 元素，eager 的 `sigmoid+mul` 已是一条 aclnn kernel、接近带宽上限；2-D tile 版省下的广播materialize 抵不过 kernel 启动与 tile 开销。第一版 1-D 写法（`BLOCK=16384` + 每元素整除）还直接 **UB overflow 编译失败**（需要 2621440 bits，UB 只有 1769472），改成 2-D tile 才能编译。这一条保持 eager。
+
+## 18. 换代后全量重测（torch_npu 2.13.0 + triton-ascend 3.6.0.post2）
+
+### 18.1 默认值复核
+
+`torch.npu.conv.allow_hf32` **仍为 True**，`torch.npu.matmul.allow_hf32` 仍为 False —— 与 2.12 一致，
+所以 fp32 路径**依旧必须显式关掉 HF32**，否则只有 ~4e-4。
+
+### 18.2 fp32 逐层对齐（NPU vs CPU，686 层）
+
+| 指标 | 数值 |
+|---|---|
+| 输出 max abs | **8.941e-07** |
+| 输出 rel RMS | **9.336e-07** |
+| 逐层最差 rel RMS | 1.506e-06 |
+| 逐层最差 max abs | 6.676e-06 |
+| 逐层中位 rel RMS | 7.569e-07 |
+
+| 层 | max abs | rel RMS |
+|---|---|---|
+| `dec16.p2` | 8.941e-07 | 1.506e-06 |
+| `enc16.p2` | 8.866e-07 | 1.452e-06 |
+| `dec32.p2` | 8.345e-07 | 1.395e-06 |
+| `blocks.0.freq.attn.to_gates` | 1.729e-06 | 1.204e-06 |
+| `enc32.p2` | 8.345e-07 | 1.151e-06 |
+| `blocks.0.msc.pw` | 3.099e-06 | 1.105e-06 |
+
+**仍在 1e-6 量级（9.34e-07），与 torch_npu 2.12 逐位相同** → 换代没有引入数值回归。
+
+### 18.3 bf16 对齐（NPU bf16 vs CPU fp32）
+
+| 指标 | 数值 |
+|---|---|
+| 输出 max abs | 6.962e-03 |
+| 输出 rel RMS | **9.247e-03** |
+| 逐层最差 rel RMS | 1.372e-02 |
+| 逐层最差 max abs | 6.021e-02 |
+| 逐层中位 rel RMS | 8.595e-03 |
+
+| 层 | max abs | rel RMS |
+|---|---|---|
+| `dec16.p2` | 6.995e-03 | 1.372e-02 |
+| `dec32.p2` | 6.947e-03 | 1.286e-02 |
+| `dec62.p2` | 6.971e-03 | 1.152e-02 |
+| `enc16.p2` | 6.473e-03 | 1.128e-02 |
+| `_estimate_masks.to_freqs.0.1` | 2.727e-03 | 1.074e-02 |
+| `_estimate_masks.to_freqs.0` | 2.727e-03 | 1.074e-02 |
+
+误差上界不变：输出 ≤9.3e-3、单层 ≤1.4e-2；最大误差仍在 `*.p2`（SwiGLU 输出)与注意力投影。
+
+### 18.4 100 步吞吐重测（sb=24，真实 MUSDB）
+
+| precision | 本轮 median step | steps/min | samples/s | 上一轮 | 变化 |
+|---|---|---|---|---|---|
+| 32-true | 3.3646 s | 17.8 | 7.1 | 17.9 steps/min | **-0.6%（噪声内）** |
+| bf16 | 2.7367 s | 21.8 | 8.8 | 21.8 steps/min | **持平** |
+
+**结论：换代（torch_npu 2.12→2.13 + triton-ascend）没有改变训练吞吐。**
+（numpy 1.26.4 / scipy 1.13.1 降级也未影响训练。）
+
+### 18.5 8 秒推理延迟与瓶颈定位（bf16 / fp32）
+
+Stage 分解（NPU event 计时，bf16，device total 13.063 ms）：
+
+| stage | ms | 占比 |
+|---|---|---|
+| band_split | 3.0903 | 23.7% |
+| _estimate_masks | 2.7085 | 20.7% |
+| enc32 | 0.7897 | 6.0% |
+| enc62 | 0.7621 | 5.8% |
+| dec62 | 0.7519 | 5.8% |
+| up32 | 0.6461 | 4.9% |
+| dec32 | 0.6198 | 4.7% |
+| enc16 | 0.4021 | 3.1% |
+| up16 | 0.3499 | 2.7% |
+| dec16 | 0.3323 | 2.5% |
+| up8 | 0.3242 | 2.5% |
+| down62 | 0.1037 | 0.8% |
+| final_norm | 0.0856 | 0.7% |
+| down32 | 0.0827 | 0.6% |
+| down16 | 0.0423 | 0.3% |
+`blocks`（4 层 MSC+注意力）因挂在 ModuleList 上没有 forward hook，计入 `unaccounted 1.972 ms`（约 15%）。
+
+**实测占比：`band_split` 3.0903 ms（23.7%）才是第一瓶颈，
+MaskEstimator 2.7085 ms（20.7%）第二** —— 两者合计约 44%，
+共同点都是"62 段小算子"。上一轮把 MaskEstimator 当唯一下瓶颈的说法需要修正为"62 段算子链"。
+
+#### 关键发现：`grouped_forward` 在 NPU 上是负优化
+
+`pymss_core` 为 CUDA 写的"把 62 段合成一次 grouped bmm"在昇腾上反而更慢（单算子实测）：
+
+| 模块 | grouped bmm | 逐段 Linear | 加速比 |
+|---|---|---|---|
+| BandSplit | 3.947 ms | **2.709 ms** | 1.46x |
+| MaskEstimator | 2.996 ms | **2.041 ms** | 1.47x |
+
+整模型（3 次独立重复取中位，进程内波动 <0.5%）：
+
+| precision | A 基线(grouped) | B 逐段 | C 逐段 + triton RoPE | 总加速 | vs G4 11.691 |
+|---|---|---|---|---|---|
+| fp32 | 24.695 ms | **18.993 ms** | 19.489 ms | 1.267x | **1.62x**（最好） |
+| bf16 | 13.938 ms | 13.556 ms | **13.505 ms** | 1.032x | **1.16x** |
+
+- 关掉 grouped forward 纯属"算子选择"改动，数学等价（grouped bmm 与逐段 Linear 只差累加顺序）。
+- RoPE 融合在 bf16 上再省 0.05–0.11 ms（<1%），fp32 上反而略慢 → 只在 bf16 路径启用。
+- 进程间方差约 5-8%（同一进程内 3 次重复 <0.5%），所以只看同批次相对差值。
+
+### 18.6 剩余瓶颈（按可挖空间排序）
+
+1. **band_split（23.7%）+ mask head（20.7%）= 62 段小算子链**：单段 GEMM 的 M 维极小（每段 4-16 个频点），
+   cube 核吃不满。下一步应当做**单次融合 kernel 完成 62 段 normalize+GEMM**（我的 triton band-split kernel
+   目前只融合了 normalize+scale，1.45x；把 GEMM 也 tl.dot 进去是下一步），或改成分组按 16 的整数倍打包。
+2. **4 层 MSC + 注意力（~15%）**：MSC 的 4 个 dilation 是 4 条 depthwise conv，可融合为一条 kernel。
+3. **多分辨率 STFT 损失（训练侧）**：训练 step 里 istft+重 STFT 仍占约一半时间（合成分块 0.99 s vs 实测 2.74 s/step）。
+4. **triton 元素级 kernel 在当前形状下大多不划算**：门控输出 0.66x、vector-add 1.36x 慢于 aclnn，
+   只有"省一次全尺寸读写"的链条（normalize、RoPE 交织重排）才有 1.4–2.0x。
+5. bf16 相对 fp32 只有 1.2x 训练提速、推理 1.4x，说明瓶颈是算子粒度/发射而非算力。

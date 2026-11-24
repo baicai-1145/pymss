@@ -82,3 +82,38 @@ Measured on this box (MUSDB18-HQ, batch 24): 3.35 s/step fp32, 2.74 s/step bf16
 attention out) behind `triton_ascend_available()`. **They cannot run here**:
 triton-ascend publishes cp39/cp310/cp311 wheels only and this interpreter is 3.12.
 Eager fallbacks are used instead and verified bit-identical.
+
+---
+
+## Round 2: triton-ascend enabled, torch_npu 2.13, full re-measure
+
+The earlier "no cp312 wheel" conclusion was **wrong** — it came from the generic
+PyPI index. The Ascend-only index has cp312:
+
+```bash
+python -m pip install "triton-ascend==3.6.0.post2" \
+    --extra-index-url https://mirrors.huaweicloud.com/ascend/repos/pypi
+```
+
+Version matrix is now: torch **2.13.0+cpu** · torch_npu **2.13.0** · triton **3.6.0** ·
+triton-ascend **3.6.0.post2** · numpy 1.26.4 / scipy 1.13.1 (pinned by triton-ascend).
+torch must stay `+cpu`; the CUDA wheel still aborts inside `torch_npu`'s `dlopen`.
+
+`triton_check.py` proves compilation + execution on the NPU (`backend='npu'`,
+vector-add bit-exact, first call ~0.8 s JIT).
+
+Fused kernel results (fp16): band-split normalize chain **1.43–1.51x**, RoPE **1.84–2.05x**,
+gated attention output **0.66x (slower — not used)**; the 1-D variant of the gate kernel
+overflowed the UB (needs 2621440 bits vs 1769472 available) and had to become a 2-D tile.
+
+Bigger win than any kernel: `pymss_core`'s CUDA-oriented `grouped_forward` is a
+**negative** optimization on Ascend — per-band Linear beats the grouped `bmm` by 1.46x
+(BandSplit) and 1.47x (MaskEstimator). Disabling it takes 8 s inference from 24.70 → 18.99 ms
+(fp32) and 13.94 → 13.51 ms (bf16 + fused RoPE), i.e. 1.16x of the G4 reference.
+
+Measured stage shares (bf16, 13.06 ms device time): band_split 23.7%, MaskEstimator 20.7%,
+temporal blocks ~15%, everything else <7% each. The real bottleneck is the 62-band small-op
+chain, not the mask head alone.
+
+New tools: `profile_infer.py` (NPU-event stage breakdown), `bench_infer_fused.py`
+(baseline vs per-band vs per-band+RoPE, 3 repeats).

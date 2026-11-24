@@ -1,0 +1,87 @@
+{
+  "precision": "bf16",
+  "frames": 690,
+  "wall_total_ms": 13.114,
+  "device_total_ms": 13.063,
+  "sum_of_stages_ms": 11.091,
+  "stages": [
+    {
+      "stage": "band_split",
+      "ms": 3.0903,
+      "share_pct": 23.7
+    },
+    {
+      "stage": "enc62",
+      "ms": 0.7621,
+      "share_pct": 5.8
+    },
+    {
+      "stage": "down62",
+      "ms": 0.1037,
+      "share_pct": 0.8
+    },
+    {
+      "stage": "enc32",
+      "ms": 0.7897,
+      "share_pct": 6.0
+    },
+    {
+      "stage": "down32",
+      "ms": 0.0827,
+      "share_pct": 0.6
+    },
+    {
+      "stage": "enc16",
+      "ms": 0.4021,
+      "share_pct": 3.1
+    },
+    {
+      "stage": "down16",
+      "ms": 0.0423,
+      "share_pct": 0.3
+    },
+    {
+      "stage": "up8",
+      "ms": 0.3242,
+      "share_pct": 2.5
+    },
+    {
+      "stage": "dec16",
+      "ms": 0.3323,
+      "share_pct": 2.5
+    },
+    {
+      "stage": "up16",
+      "ms": 0.3499,
+      "share_pct": 2.7
+    },
+    {
+      "stage": "dec32",
+      "ms": 0.6198,
+      "share_pct": 4.7
+    },
+    {
+      "stage": "up32",
+      "ms": 0.6461,
+      "share_pct": 4.9
+    },
+    {
+      "stage": "dec62",
+      "ms": 0.7519,
+      "share_pct": 5.8
+    },
+    {
+      "stage": "final_norm",
+      "ms": 0.0856,
+      "share_pct": 0.7
+    },
+    {
+      "stage": "_estimate_masks",
+      "ms": 2.7085,
+      "share_pct": 20.7
+    }
+  ],
+  "mask_estimator_ms": 2.7085,
+  "mask_estimator_share_pct": 20.7,
+  "unaccounted_ms": 1.972
+}
