@@ -1,0 +1,15 @@
+tracks: train 100 test 50 | reference windows 56
+matched (bit-identical): 0 | mismatched: 56 | reference windows never reached: 0
+MISMATCH AM Contra - Heart Peripheral 2908455 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000813, 'energy_vocals': 0.000874}
+MISMATCH Al James - Schoolboy Facination 2990101 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000858, 'energy_vocals': 0.000638}
+MISMATCH Angels In Amplifiers - I'm Alright 2642116 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000572, 'energy_vocals': 0.0014}
+MISMATCH Arise - Run Run Run 4640674 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000519, 'energy_vocals': 0.001021}
+MISMATCH BKS - Bulldozer 6256732 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.001567, 'energy_vocals': 0.001079}
+MISMATCH BKS - Too Much 4543260 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000824, 'energy_vocals': 0.000999}
+MISMATCH Ben Carrigan - We'll Talk About It All Tonight 5497541 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.001463, 'energy_vocals': 0.001128}
+MISMATCH Bobby Nobody - Stitch Up 5289973 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.001033, 'energy_vocals': 0.000415}
+MISMATCH Buitraker - Revo X 6591724 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000651, 'energy_vocals': 0.001241}
+MISMATCH Carlos Gonzalez - A Place For Us 2698796 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.001221, 'energy_vocals': 0.000919}
+MISMATCH Cristina Vane - So Easy 7696215 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000662, 'energy_vocals': 0.001477}
+MISMATCH Detsky Sad - Walkie Talkie 5969322 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000934, 'energy_vocals': 0.001542}
+PROTOCOL_FAIL

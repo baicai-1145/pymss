@@ -1,1 +1,1 @@
-STATUS: preflight PASS on Ascend 950PR | data: test decoded 50 tracks (3.46 h), train in progress | updated 2026-11-27
+STATUS: BLOCKED at the data gate - PROTOCOL_FAIL (0/56 windows bit-identical; same tracks/lengths, audio identical to -120 dB) | done: env ok, PREFLIGHT_PASS on NPU, data 50+100 tracks decoded | need: lead decision (see PROTOCOL_FAIL_REPORT.md) | updated 2026-11-25 21:23
