@@ -206,6 +206,8 @@ class FreqUNetV3Config:
     bottleneck_ff_mult: int = 4
     msc_kernel: int = 31
     msc_dilations: tuple[int, ...] = (1, 4, 16)
+    n_msc: int = 1          # ablation knob (item 7): 1 -> 2
+    n_bottleneck: int | None = None   # ablation alias for bottleneck_depth
     mask_depth: int = 2
     mlp_expansion_factor: int = 4
     audio_channels: int = 2
@@ -234,12 +236,14 @@ class BandUNetV3(Module):
         self.down62 = BandDown(d, h62, window=w)   # 62 -> 31
         self.down31 = BandDown(d, h31, window=w)   # 31 -> 16
         self.down16 = BandDown(d, h16, window=w)   # 16 -> 8
+        depth = cfg.n_bottleneck if cfg.n_bottleneck is not None else cfg.bottleneck_depth
         self.bottleneck = Transformer(
-            dim=d, depth=cfg.bottleneck_depth, heads=cfg.bottleneck_heads,
+            dim=d, depth=depth, heads=cfg.bottleneck_heads,
             dim_head=cfg.bottleneck_dim_head, rotary_embed=RotaryEmbedding(cfg.bottleneck_dim_head),
             ff_mult=cfg.bottleneck_ff_mult, norm_output=True,
         )
-        self.msc = MSC(d, kernel=cfg.msc_kernel, dilations=cfg.msc_dilations)
+        self.msc = MSC(d, kernel=cfg.msc_kernel, dilations=cfg.msc_dilations) if cfg.n_msc == 1 else \
+            ModuleList([MSC(d, kernel=cfg.msc_kernel, dilations=cfg.msc_dilations) for _ in range(cfg.n_msc)])
         self.up8 = BandUp(d, h16, window=w)        # 8 -> 16
         self.up16 = BandUp(d, h31, window=w)       # 16 -> 31
         self.up31 = BandUp(d, h62, window=w)       # 31 -> 62
@@ -269,7 +273,8 @@ class BandUNetV3(Module):
         h = x.permute(0, 1, 2, 3).reshape(bb * tt, ff, cc)   # batch = B*T, seq = 8 bands
         h = self.bottleneck(h)
         x = h.reshape(bb, tt, ff, cc)
-        x = self.msc(x) + x
+        for msc in (self.msc if isinstance(self.msc, ModuleList) else [self.msc]):
+            x = msc(x) + x
 
         x = self.up8(x, skips.pop())    # -> 16
         x = self.up16(x, skips.pop())   # -> 31

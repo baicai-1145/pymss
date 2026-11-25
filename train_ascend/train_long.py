@@ -138,6 +138,9 @@ def main(argv=None) -> int:
     parser.add_argument("--min-free-gb", type=float, default=50.0)
     parser.add_argument("--log-every", type=int, default=20)
     parser.add_argument("--resume", default="auto")
+    parser.add_argument("--v3-window", type=int, default=None, help="ablation: window 8 -> 16")
+    parser.add_argument("--v3-bottleneck-depth", type=int, default=None, help="ablation: 2 -> 3")
+    parser.add_argument("--v3-n-msc", type=int, default=None, help="ablation: MSC 1 -> 2")
     parser.add_argument("--arch", default="v1", choices=("v1", "v3"),
                         help="v1 = depthwise band blocks (the overnight baseline), v3 = window attention")
     parser.add_argument("--eval-protocol", default="h2", choices=("h2", "own", "both"),
@@ -176,7 +179,8 @@ def main(argv=None) -> int:
         prefetch_factor=2 if args.num_workers else None,
     )
 
-    model = build_arch(args.arch, n_fft=args.n_fft).to(device)
+    model = build_arch(args.arch, n_fft=args.n_fft, window=args.v3_window,
+                       n_bottleneck=args.v3_bottleneck_depth, n_msc=args.v3_n_msc).to(device)
     params = sum(p.numel() for p in model.parameters())
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=0.01)
     ema = EMA(model, decay=args.ema_decay)
