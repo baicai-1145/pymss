@@ -1,1 +1,1 @@
-STATUS: not started on the Ascend box (branch created 2026-11-26)
+STATUS: preflight PASS on Ascend 950PR | data: test decoded 50 tracks (3.46 h), train in progress | updated 2026-11-27
