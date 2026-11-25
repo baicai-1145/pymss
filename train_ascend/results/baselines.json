@@ -1,0 +1,30 @@
+{
+  "protocol_sha1": "8a9e6137561b3d09fba0eadaea39051c6531f8b5",
+  "n_windows": 56,
+  "b0_mixture_as_vocals": {
+    "n_songs": 50,
+    "median_si_sdr": -4.133228778839111,
+    "mean_si_sdr": -9.189835716038942,
+    "ci95_by_song": [
+      -14.755147923282568,
+      -5.17870574899991
+    ],
+    "leakage_rms_median": 0.10166501253843307
+  },
+  "b1_untrained_model": {
+    "n_songs": 50,
+    "median_si_sdr": -31.942500114440918,
+    "mean_si_sdr": -33.69553031240191,
+    "ci95_by_song": [
+      -37.6752777982897,
+      -30.26322563974921
+    ],
+    "leakage_rms_median": 0.010064160451292992
+  },
+  "b2_external": {
+    "value_db": 9.406,
+    "source": "published G4 'H2 50k' result",
+    "comparable": false,
+    "why": "different hardware, different architecture/recipe, and the evaluation protocol of that number is not this 56-window list; treat as a reference point only"
+  }
+}
