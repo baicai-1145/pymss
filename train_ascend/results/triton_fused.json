@@ -1,0 +1,29 @@
+{
+  "shape": {
+    "M": 16560,
+    "F": 62,
+    "C": 192,
+    "K": 7
+  },
+  "triton_available": true,
+  "norm_dwconv": {
+    "fwd_rel_rms_hf32_off": 7.825809689165908e-08,
+    "dx_rel_rms": 1.1450091363940373e-07,
+    "dgamma_rel_rms": 2.0654887578075432e-07,
+    "dw_rel_rms": 4.805454409506638e-06,
+    "db_rel_rms": 1.8409338053970714e-07,
+    "torch_fwd_ms": 9.05,
+    "triton_fwd_ms": 111.62,
+    "torch_fwd_bwd_ms": 47.85,
+    "triton_fwd_bwd_ms": 248.96
+  },
+  "silu_mul": {
+    "rel_rms": 0.0,
+    "torch_ms": 2.72,
+    "triton_ms": 1.64
+  },
+  "verdict": {
+    "norm_dwconv": "triton slower than torch",
+    "reason": "UB on this device allows only (BF=8, BC=256) tiles, so the kernel needs M*ceil(F/BF) = 132k programs with 7 masked loads each; the fixed per-program cost dominates (~0.85 us/program). Larger tiles fail to compile with 'ub overflow, requires 1957888 bits while 1769472 bits available'."
+  }
+}

@@ -142,15 +142,18 @@ def si_sdr(pred: torch.Tensor, target: torch.Tensor, eps: float = 1e-8) -> torch
     return 10 * torch.log10((scaled.pow(2).sum(dim=-1) + eps) / (noise.pow(2).sum(dim=-1) + eps))
 
 
-def multi_res_stft_loss(pred_wav: torch.Tensor, target_wav: torch.Tensor, resolutions=(512, 1024, 2048)) -> torch.Tensor:
+def multi_res_stft_loss(pred_wav: torch.Tensor, target_wav: torch.Tensor,
+                        resolutions=None, hop_override: int = 0) -> torch.Tensor:
     """torch.stft (2.12) only accepts 1-D/2-D input, so flatten (B, C) into the batch axis."""
+    resolutions = _LOSS_RES if resolutions is None else resolutions
+    hop_override = hop_override or _LOSS_HOP
     lead = pred_wav.shape[:-1]
     pred_flat = pred_wav.float().reshape(-1, pred_wav.shape[-1])
     target_flat = target_wav.float().reshape(-1, target_wav.shape[-1])
     loss = pred_wav.new_zeros(())
     for n_fft in resolutions:
         window = torch.hann_window(n_fft).to(device=pred_wav.device, dtype=torch.float32)
-        hop = n_fft // 4
+        hop = hop_override or n_fft // 4
         p = torch.stft(pred_flat, n_fft=n_fft, hop_length=hop, window=window, center=True, return_complex=True)
         t = torch.stft(target_flat, n_fft=n_fft, hop_length=hop, window=window, center=True, return_complex=True)
         pm, tm = p.abs(), t.abs()
@@ -165,7 +168,9 @@ def multi_res_stft_loss(pred_wav: torch.Tensor, target_wav: torch.Tensor, resolu
 
 
 def multi_res_stft_loss_fast(pred_wav: torch.Tensor, target_wav: torch.Tensor,
-                             resolutions=(512, 1024, 2048)) -> torch.Tensor:
+                             resolutions=None, hop_override: int = 0) -> torch.Tensor:
+    resolutions = _LOSS_RES if resolutions is None else resolutions
+    hop_override = hop_override or _LOSS_HOP
     """Same loss as `multi_res_stft_loss`, but |STFT| comes from the cheap-adjoint path.
 
     torch.stft's own backward costs ~480 ms per call on this device; `stft_mag_fast`
@@ -178,7 +183,7 @@ def multi_res_stft_loss_fast(pred_wav: torch.Tensor, target_wav: torch.Tensor,
     loss = pred_wav.new_zeros(())
     for n_fft in resolutions:
         window = torch.hann_window(n_fft).to(device=pred_wav.device, dtype=torch.float32)
-        hop = n_fft // 4
+        hop = hop_override or n_fft // 4
         pm = stft_mag_fast(pred_flat, window, n_fft, hop)
         with torch.no_grad():
             tm = stft_mag_fast(target_flat, window, n_fft, hop)
@@ -188,6 +193,33 @@ def multi_res_stft_loss_fast(pred_wav: torch.Tensor, target_wav: torch.Tensor,
         mag = F.l1_loss(torch.log(pm + 1e-3 * scale), torch.log(tm + 1e-3 * scale))
         loss = loss + sc.mean() + mag
     return loss
+
+
+def multi_res_stft_loss_direct_spec(pred_c: torch.Tensor, tgt_c: torch.Tensor,
+                                    pred_wav: torch.Tensor, tgt_wav: torch.Tensor,
+                                    resolutions=None, channels: int = 2) -> torch.Tensor:
+    """Recipe variant: the largest MR-STFT resolution is taken straight from the model
+    spectrum instead of istft -> stft (saves one iSTFT-consistent STFT per step).
+
+    |mix*mask| is *not* the STFT of the istft-ed prediction (window overlap changes it), so
+    this changes the loss; it is opt-in via --loss-direct-spec and the default recipe keeps
+    the exact istft->stft path.
+    """
+    resolutions = _LOSS_RES if resolutions is None else resolutions
+    big = max(resolutions)
+    rest = tuple(r for r in resolutions if r != big)
+    loss = pred_wav.new_zeros(())
+    if rest:
+        loss = loss + multi_res_stft_loss_fast(pred_wav, tgt_wav, resolutions=rest) * len(rest)
+    pm = pred_c.abs().reshape(pred_c.shape[0], -1, pred_c.shape[-1])
+    with torch.no_grad():
+        tm = tgt_c.abs().reshape(tgt_c.shape[0], -1, tgt_c.shape[-1])
+    scale = tm.max().detach().clamp_min(1e-4)
+    den = torch.linalg.vector_norm(tm, dim=(-2, -1)).clamp_min(1e-3 * scale)
+    sc = (torch.linalg.vector_norm(tm - pm, dim=(-2, -1)) / den).clamp(max=10.0)
+    mag = F.l1_loss(torch.log(pm + 1e-3 * scale), torch.log(tm + 1e-3 * scale))
+    loss = loss + sc.mean() + mag
+    return loss / len(resolutions)
 
 
 def leakage_loss(pred_wav: torch.Tensor, target_wav: torch.Tensor, rms_threshold: float = 0.005, frame: int = 2048):
@@ -294,6 +326,13 @@ def split_fc(spec_c: torch.Tensor, channels: int) -> torch.Tensor:
     return spec_c.reshape(b, f, channels, t).permute(0, 2, 1, 3).reshape(b * channels, f, t)
 
 
+_LOSS_RES = (512, 1024, 2048)
+_LOSS_HOP = 0
+
+
+_ISTFT_ADJOINT = os.environ.get("PYMSS_ISTFT_ADJOINT", "1").lower() in {"1", "true", "yes", "on"}
+
+
 def waveform(x, channels: int, n_fft: int, hop: int, length: int, window) -> torch.Tensor:
     """Per-channel iSTFT with an explicit adjoint.
 
@@ -302,9 +341,16 @@ def waveform(x, channels: int, n_fft: int, hop: int, length: int, window) -> tor
       per call here, the real-plane version 0.4 ms (that, not iSTFT, was the 83 ms)
     * iSTFT's backward is replaced by the exact adjoint (fast_istft.IstftChannels)
     """
-    from fast_istft import istft_channels
+    if _ISTFT_ADJOINT:
+        from fast_istft import istft_channels
 
-    return istft_channels(x, window, n_fft, hop, length, channels)
+        return istft_channels(x, window, n_fft, hop, length, channels)
+    from pymss_core.npu_fft import istft_npu
+
+    flat = split_fc(x, channels)
+    wav = istft_npu(flat, n_fft=n_fft, hop_length=hop, window=window, length=length,
+                    return_complex=False)
+    return wav.reshape(x.shape[0], channels, -1)
 
 
 # ------------------------------------------------------------------ main
@@ -321,6 +367,13 @@ def main(argv=None) -> int:
     parser.add_argument("--n-fft", type=int, default=2048)
     parser.add_argument("--hop", type=int, default=512)
     parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument("--loss-resolutions", default="512,1024,2048",
+                        help="MR-STFT resolutions (recipe knob; default matches the G4 recipe)")
+    parser.add_argument("--loss-hop", type=int, default=0,
+                        help="force one hop for every MR-STFT resolution (0 = n_fft//4)")
+    parser.add_argument("--loss-direct-spec", action="store_true",
+                        help="compute the largest MR-STFT resolution straight from the model "
+                             "spectrum instead of istft->stft (changes the loss, off by default)")
     parser.add_argument("--fast-loss", action="store_true",
                         help="use the cheap-adjoint STFT magnitude in the MR-STFT loss "
                              "(math-equivalent, avoids aten::stft backward)")
@@ -335,6 +388,9 @@ def main(argv=None) -> int:
     parser.add_argument("--log-every", type=int, default=1)
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args(argv)
+    global _LOSS_RES, _LOSS_HOP
+    _LOSS_RES = tuple(int(v) for v in str(args.loss_resolutions).split(",") if v.strip())
+    _LOSS_HOP = int(args.loss_hop)
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -419,7 +475,12 @@ def main(argv=None) -> int:
                 loss_spec = complex_l1(pred_c, tgt_c)
                 pred_wav = waveform(pred_c, channels, args.n_fft, args.hop, args.chunk_size, window)
                 tgt_wav = waveform(tgt_c, channels, args.n_fft, args.hop, args.chunk_size, window)
-                loss_mrstft = (multi_res_stft_loss_fast if args.fast_loss else multi_res_stft_loss)(pred_wav, tgt_wav)
+                if args.loss_direct_spec:
+                    loss_mrstft = multi_res_stft_loss_direct_spec(
+                        pred_c, tgt_c, pred_wav, tgt_wav, channels=channels)
+                else:
+                    loss_mrstft = (multi_res_stft_loss_fast if args.fast_loss else
+                                   multi_res_stft_loss)(pred_wav, tgt_wav)
                 loss_sisdr = -si_sdr(pred_wav, tgt_wav).mean() / 20.0
                 loss_leak = leakage_loss(pred_wav, tgt_wav)
                 loss = (loss_spec + 0.5 * loss_mrstft + 0.1 * loss_sisdr + 0.1 * loss_leak) / args.accum

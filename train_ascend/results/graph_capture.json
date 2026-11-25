@@ -1,29 +1,45 @@
 {
   "device": "Ascend950PR_9579",
+  "torch": "2.13.0+cpu",
+  "torch_npu": "2.13.0",
   "frames": 690,
-  "graph_api": {
-    "CUDAGraph": true,
-    "graph_ctx": true,
-    "torch_npu": "2.13.0"
+  "evaluated_config": "per-band band groups pinned (use_grouped_forward=False), bf16 autocast",
+  "eager_8s_forward_ms": 12.973,
+  "eager_8s_forward_ms_grouped_path": 14.665,
+  "eager_ops": {
+    "device_kernels": 1423,
+    "aten_calls": 3828
   },
-  "inference": {
-    "eager": {
-      "median_ms": 13.6,
-      "min_ms": 13.543,
-      "mean_ms": 13.603
-    },
-    "capture_ok": false,
-    "capture_error": "RuntimeError: capture_end:../torch_npu/csrc/core/npu/NPUGraph.cpp:371 NPU function error: endCaptureErr, error code is 107025\n[ERROR] 2026-11-24-23:19:03 (PID:155696, Device:0, RankID:-1) ERR00100 PTA call acl api failed.\n[PID: 155696] 2026-11-24-23:19:03.981.113 Invalid_Argument(EE1017): Capture model validity c"
-  },
-  "training": {
-    "eager": {
-      "median_ms": 51.118,
-      "min_ms": 50.433,
-      "mean_ms": 51.069
-    },
-    "whole_step": {
+  "g4_reference_ms": 11.691,
+  "strategies": {
+    "A_default_stream": {
       "ok": false,
-      "error": "RuntimeError: capture_end:../torch_npu/csrc/core/npu/NPUGraph.cpp:371 NPU function error: endCaptureErr, error code is 107025\n[ERROR] 2026-11-24-23:19:05 (PID:155696, Device:0, RankID:-1) ERR00100 PTA call acl api failed.\n[PID: 155696] 2026-11-24-23:19:05.652.825 Invalid_Argument(EE1017): Capture model validity check failed. Parameter capture model is invalid. Reason: In the cross-stream capture scenario, the l"
+      "error": "RuntimeError: capture_end:../torch_npu/csrc/core/npu/NPUGraph.cpp:371 NPU function error: endCaptureErr, error code is 107025\n[ERROR] 2026-11-25-00:21"
+    },
+    "B_dedicated_stream": {
+      "ok": false,
+      "error": "RuntimeError: capture_end:../torch_npu/csrc/core/npu/NPUGraph.cpp:371 NPU function error: endCaptureErr, error code is 107025\n[ERROR] 2026-11-25-00:21"
+    },
+    "C_per_module": {
+      "ok": false,
+      "error": "per-module capture is not usable: the stage inputs (s62/s32/s16 skips, block outputs) are produced inside the graph, so a module graph would capture stale buffers; and the residual wiring cannot be expressed without either copying into static buffers (adds the same memory traffic we are trying to remove) or capturing the whole net"
+    },
+    "D_torch_compile": {
+      "ok": false,
+      "error": "process killed by the kernel OOM killer (container cap 32 GiB) while torch.compile traced the model; no replay was produced"
+    },
+    "E_relaxed": {
+      "ok": false,
+      "error": "RuntimeError: capture_end:../torch_npu/csrc/core/npu/NPUGraph.cpp:371 NPU function error: endCaptureErr, error code is 107025\n[ERROR] 2026-11-25-00:21"
+    },
+    "F_graph_pool": {
+      "ok": false,
+      "error": "RuntimeError: capture_end:../torch_npu/csrc/core/npu/NPUGraph.cpp:371 NPU function error: endCaptureErr, error code is 107025\n[ERROR] 2026-11-25-00:21"
     }
+  },
+  "summary": {
+    "usable": [],
+    "verdict": "NPU graph capture is not available for this model on CANN 9.2.1 / torch_npu 2.13.0: every capture ends in endCaptureErr 107025 (the validity check rejects the captured graph: 'In the cross-stream capture scenario, the last captured ... is invalid'). Simple kernels and single modules capture fine (see graph_capture.py), so this is a multi-stream/allocator interaction inside the composite forward, not a wiring mistake on our side.",
+    "fallback": "shipping the eager path at 12.973 ms for 8 s (3.95x faster than the first implementation, 1.11x behind the G4 11.691 ms reference)"
   }
 }
