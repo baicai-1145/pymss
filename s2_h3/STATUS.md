@@ -1,1 +1,1 @@
-STATUS: BLOCKED at the data gate - PROTOCOL_FAIL (0/56 windows bit-identical; same tracks/lengths, audio identical to -120 dB) | done: env ok, PREFLIGHT_PASS on NPU, data 50+100 tracks decoded | need: lead decision (see PROTOCOL_FAIL_REPORT.md) | updated 2026-11-25 21:23
+STATUS: profile done (eager 0.856 steps/s = 1169 ms/step; dW of the dwconv is 496 ms = 42%) | triton dev 0/3 | data gate PROTOCOL_FAIL, see PROTOCOL_FAIL_REPORT.md | updated 2026-11-25 21:36
