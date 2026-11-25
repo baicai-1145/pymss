@@ -35,3 +35,17 @@ edited.
 * The whole H3 step is 1169 ms: forward 150, backward 959, optimizer+EMA 18, h2d 59.  `Conv3DBackpropFilterV2` (the
   depthwise-conv **weight** gradient, 12 calls) is 496 ms of it; on one conv at the training shape the split is
   forward 3.7 / dX 8.2 / **dW 122.9 ms**.
+
+## Data gate measured with the per-sample reference (`S2_REF_DIR`, commit e4aeec9)
+
+Phenomenon: 56/56 offsets and track lengths identical, window energies equal to ≤2.4e-6, CRCs all different.
+Measured against `s2-h3-ref` (56 windows, float16): **0.0727 % of samples differ on average, 0.1539 % at worst**, each
+difference being exactly one float16 quantum at that sample's magnitude, absolute ≤4.9e-4 (16 PCM16 LSB). The exact
+integer energy identity (`E_ref·2^30 ∈ ℤ`) bounds the underlying PCM16 difference to ≈1 LSB on those samples.
+Cause: the reference's PCM16 was produced by a slightly different decode arithmetic (last bits, ~1 LSB on 0.07 % of
+samples). Ruled out here: ffmpeg 4.4.2 ≡ 9.0.2 bit-identically, mp3float vs fixed-point decoder, 8 CPU/SIMD paths,
+ffmpeg's own float→int16, 6 rounding rules × 2 scales × float32/float64 domain, libsndfile 1.0.31 vs 1.2.2, libmpg123.
+Change: none to the pipeline. Why the math is unchanged: nothing in `s2_h3/*.py`'s model, loss, sampling or evaluation
+was touched; only the gate's *measurement* was added (`protocol_ulp.py`, `profile/data_gate_ulp.json`).
+Note for anyone re-reading the gate: `protocol_check.py` divides by `np.spacing(want)`, which for a quiet reference
+sample is smaller than one PCM16 step (1/512 of it at exactly 0), so one-LSB differences read as up to 512 "ulp".

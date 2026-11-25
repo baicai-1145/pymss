@@ -1,15 +1,16 @@
 tracks: train 100 test 50 | reference windows 56
-matched (bit-identical): 0 | mismatched: 56 | reference windows never reached: 0
-MISMATCH AM Contra - Heart Peripheral 2908455 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000813, 'energy_vocals': 0.000874}
-MISMATCH Al James - Schoolboy Facination 2990101 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000858, 'energy_vocals': 0.000638}
-MISMATCH Angels In Amplifiers - I'm Alright 2642116 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000572, 'energy_vocals': 0.0014}
-MISMATCH Arise - Run Run Run 4640674 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000519, 'energy_vocals': 0.001021}
-MISMATCH BKS - Bulldozer 6256732 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.001567, 'energy_vocals': 0.001079}
-MISMATCH BKS - Too Much 4543260 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000824, 'energy_vocals': 0.000999}
-MISMATCH Ben Carrigan - We'll Talk About It All Tonight 5497541 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.001463, 'energy_vocals': 0.001128}
-MISMATCH Bobby Nobody - Stitch Up 5289973 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.001033, 'energy_vocals': 0.000415}
-MISMATCH Buitraker - Revo X 6591724 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000651, 'energy_vocals': 0.001241}
-MISMATCH Carlos Gonzalez - A Place For Us 2698796 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.001221, 'energy_vocals': 0.000919}
-MISMATCH Cristina Vane - So Easy 7696215 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000662, 'energy_vocals': 0.001477}
-MISMATCH Detsky Sad - Walkie Talkie 5969322 fields ['crc_mixture', 'crc_vocals', 'energy_mixture', 'energy_vocals'] rel. energy difference {'energy_mixture': 0.000934, 'energy_vocals': 0.001542}
+per-sample reference: /workspace/s2_h3_ref/ref
+bit-identical: 0 | within 1 float16 ulp: 0 | failed: 56 | never reached: 0
+FAIL ('AM Contra - Heart Peripheral', 2908455, 512.0, 0.0007532596371882086, {'energy_mixture': 6.61e-07, 'energy_vocals': 7.65e-07})
+FAIL ('Al James - Schoolboy Facination', 2990101, 512.0, 0.0006377551020408163, {'energy_mixture': 7.36e-07, 'energy_vocals': 4.07e-07})
+FAIL ("Angels In Amplifiers - I'm Alright", 2642116, 512.0, 0.0005796485260770975, {'energy_mixture': 3.27e-07, 'energy_vocals': 1.96e-06})
+FAIL ('Arise - Run Run Run', 4640674, 512.0, 0.0006115362811791383, {'energy_mixture': 2.7e-07, 'energy_vocals': 1.042e-06})
+FAIL ('BKS - Bulldozer', 6256732, 512.0, 0.0007603458049886622, {'energy_mixture': 2.456e-06, 'energy_vocals': 1.163e-06})
+FAIL ('BKS - Too Much', 4543260, 256.0, 0.0008779761904761905, {'energy_mixture': 6.8e-07, 'energy_vocals': 9.97e-07})
+FAIL ("Ben Carrigan - We'll Talk About It All Tonight", 5497541, 512.0, 0.0004953231292517007, {'energy_mixture': 2.14e-06, 'energy_vocals': 1.272e-06})
+FAIL ('Bobby Nobody - Stitch Up', 5289973, 512.0, 0.0007497165532879818, {'energy_mixture': 1.068e-06, 'energy_vocals': 1.72e-07})
+FAIL ('Buitraker - Revo X', 6591724, 256.0, 0.0005442176870748299, {'energy_mixture': 4.24e-07, 'energy_vocals': 1.54e-06})
+FAIL ('Carlos Gonzalez - A Place For Us', 2698796, 256.0, 0.0004832766439909297, {'energy_mixture': 1.49e-06, 'energy_vocals': 8.44e-07})
+FAIL ('Cristina Vane - So Easy', 7696215, 256.0, 0.0006455498866213151, {'energy_mixture': 4.38e-07, 'energy_vocals': 2.181e-06})
+FAIL ('Detsky Sad - Walkie Talkie', 5969322, 512.0, 0.0007511337868480726, {'energy_mixture': 8.72e-07, 'energy_vocals': 2.378e-06})
 PROTOCOL_FAIL
