@@ -1,1 +1,1 @@
-STATUS: training H3 5k running (Triton dwconv_dw, 844.6 ms/step) | QUEUE PAUSED 2026-11-25 22:30: run_h2.py SIGSTOPped (pid 521773) per TASK §10 so the 5k boundary gives an exclusive NPU timing window for dwconv_dw v2 (limit 45 min, fallback = resume with dwconv_dw) | data PROTOCOL_PASS | triton 1/3
+SPEED ROUND 2026-11-25 22:38: training stopped (run_h2.py + 5000-stage process group killed, NPU idle, 5k data discarded per TASK §10.1) | sprint: round 1 dwconv_dw v2 (a)+(b) | baseline 844.6 ms eager-vs-triton1, target <=450 ms | 6h cap from 22:38

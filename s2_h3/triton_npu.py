@@ -101,6 +101,38 @@ if HAS_TRITON:
             tl.atomic_add(DB + oc, accb, mask=mc)
 
     @triton.jit
+    def _dw_dw2(DY, X, DW, DB, N, C, T, K, NS: tl.constexpr, BR: tl.constexpr, BT: tl.constexpr,
+                BKC: tl.constexpr, HAS_B: tl.constexpr, KCHUNKS: tl.constexpr):
+        """v2 of the weight gradient: row blocks and time slices are grid dimensions, one tile covers BR rows x BKC taps.
+
+        v1 ran 1536 programs, each looping 372 rows x 3 time slices of a (1, K, BT) tile: 1.1M tiny iterations, latency
+        bound at 220 GB/s.  Here the same bytes move as ~95 iterations of a (BR, BKC, BT) tile per program and the
+        program count is C x NS x ceil(T/BT) >= 4608, so the device has enough independent work to hide the latency.
+        """
+        c, ps, pt = tl.program_id(0), tl.program_id(1), tl.program_id(2)
+        orow = tl.arange(0, BR)
+        ot = pt * BT + tl.arange(0, BT)
+        mt = ot < T
+        base0 = c * T
+        for kc in tl.static_range(KCHUNKS):
+            ok = kc * BKC + tl.arange(0, BKC)
+            mk = ok < K
+            src = ot[None, :] + ok[:, None] - K // 2                     # (BKC, BT)
+            m = mk[:, None] & (src >= 0) & (src < T)
+            acc = tl.zeros((BKC,), dtype=tl.float32)
+            for nb in range(ps, N // BR, NS):
+                rows = nb * BR + orow
+                mrow = rows < N
+                base = rows[:, None] * C * T + base0
+                dy = tl.load(DY + base + ot[None, :], mask=mrow[:, None] & mt[None, :], other=0.0).to(tl.float32)
+                x = tl.load(X + base[:, None] + src[None, :, :], mask=mrow[:, None, None] & m[None, :, :],
+                            other=0.0).to(tl.float32)
+                acc += tl.sum(tl.sum(x * dy[:, None, :], axis=2), axis=0)
+                if HAS_B and kc == 0 and pt == 0:
+                    tl.atomic_add(DB + c, tl.sum(tl.sum(dy, axis=1), axis=0))
+            tl.atomic_add(DW + c * K + ok, acc, mask=mk)
+
+    @triton.jit
     def _silu_mul(A, G, OUT, n, BLOCK: tl.constexpr):
         """out = silu(A) * G."""
         offs = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
@@ -110,14 +142,15 @@ if HAS_TRITON:
         tl.store(OUT + offs, (a * tl.sigmoid(a) * g).to(OUT.dtype.element_ty), mask=m)
 
 
-STAGES = ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'silu_mul')
+STAGES = ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2', 'silu_mul')
 
 
 def _cfg():
     """Tile sizes (thinned on this device: the (BC, BK, BT) tile must fit the 254 KB UB)."""
     return dict(bc=int(os.environ.get('S2_TRITON_BC', 1)), bt=int(os.environ.get('S2_TRITON_BT', 128)),
                 bk=int(os.environ.get('S2_TRITON_BK', 32)), ns=int(os.environ.get('S2_TRITON_NS', 4)),
-                block=int(os.environ.get('S2_TRITON_BLOCK', 8192)))
+                block=int(os.environ.get('S2_TRITON_BLOCK', 8192)),
+                br=int(os.environ.get('S2_TRITON_BR', 4)), bkc=int(os.environ.get('S2_TRITON_BKC', 16)))
 
 
 def _pow2(n):
@@ -173,7 +206,14 @@ class _DWConv(torch.autograd.Function):
                          num_warps=1)
         else:
             dx = F.conv1d(grad_out, weight.flip(-1), padding=pad, groups=c)
-        if 'dwconv_dw' in stages:
+        if 'dwconv_dw2' in stages:                                   # §10(a): row blocks x time slices in the grid
+            dw = torch.zeros(c, k, device=x.device, dtype=torch.float32)
+            db = torch.zeros(c, device=x.device, dtype=torch.float32) if ctx.has_bias else dw
+            nt = triton.cdiv(t, cfg['bt'])
+            kw = _pow2(k)
+            _dw_dw2[(c, cfg['ns'], nt)](grad_out, x, dw, db, n, c, t, k, NS=cfg['ns'], BR=cfg['br'], BT=cfg['bt'],
+                                        BKC=cfg['bkc'], HAS_B=ctx.has_bias, KCHUNKS=kw // cfg['bkc'], num_warps=1)
+        elif 'dwconv_dw' in stages:
             dw = torch.zeros(c, k, device=x.device, dtype=torch.float32)
             db = torch.zeros(c, device=x.device, dtype=torch.float32) if ctx.has_bias else dw
             grid = (triton.cdiv(c, cfg['bc']), cfg['ns'])
@@ -237,7 +277,7 @@ def install(model, names):
     names = set(STAGES) if 'all' in names else set(names) & set(STAGES)
     assert names, f'nothing to install from {names}'
     done = []
-    conv_stages = tuple(s for s in ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw') if s in names)
+    conv_stages = tuple(s for s in ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2') if s in names)
     if conv_stages:
         count = 0
         for module in model.modules():
