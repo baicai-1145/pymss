@@ -1,0 +1,551 @@
+{
+  "ckpt": "/workspace/runs/overnight2/ema-16000.pt",
+  "step": 16000,
+  "weights": "ema",
+  "protocol": "H2 archived 56 windows (45 songs)",
+  "protocol_file": "/workspace/pymss/train_ascend/results/h2_56_windows.txt",
+  "windows": 56,
+  "songs": 45,
+  "name_resolution": [
+    "'M' -> 'M.E.R.C. Music - Knockout' (alias)",
+    "'Triviul feat' -> 'Triviul feat. The Fiend - Widow'"
+  ],
+  "mine": {
+    "median": 3.9082107543945312,
+    "mean": 2.3723964936133206,
+    "ci95_median": [
+      0.976881742477417,
+      4.927396535873413
+    ],
+    "ci95_mean": [
+      0.7448630135373074,
+      3.7803453313897606
+    ]
+  },
+  "h2": {
+    "median": 6.8178,
+    "mean": 5.520191071428571
+  },
+  "paired_delta": {
+    "median": -3.0018202919006347,
+    "mean": -3.1477945778152505,
+    "ci95_median": [
+      -3.7521358074378957,
+      -2.3604282043457037
+    ],
+    "ci95_mean": [
+      -4.402490818102477,
+      -1.77178367487165
+    ],
+    "win": 7,
+    "loss": 49,
+    "ties": 0
+  },
+  "leakage_rms_median": 0.0010681294370442629,
+  "rows": [
+    {
+      "index": 0,
+      "song": "AM Contra - Heart Peripheral",
+      "offset": 2908455,
+      "mine": 6.176159858703613,
+      "h2": 9.1516,
+      "delta": -2.975440141296387,
+      "leakage_rms": 0.0008645335328765213
+    },
+    {
+      "index": 1,
+      "song": "Al James - Schoolboy Facination",
+      "offset": 2990101,
+      "mine": 7.163060188293457,
+      "h2": 6.699,
+      "delta": 0.4640601882934572,
+      "leakage_rms": 0.0008308998076245189
+    },
+    {
+      "index": 2,
+      "song": "Angels In Amplifiers - I'm Alright",
+      "offset": 2642116,
+      "mine": -2.634087324142456,
+      "h2": -1.4543,
+      "delta": -1.1797873241424561,
+      "leakage_rms": 4.83009587881611e-09
+    },
+    {
+      "index": 3,
+      "song": "Arise - Run Run Run",
+      "offset": 4640674,
+      "mine": 3.5937345027923584,
+      "h2": 6.7538,
+      "delta": -3.1600654972076416,
+      "leakage_rms": 0.009497576393187046
+    },
+    {
+      "index": 4,
+      "song": "BKS - Bulldozer",
+      "offset": 6256732,
+      "mine": -4.777687072753906,
+      "h2": 3.072,
+      "delta": -7.849687072753906,
+      "leakage_rms": 0.0003443832683842629
+    },
+    {
+      "index": 5,
+      "song": "BKS - Too Much",
+      "offset": 4543260,
+      "mine": 4.732218265533447,
+      "h2": 9.3635,
+      "delta": -4.631281734466553,
+      "leakage_rms": 0.004024055320769548
+    },
+    {
+      "index": 6,
+      "song": "Ben Carrigan - We'll Talk About It All Tonight",
+      "offset": 5497541,
+      "mine": 7.020157814025879,
+      "h2": 13.2639,
+      "delta": -6.243742185974121,
+      "leakage_rms": 0.0005784634267911315
+    },
+    {
+      "index": 7,
+      "song": "Bobby Nobody - Stitch Up",
+      "offset": 5289973,
+      "mine": 0.8119855523109436,
+      "h2": 6.7273,
+      "delta": -5.915314447689056,
+      "leakage_rms": 0.010904131457209587
+    },
+    {
+      "index": 8,
+      "song": "Buitraker - Revo X",
+      "offset": 6591724,
+      "mine": 4.5967817306518555,
+      "h2": 6.8818,
+      "delta": -2.2850182693481447,
+      "leakage_rms": 0.0019016539445146918
+    },
+    {
+      "index": 9,
+      "song": "Carlos Gonzalez - A Place For Us",
+      "offset": 2698796,
+      "mine": 8.225151062011719,
+      "h2": 7.8747,
+      "delta": 0.35045106201171894,
+      "leakage_rms": 0.0005029948079027236
+    },
+    {
+      "index": 10,
+      "song": "Cristina Vane - So Easy",
+      "offset": 7696215,
+      "mine": 10.031424522399902,
+      "h2": 12.7027,
+      "delta": -2.6712754776000978,
+      "leakage_rms": 0.004160424694418907
+    },
+    {
+      "index": 11,
+      "song": "Detsky Sad - Walkie Talkie",
+      "offset": 5969322,
+      "mine": -1.7853256464004517,
+      "h2": -6.2841,
+      "delta": 4.498774353599548,
+      "leakage_rms": 0.019603325054049492
+    },
+    {
+      "index": 12,
+      "song": "Forkupines - Semantics",
+      "offset": 3179478,
+      "mine": 4.60196590423584,
+      "h2": 6.3671,
+      "delta": -1.76513409576416,
+      "leakage_rms": 0.0003370202030055225
+    },
+    {
+      "index": 13,
+      "song": "Georgia Wonder - Siren",
+      "offset": 8920580,
+      "mine": -2.3247292041778564,
+      "h2": -2.2933,
+      "delta": -0.03142920417785655,
+      "leakage_rms": 0.005884148646146059
+    },
+    {
+      "index": 14,
+      "song": "Hollow Ground - Ill Fate",
+      "offset": 2591482,
+      "mine": 4.1891045570373535,
+      "h2": -6.5569,
+      "delta": 10.746004557037352,
+      "leakage_rms": 0.0004348727816250175
+    },
+    {
+      "index": 15,
+      "song": "James Elder & Mark M Thompson - The English Actor",
+      "offset": 3787307,
+      "mine": 8.129594802856445,
+      "h2": 10.4046,
+      "delta": -2.275005197143555,
+      "leakage_rms": 0.004655312281101942
+    },
+    {
+      "index": 16,
+      "song": "Juliet's Rescue - Heartbeats",
+      "offset": 7155306,
+      "mine": -8.744717597961426,
+      "h2": 3.8679,
+      "delta": -12.612617597961426,
+      "leakage_rms": 0.0006869476637803018
+    },
+    {
+      "index": 17,
+      "song": "Little Chicago's Finest - My Own",
+      "offset": 1094464,
+      "mine": -4.666146278381348,
+      "h2": 8.3416,
+      "delta": -13.007746278381347,
+      "leakage_rms": 0.00016795175906736404
+    },
+    {
+      "index": 18,
+      "song": "Lyndsey Ollard - Catching Up",
+      "offset": 5406906,
+      "mine": 9.695856094360352,
+      "h2": 11.7309,
+      "delta": -2.0350439056396485,
+      "leakage_rms": 0.003592242719605565
+    },
+    {
+      "index": 19,
+      "song": "M",
+      "offset": 1838529,
+      "mine": 2.530501365661621,
+      "h2": 4.4588,
+      "delta": -1.928298634338379,
+      "leakage_rms": 0.024839265272021294
+    },
+    {
+      "index": 20,
+      "song": "Moosmusic - Big Dummy Shake",
+      "offset": 8356196,
+      "mine": 11.034544944763184,
+      "h2": 14.8371,
+      "delta": -3.802555055236816,
+      "leakage_rms": 0.000118234682304319
+    },
+    {
+      "index": 21,
+      "song": "Motor Tapes - Shore",
+      "offset": 5368129,
+      "mine": 8.872739791870117,
+      "h2": 10.9049,
+      "delta": -2.0321602081298824,
+      "leakage_rms": 0.0022033145651221275
+    },
+    {
+      "index": 22,
+      "song": "Mu - Too Bright",
+      "offset": 10242803,
+      "mine": 3.627316951751709,
+      "h2": 6.6051,
+      "delta": -2.977783048248291,
+      "leakage_rms": 6.346325243100637e-09
+    },
+    {
+      "index": 23,
+      "song": "Nerve 9 - Pray For The Rain",
+      "offset": 2535892,
+      "mine": 5.208094596862793,
+      "h2": 7.1438,
+      "delta": -1.9357054031372067,
+      "leakage_rms": 0.021581947803497314
+    },
+    {
+      "index": 24,
+      "song": "PR - Happy Daze",
+      "offset": 2199530,
+      "mine": -13.8449068069458,
+      "h2": -1.2238,
+      "delta": -12.6211068069458,
+      "leakage_rms": 0.0018408411415293813
+    },
+    {
+      "index": 25,
+      "song": "PR - Oh No",
+      "offset": 2255813,
+      "mine": -0.0028200591914355755,
+      "h2": 3.5413,
+      "delta": -3.5441200591914357,
+      "leakage_rms": 3.812632876076805e-09
+    },
+    {
+      "index": 26,
+      "song": "Punkdisco - Oral Hygiene",
+      "offset": 8971413,
+      "mine": 8.817890167236328,
+      "h2": -0.478,
+      "delta": 9.295890167236328,
+      "leakage_rms": 0.00046751994523219764
+    },
+    {
+      "index": 27,
+      "song": "Raft Monk - Tiring",
+      "offset": 2090279,
+      "mine": -11.104307174682617,
+      "h2": -1.6214,
+      "delta": -9.482907174682618,
+      "leakage_rms": NaN
+    },
+    {
+      "index": 28,
+      "song": "Secretariat - Over The Top",
+      "offset": 6637701,
+      "mine": 7.109010696411133,
+      "h2": 10.3352,
+      "delta": -3.2261893035888676,
+      "leakage_rms": 0.004977282602339983
+    },
+    {
+      "index": 29,
+      "song": "Side Effects Project - Sing With Me",
+      "offset": 1899887,
+      "mine": -3.5571069717407227,
+      "h2": 7.1643,
+      "delta": -10.721406971740723,
+      "leakage_rms": 0.00015906266344245523
+    },
+    {
+      "index": 30,
+      "song": "Signe Jakobsen - What Have You Done To Me",
+      "offset": 4428869,
+      "mine": 5.061972141265869,
+      "h2": 7.7518,
+      "delta": -2.689827858734131,
+      "leakage_rms": 0.020010391250252724
+    },
+    {
+      "index": 31,
+      "song": "Skelpolu - Resurrection",
+      "offset": 15438443,
+      "mine": -10.164039611816406,
+      "h2": -24.4521,
+      "delta": 14.288060388183595,
+      "leakage_rms": 0.0163300558924675
+    },
+    {
+      "index": 32,
+      "song": "Speak Softly - Broken Man",
+      "offset": 1554695,
+      "mine": -6.6667680740356445,
+      "h2": 2.4604,
+      "delta": -9.127168074035644,
+      "leakage_rms": 7.096679473761469e-05
+    },
+    {
+      "index": 33,
+      "song": "Speak Softly - Like Horses",
+      "offset": 108561,
+      "mine": -2.827096462249756,
+      "h2": 7.6179,
+      "delta": -10.444996462249755,
+      "leakage_rms": 2.3679992864344968e-06
+    },
+    {
+      "index": 34,
+      "song": "The Doppler Shift - Atrophy",
+      "offset": 8245234,
+      "mine": -3.0824480056762695,
+      "h2": -0.7068,
+      "delta": -2.3756480056762697,
+      "leakage_rms": 0.018604468554258347
+    },
+    {
+      "index": 35,
+      "song": "The Easton Ellises (Baumi) - SDRNR",
+      "offset": 9342565,
+      "mine": 0.976881742477417,
+      "h2": 4.788,
+      "delta": -3.8111182575225833,
+      "leakage_rms": NaN
+    },
+    {
+      "index": 36,
+      "song": "The Easton Ellises - Falcon 69",
+      "offset": 9515656,
+      "mine": -3.4239044189453125,
+      "h2": -2.4274,
+      "delta": -0.9965044189453125,
+      "leakage_rms": 3.395699241082184e-05
+    },
+    {
+      "index": 37,
+      "song": "The Long Wait - Dark Horses",
+      "offset": 9946366,
+      "mine": 6.8881988525390625,
+      "h2": 7.9424,
+      "delta": -1.0542011474609376,
+      "leakage_rms": 0.0031111144926398993
+    },
+    {
+      "index": 38,
+      "song": "The Mountaineering Club - Mallory",
+      "offset": 4795608,
+      "mine": 4.884502410888672,
+      "h2": 8.636,
+      "delta": -3.7514975891113274,
+      "leakage_rms": 0.0007631462067365646
+    },
+    {
+      "index": 39,
+      "song": "The Sunshine Garcia Band - For I Am The Moon",
+      "offset": 7070608,
+      "mine": 9.7442626953125,
+      "h2": 12.2707,
+      "delta": -2.5264373046874997,
+      "leakage_rms": 0.00821937620639801
+    },
+    {
+      "index": 40,
+      "song": "Timboz - Pony",
+      "offset": 10177585,
+      "mine": -0.004919453989714384,
+      "h2": 3.8177,
+      "delta": -3.8226194539897143,
+      "leakage_rms": 4.521548468972014e-09
+    },
+    {
+      "index": 41,
+      "song": "Tom McKenzie - Directions",
+      "offset": 4993979,
+      "mine": 2.9002203941345215,
+      "h2": 8.3881,
+      "delta": -5.487879605865478,
+      "leakage_rms": 0.0013507429976016283
+    },
+    {
+      "index": 42,
+      "song": "Triviul feat",
+      "offset": 347612,
+      "mine": 10.143198013305664,
+      "h2": 11.287,
+      "delta": -1.1438019866943367,
+      "leakage_rms": 1.3498749922291609e-06
+    },
+    {
+      "index": 43,
+      "song": "Zeno - Signs",
+      "offset": 3144063,
+      "mine": 0.7260852456092834,
+      "h2": 5.8713,
+      "delta": -5.145214754390716,
+      "leakage_rms": 0.00045323040103539824
+    },
+    {
+      "index": 44,
+      "song": "AM Contra - Heart Peripheral",
+      "offset": 8032555,
+      "mine": 3.2847509384155273,
+      "h2": 8.9227,
+      "delta": -5.637949061584473,
+      "leakage_rms": 0.008942294865846634
+    },
+    {
+      "index": 45,
+      "song": "Al James - Schoolboy Facination",
+      "offset": 8337826,
+      "mine": -0.3310900628566742,
+      "h2": 3.605,
+      "delta": -3.936090062856674,
+      "leakage_rms": 0.0012910643126815557
+    },
+    {
+      "index": 46,
+      "song": "Angels In Amplifiers - I'm Alright",
+      "offset": 3359931,
+      "mine": 3.2753424644470215,
+      "h2": 6.3012,
+      "delta": -3.025857535552978,
+      "leakage_rms": 0.0005332351429387927
+    },
+    {
+      "index": 47,
+      "song": "Arise - Run Run Run",
+      "offset": 1078879,
+      "mine": 4.209981441497803,
+      "h2": 8.2836,
+      "delta": -4.073618558502197,
+      "leakage_rms": 0.011532825417816639
+    },
+    {
+      "index": 48,
+      "song": "BKS - Too Much",
+      "offset": 1739006,
+      "mine": 7.878108978271484,
+      "h2": 11.285,
+      "delta": -3.4068910217285158,
+      "leakage_rms": 0.0002784062235150486
+    },
+    {
+      "index": 49,
+      "song": "Ben Carrigan - We'll Talk About It All Tonight",
+      "offset": 4992389,
+      "mine": 4.970290660858154,
+      "h2": 12.5579,
+      "delta": -7.587609339141846,
+      "leakage_rms": 0.0010681294370442629
+    },
+    {
+      "index": 50,
+      "song": "Bobby Nobody - Stitch Up",
+      "offset": 1122898,
+      "mine": 4.70854377746582,
+      "h2": 6.5458,
+      "delta": -1.8372562225341795,
+      "leakage_rms": 0.005026428494602442
+    },
+    {
+      "index": 51,
+      "song": "Buitraker - Revo X",
+      "offset": 8536428,
+      "mine": -4.86690616607666,
+      "h2": -1.4444,
+      "delta": -3.4225061660766603,
+      "leakage_rms": NaN
+    },
+    {
+      "index": 52,
+      "song": "Cristina Vane - So Easy",
+      "offset": 9747185,
+      "mine": 1.629417896270752,
+      "h2": 7.0676,
+      "delta": -5.438182103729248,
+      "leakage_rms": 0.0053377458825707436
+    },
+    {
+      "index": 53,
+      "song": "Detsky Sad - Walkie Talkie",
+      "offset": 2692133,
+      "mine": 5.350874900817871,
+      "h2": 4.6556,
+      "delta": 0.6952749008178714,
+      "leakage_rms": 0.01907331310212612
+    },
+    {
+      "index": 54,
+      "song": "Enda Reilly - Cur An Long Ag Seol",
+      "offset": 3853469,
+      "mine": 8.844371795654297,
+      "h2": 11.2048,
+      "delta": -2.3604282043457037,
+      "leakage_rms": 4.520387665252201e-05
+    },
+    {
+      "index": 55,
+      "song": "Forkupines - Semantics",
+      "offset": 1684464,
+      "mine": 6.018912315368652,
+      "h2": 8.6198,
+      "delta": -2.6008876846313473,
+      "leakage_rms": 0.00054336799075827
+    }
+  ]
+}

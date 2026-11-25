@@ -106,6 +106,10 @@ def eval_both(model, ema, dataset, tracks_by_song, protocol, device, args, windo
         stats = bootstrap_by_song(res["windows"])
         leak = [r["leakage_rms"] for r in res["windows"] if not np.isnan(r["leakage_rms"])]
         stats["leakage_rms_median"] = float(np.median(leak)) if leak else None
+        if "h2_si_sdr" in protocol[0]:
+            d = np.array([r["si_sdr"] - p["h2_si_sdr"] for r, p in zip(res["windows"], protocol)])
+            stats["vs_h2"] = {"median": float(np.median(d)), "mean": float(d.mean()),
+                              "win": int((d > 0).sum()), "loss": int((d < 0).sum())}
         out[name] = stats
     return out
 
@@ -133,6 +137,9 @@ def main(argv=None) -> int:
     parser.add_argument("--min-free-gb", type=float, default=50.0)
     parser.add_argument("--log-every", type=int, default=20)
     parser.add_argument("--resume", default="auto")
+    parser.add_argument("--eval-protocol", default="h2", choices=("h2", "own"),
+                        help="h2 = the archived H2 56 windows/45 songs (paired with H2), "
+                             "own = our older 50-song 56-window set (not comparable)")
     parser.add_argument("--fast-loss", action="store_true", default=True)
     parser.add_argument("--no-fast-loss", dest="fast_loss", action="store_false")
     parser.add_argument("--seed", type=int, default=0)
@@ -174,9 +181,18 @@ def main(argv=None) -> int:
     window = torch.hann_window(args.n_fft).to(device=device, dtype=torch.float32)
     channels = cfg.audio_channels
 
-    tracks_by_song = {t["mixture"].parent.name: t for t in test_tracks}
-    protocol = build_protocol(test_tracks, args.chunk_size, N_WINDOWS)
-    manifest = window_manifest(protocol, args.chunk_size)
+    if args.eval_protocol == "h2":
+        # H2's archived 56 windows over 45 songs: the only set we can compare against H2
+        # checkpoint-by-checkpoint. Our own 50-song set is kept behind --eval-protocol own.
+        from eval_h2_protocol import h2_protocol
+
+        protocol, tracks_by_song, manifest = h2_protocol(args.chunk_size, test_tracks)
+        manifest["protocol"] = "h2_56"
+    else:
+        tracks_by_song = {t["mixture"].parent.name: t for t in test_tracks}
+        protocol = build_protocol(test_tracks, args.chunk_size, N_WINDOWS)
+        manifest = window_manifest(protocol, args.chunk_size)
+        manifest["protocol"] = "own_50song_56win (NOT paired with H2)"
     manifest_path = Path(__file__).resolve().parent / "results" / "eval_windows.json"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     if manifest_path.exists():

@@ -25,6 +25,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from freq_unet import FreqUNetConfig, build_model  # noqa: E402
 from train import MusdbChunkDataset, scan_musdb, si_sdr, split_fc  # noqa: E402
 
+# NOTE (2026-11-25): this is the *legacy* protocol - 56 windows over our own 50 test songs.
+# H2's archive uses 56 windows over 45 songs, so numbers from this file are NOT paired with
+# any H2 value. All comparisons against H2 must go through eval_h2_protocol.py /
+# results/h2_56_windows.txt, which train_long.py now uses by default (--eval-protocol h2).
 N_WINDOWS = 56
 
 
