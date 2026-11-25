@@ -1,0 +1,57 @@
+{
+  "config": {
+    "batch": 24,
+    "frames": 690,
+    "precision": "bf16"
+  },
+  "variants": {
+    "per_band": {
+      "band_split_fwd_ms": 4.8,
+      "band_split_fwd_bwd_ms": 24.34,
+      "mask_fwd_ms": 7.53,
+      "mask_fwd_bwd_ms": 25.77,
+      "band_split_kernels": {
+        "device_kernels": 623,
+        "aten_calls": 1927
+      },
+      "mask_kernels": {
+        "device_kernels": 621,
+        "aten_calls": 2482
+      }
+    },
+    "grouped7": {
+      "band_split_fwd_ms": 5.21,
+      "band_split_fwd_bwd_ms": 45.96,
+      "mask_fwd_ms": 92.21,
+      "mask_fwd_bwd_ms": 191.5,
+      "band_split_kernels": {
+        "device_kernels": 625,
+        "aten_calls": 1618
+      },
+      "mask_kernels": {
+        "device_kernels": 496,
+        "aten_calls": 1288
+      },
+      "band_split_out_rel": 0.002808263758197427,
+      "mask_out_rel": 0.003695892170071602,
+      "band_split_speedup_fwd": 0.92,
+      "band_split_speedup_fwd_bwd": 0.53,
+      "mask_speedup_fwd": 0.08,
+      "mask_speedup_fwd_bwd": 0.13
+    },
+    "padded": {
+      "band_split_fwd_ms": 7.75,
+      "band_split_fwd_bwd_ms": 58.24,
+      "mask_fwd_ms": "OutOfMemoryError: NPU out of memory. Tried to allocate 91.06 GiB (NPU 0; 123.16 GiB total capacity; 94.25 GiB already allocated; 94.25 GiB",
+      "mask_fwd_bwd_ms": "OutOfMemoryError: NPU out of memory. Tried to allocate 69.03 GiB (NPU 0; 123.16 GiB total capacity; 26.69 GiB already allocated; 26.69 GiB",
+      "band_split_kernels": {
+        "device_kernels": 16,
+        "aten_calls": 40
+      },
+      "mask_kernels": "OutOfMemoryError: NPU out of memory. Tried to allocate 69.03 GiB (NPU 0; 123.16 GiB total capacity; 25.95 GiB already allocated; 25.95 GiB",
+      "band_split_out_rel": 0.0028082667849957943,
+      "band_split_speedup_fwd": 0.62,
+      "band_split_speedup_fwd_bwd": 0.42
+    }
+  }
+}

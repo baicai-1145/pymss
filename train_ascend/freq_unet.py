@@ -24,6 +24,7 @@ is the same code the CUDA/G4 reference runs.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 
 import torch
@@ -58,6 +59,32 @@ def log_band_specs(n_bands: int, n_freq: int) -> list[tuple[int, int]]:
 
 
 # ------------------------------------------------------------------- building blocks
+_FAST_BLOCK = os.environ.get("PYMSS_FAST_BLOCK", "1").lower() in {"1", "true", "yes", "on"}
+_EPS_T = {}
+
+
+def _eps_tensor(t: torch.Tensor) -> torch.Tensor:
+    """0-dim epsilon (a Python float added to a big tensor faults the vector core)."""
+    key = (t.device.type, t.device.index, t.dtype)
+    e = _EPS_T.get(key)
+    if e is None:
+        e = torch.tensor(1e-12, device=t.device, dtype=t.dtype)
+        _EPS_T[key] = e
+    return e
+
+
+def rms_norm(x: torch.Tensor, gamma: torch.Tensor) -> torch.Tensor:
+    """x / sqrt(mean(x^2) + eps) * gamma * sqrt(C), same values as pymss_core's RMSNorm.
+
+    pymss_core's training path is ``F.normalize(x, dim=-1) * sqrt(C) * gamma``, which the
+    device lowers to 5-6 kernels including an fp32 divide. This is the same formula in 3.
+    """
+    if not _FAST_BLOCK:
+        return F.normalize(x, dim=-1) * (x.shape[-1] ** 0.5) * gamma
+    # x/||x|| * sqrt(C) * gamma == x * gamma / sqrt(mean(x^2))  (||x|| = sqrt(C*mean))
+    ms = x.pow(2).mean(dim=-1, keepdim=True)
+    r = torch.rsqrt(ms + _eps_tensor(ms))
+    return x * gamma * r
 class LocalBandBlock(Module):
     """RMSNorm -> depthwise Conv1d(k=7, groups=dim) -> Linear -> +x, then RMSNorm -> SwiGLU -> +x."""
 
@@ -73,11 +100,22 @@ class LocalBandBlock(Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # x: (B, T, F, C) -- depthwise conv runs along the band axis F
         b, t, f, c = x.shape
-        h = self.n1(x).reshape(b * t, f, c).transpose(1, 2)
+        n1 = self.n1 if not _FAST_BLOCK else None
+        h = (rms_norm(x, self.n1.gamma) if _FAST_BLOCK else self.n1(x))
+        h = h.reshape(b * t, f, c).transpose(1, 2)
         h = self.dw(h).transpose(1, 2).reshape(b, t, f, c)
-        x = x + self.p1(h)
-        a, g = self.gate(self.n2(x)).chunk(2, dim=-1)
-        return x + self.p2(F.silu(a) * g)
+        if _FAST_BLOCK:
+            # one addmm (beta=1 folds the residual) instead of Linear + separate add
+            flat_x = x.reshape(-1, c)
+            flat_h = h.reshape(-1, c)
+            y = torch.addmm(self.p1.bias, flat_h, self.p1.weight.t())
+            y = y.add_(flat_x).reshape(b, t, f, c)
+        else:
+            y = x + self.p1(h)
+        z = rms_norm(y, self.n2.gamma) if _FAST_BLOCK else self.n2(y)
+        a, g = self.gate(z).chunk(2, dim=-1)
+        out = F.silu(a) * g
+        return y + self.p2(out)
 
 
 class BandDown(Module):

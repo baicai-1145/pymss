@@ -1,0 +1,88 @@
+{
+  "config": {
+    "batch": 24,
+    "frames": 690,
+    "n_fft": 2048,
+    "precision": "bf16"
+  },
+  "blocks": {
+    "band_split": {
+      "fwd_ms": 4.816,
+      "fwd_bwd_ms": 24.284,
+      "device_kernels": 623,
+      "aten_calls": 1929
+    },
+    "enc62": {
+      "fwd_ms": 29.889,
+      "fwd_bwd_ms": 113.37,
+      "device_kernels": 34,
+      "aten_calls": 108
+    },
+    "down62": {
+      "fwd_ms": 4.086,
+      "fwd_bwd_ms": 33.624,
+      "device_kernels": 6,
+      "aten_calls": 27
+    },
+    "enc32": {
+      "fwd_ms": 23.336,
+      "fwd_bwd_ms": 102.212,
+      "device_kernels": 34,
+      "aten_calls": 108
+    },
+    "down32": {
+      "fwd_ms": 3.903,
+      "fwd_bwd_ms": 29.506,
+      "device_kernels": 7,
+      "aten_calls": 25
+    },
+    "enc16": {
+      "fwd_ms": 11.185,
+      "fwd_bwd_ms": 57.089,
+      "device_kernels": 34,
+      "aten_calls": 108
+    },
+    "down16": {
+      "fwd_ms": 1.638,
+      "fwd_bwd_ms": 11.815,
+      "device_kernels": 7,
+      "aten_calls": 25
+    },
+    "msc": {
+      "fwd_ms": 1.673,
+      "fwd_bwd_ms": 7.011,
+      "device_kernels": 39,
+      "aten_calls": 120
+    },
+    "freq_attn": {
+      "fwd_ms": 2.025,
+      "fwd_bwd_ms": 7.504,
+      "device_kernels": 36,
+      "aten_calls": 120
+    },
+    "up8+dec16": {
+      "fwd_ms": 19.287,
+      "fwd_bwd_ms": 71.51,
+      "device_kernels": 49,
+      "aten_calls": 157
+    },
+    "up16+dec32": {
+      "fwd_ms": 34.043,
+      "fwd_bwd_ms": 139.346,
+      "device_kernels": 50,
+      "aten_calls": 157
+    },
+    "up32+dec62": {
+      "fwd_ms": 50.064,
+      "fwd_bwd_ms": 152.275,
+      "device_kernels": 49,
+      "aten_calls": 158
+    },
+    "mask_head": {
+      "fwd_ms": 7.476,
+      "fwd_bwd_ms": 25.822,
+      "device_kernels": 621,
+      "aten_calls": 2482
+    }
+  }
+}
