@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import math
 import json
 import os
 import shutil
@@ -135,6 +136,11 @@ def main(argv=None) -> int:
     parser.add_argument("--fast-loss", action="store_true", default=True)
     parser.add_argument("--no-fast-loss", dest="fast_loss", action="store_false")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--lr-schedule", default="const", choices=("const", "cosine"),
+                        help="const = the overnight default; cosine = one-variable tuning knob")
+    parser.add_argument("--lr-min", type=float, default=5e-5)
+    parser.add_argument("--lr-schedule-start", type=int, default=0,
+                        help="step at which the cosine decay starts (for resumed tuning runs)")
     parser.add_argument("--pin-memory", action="store_true", default=True,
                         help="pin host batches so the 70 ms/step H2D copy overlaps compute")
     parser.add_argument("--no-pin-memory", dest="pin_memory", action="store_false")
@@ -205,13 +211,19 @@ def main(argv=None) -> int:
 
     def lr_at(s: int) -> float:
         if args.warmup and s < args.warmup:
-            return args.lr * (s + 1) / args.warmup
+            return args.lr * (s + 1) / min(args.warmup, args.steps)
+        if args.lr_schedule == "cosine":
+            base = max(args.warmup, args.lr_schedule_start)
+            span = max(1, args.steps - base)
+            t = min(1.0, max(0.0, (s - base) / span))
+            return args.lr_min + 0.5 * (args.lr - args.lr_min) * (1 + math.cos(math.pi * t))
         return args.lr
 
     config = {
         "params": params, "batch": args.batch_size, "accum": args.accum,
         "precision": args.precision, "lr": args.lr, "warmup": args.warmup,
         "grad_clip": args.grad_clip, "ema_decay": args.ema_decay,
+        "lr_schedule": args.lr_schedule, "lr_min": args.lr_min,
         "fast_loss": args.fast_loss, "istft_adjoint": os.environ.get("PYMSS_ISTFT_ADJOINT", "1"),
         "fast_block": os.environ.get("PYMSS_FAST_BLOCK", "1"),
         "triton_silu": os.environ.get("PYMSS_TRITON_SILU", "1"),
