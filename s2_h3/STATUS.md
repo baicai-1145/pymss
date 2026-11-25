@@ -1,1 +1,1 @@
-STATUS: triton 1/3 passed (dwconv_dw, 2.03x on the kernel, 844.6 vs 1111.8 ms/step = 1.32x end-to-end, 200-step loss rel 5e-5) | data PROTOCOL_PASS | next: training H3 5k->25k with S2_TRITON=dwconv_dw | updated 2026-11-25 22:20
+STATUS: training H3 5k (Triton dwconv_dw, 844.6 ms/step) | triton 1/3 (dwconv_dw 2.03x kernel / 1.32x step, 200-step loss rel 5e-5) | data PROTOCOL_PASS | done: profile, 200-step refs | updated 2026-11-25 22:24
