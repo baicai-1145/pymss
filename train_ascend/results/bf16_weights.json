@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-25",
+  "question": "can the model run on bf16 master weights so that the 1432 Cast kernels (22.4% of the step) disappear, keeping fp32 only inside the optimizer?",
+  "probe": {
+    "script": "bf16_update_probe.py",
+    "setup": "real model weight shapes (192x192 proj, 768x192 gate, 192x132 band linear), Xavier-ish init, per-tensor grad rms 0.5 (matches the run's grad_norm ~0.5 over ~600 tensors), AdamW lr 5e-4 / wd 0.01 / betas 0.9,0.999 / eps 1e-8, 1000 steps, fp32 reference",
+    "result": {
+      "proj_192x192": {
+        "bf16_weight_rel_rms_vs_fp32": 0.11592482775449753,
+        "updates_rounded_to_zero_fraction": 0.7274481065538194,
+        "bf16_kahan_rel_rms": 0.0021769453305751085,
+        "init_abs_mean": 0.062433529645204544
+      },
+      "gate_192x768": {
+        "bf16_weight_rel_rms_vs_fp32": 0.1238938495516777,
+        "updates_rounded_to_zero_fraction": 0.5907642415364583,
+        "bf16_kahan_rel_rms": 0.002369300229474902,
+        "init_abs_mean": 0.03944770619273186
+      },
+      "band_132x192": {
+        "bf16_weight_rel_rms_vs_fp32": 0.11656101047992706,
+        "updates_rounded_to_zero_fraction": 0.7496096906565657,
+        "bf16_kahan_rel_rms": 0.0023107195738703012,
+        "init_abs_mean": 0.06801564991474152
+      }
+    },
+    "verdict": "rounding loss exceeds 1% - use the Kahan variant",
+    "worst_rounded_away_fraction": 0.7496096906565657,
+    "worst_rel_rms": 0.1238938495516777
+  },
+  "why_the_estimate_was_wrong": "the a-priori estimate compared lr (5e-4) with half an ulp of |w|~0.03 (~1.2e-4) and concluded updates survive by 4x. But AdamW's per-element step is lr * m/(sqrt(v)+eps), not lr: for gradient noise the ratio m/sqrt(v) is ~0.1-0.3 for most elements, and smaller still for the many near-zero weights, so the effective |dw| sits under the ulp and 60-75% of the elements never move at all. After 1000 steps the bf16 model has drifted 12% (rel_rms) away from the fp32 trajectory.",
+  "decision": {
+    "bf16_master_weights": "REJECTED for plain storage",
+    "kahan_variant": "numerically acceptable (2.2-2.4e-03 weight drift, i.e. under the 9.2e-03 the current autocast bf16 already shows) BUT it needs a persistent fp32 shadow + compensation tensor per parameter, so it re-introduces one fp32->bf16 cast per parameter per step. The 1432 Cast kernels are per *layer* per op, ~600 params would give ~600 casts, i.e. the saving shrinks and the code becomes a hand-written fp32-master optimizer - not the 'cast once in the optimizer' this task was premised on.",
+    "consequence": "the bulk of this task's expected win does not exist in the simple form, so per the stated stop rule the remaining two items are re-scoped, not forced through: (2) Triton RMSNorm and (3) band_split default stay valid but their measured ceilings are ~20 ms and ~6-8 ms respectively (FUSION task), i.e. they cannot close the 1088 ms -> 850 ms gap either"
+  },
+  "measured_ceilings_carry_over": {
+    "launch_floor_ms": 28.6,
+    "launch_floor_pct": 2.6,
+    "cast_kernels": 1432,
+    "cast_share_pct": 22.4,
+    "current_step_ms": 1088.7,
+    "gap_to_500_ms": 588.7
+  },
+  "next": [
+    "fuse the 62-band RMSNorm *backward* (that is where the 585 Addcdiv kernels live)",
+    "fixed-dtype bf16 for the *inference* path only (measured 11.616 -> 10.634 ms there)",
+    "attack the backward of LocalBandBlock directly with make_fx + pass merging, which is the only lever with a >100 ms budget"
+  ]
+}

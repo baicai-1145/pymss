@@ -1,0 +1,73 @@
+{
+  "steps": 1000,
+  "worst_rounded_away_fraction": 0.7496096906565657,
+  "worst_weight_rel_rms_vs_fp32": 0.1238938495516777,
+  "threshold_rounded": 0.01,
+  "use_kahan": true,
+  "recommendation": "rounding loss exceeds 1% - use the Kahan variant",
+  "shapes": {
+    "proj_192x192": {
+      "shape": [
+        192,
+        192
+      ],
+      "init_abs_mean": 0.062433529645204544,
+      "bf16": {
+        "weight_rel_rms_vs_fp32_ref": 0.11592482775449753,
+        "max_abs_diff": 0.05677962303161621,
+        "rounded_away_fraction": 0.7274481065538194
+      },
+      "bf16_kahan": {
+        "weight_rel_rms_vs_fp32_ref": 0.0021769453305751085,
+        "max_abs_diff": 0.0007031112909317017,
+        "rounded_away_fraction": 0.6278127983940972
+      },
+      "fp32": {
+        "weight_rel_rms_vs_fp32_ref": 0.0,
+        "max_abs_diff": 0.0
+      }
+    },
+    "gate_192x768": {
+      "shape": [
+        768,
+        192
+      ],
+      "init_abs_mean": 0.03944770619273186,
+      "bf16": {
+        "weight_rel_rms_vs_fp32_ref": 0.1238938495516777,
+        "max_abs_diff": 0.047198131680488586,
+        "rounded_away_fraction": 0.5907642415364583
+      },
+      "bf16_kahan": {
+        "weight_rel_rms_vs_fp32_ref": 0.002369300229474902,
+        "max_abs_diff": 0.0007077455520629883,
+        "rounded_away_fraction": 0.5194786105685764
+      },
+      "fp32": {
+        "weight_rel_rms_vs_fp32_ref": 0.0,
+        "max_abs_diff": 0.0
+      }
+    },
+    "band_132x192": {
+      "shape": [
+        192,
+        132
+      ],
+      "init_abs_mean": 0.06801564991474152,
+      "bf16": {
+        "weight_rel_rms_vs_fp32_ref": 0.11656101047992706,
+        "max_abs_diff": 0.05687936395406723,
+        "rounded_away_fraction": 0.7496096906565657
+      },
+      "bf16_kahan": {
+        "weight_rel_rms_vs_fp32_ref": 0.0023107195738703012,
+        "max_abs_diff": 0.0009620487689971924,
+        "rounded_away_fraction": 0.6484643308080809
+      },
+      "fp32": {
+        "weight_rel_rms_vs_fp32_ref": 0.0,
+        "max_abs_diff": 0.0
+      }
+    }
+  }
+}
