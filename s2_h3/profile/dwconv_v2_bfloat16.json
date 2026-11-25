@@ -1,0 +1,123 @@
+[
+ {
+  "kernel": "dwconv_dw2",
+  "dtype": "bfloat16",
+  "br": 4,
+  "bt": 128,
+  "bkc": 16,
+  "ns": 4,
+  "grid": 4608,
+  "ms": 89.03,
+  "rel_eager": 0.0016686705639585853,
+  "rel_float64": 2.2495075313599955e-07,
+  "rel_eager_autograd": 0.0016686596209183335
+ },
+ {
+  "kernel": "dwconv_dw2",
+  "dtype": "bfloat16",
+  "br": 4,
+  "bt": 128,
+  "bkc": 16,
+  "ns": 2,
+  "grid": 2304,
+  "ms": 90.06,
+  "rel_eager": 0.0016686711460351944,
+  "rel_float64": 2.781772536764038e-07,
+  "rel_eager_autograd": 0.0016686596209183335
+ },
+ {
+  "kernel": "dwconv_dw2",
+  "dtype": "bfloat16",
+  "br": 8,
+  "bt": 128,
+  "bkc": 16,
+  "ns": 2,
+  "error": "MLIRCompilationError"
+ },
+ {
+  "kernel": "dwconv_dw2",
+  "dtype": "bfloat16",
+  "br": 4,
+  "bt": 128,
+  "bkc": 8,
+  "ns": 4,
+  "grid": 4608,
+  "ms": 99.21,
+  "rel_eager": 0.0016686705639585853,
+  "rel_float64": 2.2495075313599955e-07,
+  "rel_eager_autograd": 0.0016686596209183335
+ },
+ {
+  "kernel": "dwconv_dw2",
+  "dtype": "bfloat16",
+  "br": 8,
+  "bt": 128,
+  "bkc": 8,
+  "ns": 4,
+  "grid": 4608,
+  "ms": 95.55,
+  "rel_eager": 0.0016686737071722746,
+  "rel_float64": 1.973993875026281e-07,
+  "rel_eager_autograd": 0.0016686596209183335
+ },
+ {
+  "kernel": "dwconv_dw2",
+  "dtype": "bfloat16",
+  "br": 4,
+  "bt": 256,
+  "bkc": 16,
+  "ns": 4,
+  "error": "MLIRCompilationError"
+ },
+ {
+  "kernel": "dwconv_dw2",
+  "dtype": "bfloat16",
+  "br": 2,
+  "bt": 128,
+  "bkc": 16,
+  "ns": 8,
+  "grid": 9216,
+  "ms": 92.76,
+  "rel_eager": 0.0016686703311279416,
+  "rel_float64": 2.3177472030511126e-07,
+  "rel_eager_autograd": 0.0016686596209183335
+ },
+ {
+  "kernel": "dwconv_dw2",
+  "dtype": "bfloat16",
+  "br": 8,
+  "bt": 64,
+  "bkc": 16,
+  "ns": 4,
+  "grid": 7680,
+  "ms": 107.0,
+  "rel_eager": 0.0016686705639585853,
+  "rel_float64": 1.9840227594158932e-07,
+  "rel_eager_autograd": 0.0016686596209183335
+ },
+ {
+  "kernel": "dwconv_dw2",
+  "dtype": "bfloat16",
+  "br": 16,
+  "bt": 128,
+  "bkc": 16,
+  "ns": 2,
+  "error": "MLIRCompilationError"
+ },
+ {
+  "kernel": "dwconv_dw2",
+  "dtype": "bfloat16",
+  "br": 4,
+  "bt": 128,
+  "bkc": 32,
+  "ns": 4,
+  "error": "MLIRCompilationError"
+ },
+ {
+  "kernel": "dwconv_dw",
+  "dtype": "bfloat16",
+  "ms": 62.66,
+  "rel_eager": 0.0016686685848981142,
+  "rel_float64": 5.570184953285207e-07
+ }
+]

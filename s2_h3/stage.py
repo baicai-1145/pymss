@@ -68,7 +68,7 @@ def main(step):
         assert max(0, step - 5000) <= before <= step, (ARM, step, before)
         if before < step:
             cmd = [sys.executable, '-u', 's2_aw_entry.py', 'train', '--model-type', 'bs_roformer', '--config-path', str(CFG), '--data-root', str(ROOT / 'data'), '--results-path', str(d),
-                   '--seed', '0', '--batch-size', '24', '--num-workers', '12', *(['--pin-memory'] if DEVICE.type == 'cuda' else []), '--steps-per-epoch', '1000', '--max-steps', str(step), '--val-tracks', '0',
+                   '--seed', '0', '--batch-size', '24', '--num-workers', '12', *(['--pin-memory'] if DEVICE.type in ('cuda', 'npu') else []), '--steps-per-epoch', '1000', '--max-steps', str(step), '--val-tracks', '0',
                    '--accelerator', ACCELERATOR, '--devices', '1', '--precision', 'bf16-mixed', '--fused-kernel-backend', os.environ.get('H2_FUSED_BACKEND', 'g4' if DEVICE.type == 'cuda' else 'off'), '--cuda-graph-mode', 'off', '--disable-progress-bar',
                    '--train-log-interval', '50', '--loss-history-interval', '50', '--log-every-n-steps', '50', '--export-core-checkpoint', str(ema)]
             if before:

@@ -77,7 +77,10 @@ def run_v1(x, dy, cfg):
 def main():
     assert T.available()
     out = []
+    only = sys.argv[1] if len(sys.argv) > 1 else 'both'
     for dtype in (torch.float32, torch.bfloat16):
+        if only != 'both' and str(dtype).split('.')[-1] != only:
+            continue
         x, dy, eager, ref64 = reference(dtype)
         tag = str(dtype).split('.')[-1]
         configs = [(4, 128, 16, 4), (4, 128, 16, 2), (8, 128, 16, 2), (4, 128, 8, 4), (8, 128, 8, 4),
@@ -105,7 +108,7 @@ def main():
             out.append(dict(kernel='dwconv_dw', dtype=tag, ms=round(timed(fn), 2),
                             rel_eager=rel(fn().clone(), eager), rel_float64=rel(fn().clone(), ref64)))
             print(f'dwconv_dw  (v1) {tag}: {out[-1]["ms"]:6.2f} ms', flush=True)
-    (ROOT / 'profile' / 'dwconv_v2.json').write_text(json.dumps(out, indent=1))
+    (ROOT / 'profile' / f'dwconv_v2_{only}.json').write_text(json.dumps(out, indent=1))
     return 0
 
 

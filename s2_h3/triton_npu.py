@@ -142,7 +142,7 @@ if HAS_TRITON:
         tl.store(OUT + offs, (a * tl.sigmoid(a) * g).to(OUT.dtype.element_ty), mask=m)
 
 
-STAGES = ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2', 'silu_mul')
+STAGES = ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2', 'dwconv_dw_bmm', 'silu_mul')
 
 
 def _cfg():
@@ -206,7 +206,17 @@ class _DWConv(torch.autograd.Function):
                          num_warps=1)
         else:
             dx = F.conv1d(grad_out, weight.flip(-1), padding=pad, groups=c)
-        if 'dwconv_dw2' in stages:                                   # §10(a): row blocks x time slices in the grid
+        if 'dwconv_dw_bmm' in stages:                                # §10(b): cube core, batched GEMV over (n*c) rows
+            pad_x = F.pad(x, (pad, pad))
+            chunk = int(os.environ.get('S2_TRITON_BMM_CHUNK', 8))
+            dt = x.dtype                                     # bf16 on the cube: FP32 here cost 85 ms/step vs 25
+            dw = torch.zeros(c, k, device=x.device, dtype=torch.float32)
+            for n0 in range(0, n, chunk):
+                u = pad_x[n0:n0 + chunk].unfold(2, k, 1).reshape(-1, t, k)    # (chunk*c, t, k), no permute
+                v = grad_out[n0:n0 + chunk].reshape(-1, t, 1).to(dt)
+                dw += torch.bmm(v.transpose(1, 2), u.to(dt)).reshape(-1, c, k).sum(0).float()
+            db = grad_out.sum(dim=(0, 2)) if ctx.has_bias else dw
+        elif 'dwconv_dw2' in stages:                                 # §10(a): row blocks x time slices in the grid
             dw = torch.zeros(c, k, device=x.device, dtype=torch.float32)
             db = torch.zeros(c, device=x.device, dtype=torch.float32) if ctx.has_bias else dw
             nt = triton.cdiv(t, cfg['bt'])
@@ -277,7 +287,8 @@ def install(model, names):
     names = set(STAGES) if 'all' in names else set(names) & set(STAGES)
     assert names, f'nothing to install from {names}'
     done = []
-    conv_stages = tuple(s for s in ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2') if s in names)
+    conv_stages = tuple(s for s in ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2', 'dwconv_dw_bmm')
+                        if s in names)
     if conv_stages:
         count = 0
         for module in model.modules():

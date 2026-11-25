@@ -68,3 +68,58 @@ So the kernel is worth **1.32x end-to-end** (267 ms of the step), and the loss t
 Two identical `model(mixture)` calls differ by 1.7e-7 relative on this device (NPU FFT/reduction order), so
 "bit-identical to eager" is unattainable; compare with `rel_rms` against the task's limits (1e-5 fp32, 1e-2 bf16), and
 for large reductions also against a float64 reference, otherwise you are measuring the eager kernel's error.
+
+## §10 speed sprint (exclusive NPU, 2026-11-25 22:38 -> 00:40)
+
+Rounds in the order TASK §10 asks, each measured whole-step on an idle NPU (`profile/step_round{1,2,3}.json`, step rate
+from `.tmp/steprate.py` = 10 warmup + 20 timed steps, median):
+
+| round | change | step ms | vs eager 1112.6 | profile |
+|---|---|---|---|---|
+| start | Triton `dwconv_dw` (v1) | 845.3 | 1.32x | 829.4 ms, backward 621 |
+| 1 | dW via §10(b) cube bmm, **FP32** | 668.3 | 1.67x | 829.4 -> 720.7 (`BatchMatMulV3` FP32 85.4 -> bf16 23.2) |
+| 1 | dW bmm in **bf16** (fp32 accumulate on `dw`) | 604.9 | 1.84x | 720.7 -> 656.8 |
+| 2 | h2d: `--pin-memory` on NPU (stage.py) | (in profile) | | h2d 42.1 ms, pageable 2.43 -> pinned 0.54 ms/tensor |
+| 3 | RMSNorm: fused `F.rms_norm` in training too | | | `RealDiv FLOAT32` 42.5 ms gone, `Cast` 95 -> 29 ms |
+
+**Round 1 detail — both paths measured, (b) wins, and (a) cannot be fixed:**
+
+| variant | ms/conv | note |
+|---|---|---|
+| eager `Conv3DBackpropFilterV2` | 122.9 | baseline |
+| Triton v1 `_dw_dw` (1 row, K taps, 31x traffic) | 62.7 | admitted in round 1, still in the tree |
+| Triton v2a `_dw_dw2` (row blocks x time slices in grid, 4608 programs, BR=4/BKC=16) | 89.0-107.0 | §10(a): **slower** — more programs did not help; the extra `axis=0` reduction per tile costs more than the latency it hides |
+| Triton v2a, other tiles (BR 2/4/8, BT 64/128/256, BKC 8/16/32) | 89-107 or UB overflow | swept, best 89.0 |
+| **cube bmm, `(n*c)` batch, bf16, fp32 accumulate** (§10(b)) | **17.8** | adopted: `dwconv_dw_bmm` |
+| same, 31-pass elementwise instead of im2col | 30.5 | |
+
+Why no Triton cube kernel exists for this op: `dW[c,k] = sum_t DY[c,t] X[c,t+k-15]` needs the reduction over `t` to be the
+matmul's K dimension, which leaves M=1 per channel; any M>1 would mix channels (dW[c,k] for c' != c), and the x operand
+is shifted by both `t` and `k`, so it cannot be factored into a single `(M,K)x(K,N)` product. `tl.dot` has no batched
+form, so the cube path is only reachable through `torch.bmm` — i.e. **the adopted dW kernel is an aclnn/cube GEMM, not
+Triton**, exactly the §10(b) option. The Triton kernels stay in the tree and remain selectable (`S2_TRITON=dwconv_dw`),
+which costs 240 ms/step.
+
+**Round 3 detail — the remaining hotspots (`profile/step_round3.json`), after the three rounds:**
+
+| ms | calls | op | verdict |
+|---|---|---|---|
+| 74.6 | 186 | `Mul` inside the dW im2col chunk loop | inherent to im2col (`AsStrided` 43 ms alongside) |
+| 61.6 | 12 | RoPE `Mul` (`apply_rotary_emb_fast`: `t[...,::2]*cos` etc., q and k x 6 blocks) | **identified, not changed**: rewriting the interleaved form to cut 4 strided muls needs a convention change and a fresh control run; left for the next segment boundary |
+| 43.0 | 2232 | `AsStrided` (im2col copies) | inherent |
+| 29.7 | 723 | `Mul` bf16 | distributed |
+| 29.1 | 24 | `Conv2DV2` (the 4 conv forwards, 1.2 ms each) | Triton fwd does not compile in UB at this shape (round 1) |
+| 20.5 | 258 | `Add` bf16 | distributed |
+| 16.0+11.0+10.7 | | `MatMulV3` bf16 (attention) | aclnn is faster than anything rotatable here |
+| 15.2 | 75 | `DropOut` | aclnn |
+
+Stop reason: 3 rounds done, all admitted, but the step is 604.9 ms rather than the 450 ms goal — the remaining items are
+either inherent to im2col (118 ms combined), need a RoPE convention change (61.6 ms), or are distributed small
+elementwise ops whose only fix is fewer dispatches. Per TASK §10's stop rule this is the point to launch and keep the
+rest for segment boundaries.
+
+## Final kernel list for the 50k run
+
+`S2_TRITON=dwconv_dw_bmm` (the depthwise-conv weight gradient on the cube, 4 convs) + fused `F.rms_norm` in the model
+(not a kernel, an op-count reduction) + `--pin-memory` on the NPU dataloader. Everything else is the eager path.
+200-step control against the eager curve: **mean 0.055 %, max 0.19 %** (limit 1 %), `runs/H3-ref-triton2`.
