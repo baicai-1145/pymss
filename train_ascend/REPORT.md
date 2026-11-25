@@ -1384,6 +1384,110 @@ istft 路径必须做到 ~50 ms（需要自研 istft 伴随）。
 - **会改配方、不可默认采用**：减少 MR-STFT 分辨率、改 hop、把 MR-STFT 直接算在模型谱上（免 istft→stft）、损失进 bf16 autocast。
 - 未使用 fp16 训练；模型结构、损失定义、数据配方均未改动（`align_check` 的 9.34e-07 / 9.25e-03 仍然成立）。
 
+# OVERNIGHT_GRAPH3（重做图捕获：找到真因，并给出 launch 地板）
+
+## 39. 上一轮 6 种策略失败的真因（不是流程问题，是 SDPA 的副流）
+
+按官方文档 `docs/zh/developer_notes/npugraph.md` 的方式一完整重做（专用 stream 上 warmup×3 →
+`synchronize` → `empty_cache` → `capture_begin` → 跑 → `capture_end` → `wait_stream` → `replay`），
+**仍然 107025**。所以问题不在流程，而在模型里有算子自己开副流。
+
+用"前缀捕获"二分定位（`results/graph_capture3.json` → `summary.root_cause_fixed`）：
+
+| 捕获范围 | 结果 |
+|---|---|
+| `a+1` 逐个加一 | OK |
+| 单层 conv1d | OK |
+| 第 1–7 级（band_split → enc62 → down62 → enc32 → down32 → enc16 → down16） | **OK** |
+| 加上 temporal `blocks`（内含 `Attention`） | **FAIL 107025** |
+| 单独捕获 `blk.msc`（MSC 时间卷积） | OK |
+| 单独捕获 `blk.freq`（`flash=True` → SDPA） | **FAIL** |
+| 单独捕获 `blk.freq`（`flash=False` → pymss 自己的 Attend 手写 softmax） | **OK** |
+
+**结论：`F.scaled_dot_product_attention` 在 CANN 上走融合注意力 kernel，该 kernel 在内部副流上跑，
+导致整图不可捕获。** 修法：`PYMSS_ATTN_MANUAL=1` 把 pymss_core 的 `Attention.flash` 置 False，
+改用手写 softmax（同数学，且实测在这台机器上更快）。
+
+数值等价证据（同一权重、同一输入）：
+- 默认 hf32 下 flash on/off 前向 rel_rms **2.24e-04**（这是 SDPA 内部 hf32 的精度差，不是数学差）；
+- `torch.npu.conv.allow_hf32=False` 下二者 rel_rms **7.32e-07**（max_abs 8.64e-07）→ **≤1e-6 通过**。
+
+## 40. 任务 1：整图推理捕获（bs1，690 帧）
+
+| 指标 | eager | graph replay |
+|---|---|---|
+| 8 s 前向中位 | 12.213 ms | **10.95 ms（1.115x）** |
+| aten dispatch | 4120 | **0** |
+| 数值 parity | — | **0.0（逐位相同）** |
+
+捕获成功、dispatch 全消，但**没有到 7 ms 目标**（10.95 ms）。原因见任务 2：这台机器上
+8 s 推理不是 dispatch bound，图的收益上限就是 kernel 数 × launch 开销。
+
+## 41. 任务 2：bs24 训练 step 的真实 kernel 数（上一轮的 1910 确实是错的）
+
+`torch.profiler`(CPU+NPU) 对**一个完整 step**（fwd + bwd + 3 个 rfft 伴随 + iSTFT 伴随 + AdamW + EMA）：
+
+| 指标 | 实测 |
+|---|---|
+| step 时间 | **1109.9 ms** |
+| **device kernel 总数** | **6401**（不是 1910，是它的 3.35 倍） |
+| aten dispatch 次数 | **22,350**（kernel/aten = 0.29，说明大量 aten 是纯视图） |
+| **框架开销 kernel** | **2233 = 34.9%** |
+| 其中 **Cast_*** | **1432 = 22.4%**（bf16 autocast 的进出 cast） |
+| **launch 地板** | **6401 × 4.47 µs = 28.6 ms = step 的 2.6%** |
+
+前 8 名 device kernel：`Mul_*` 830（13.0%）、`Cast_*` 729（11.4%）、`Cast_*` 701（11.0%）、
+**`Addcdiv_float32` 585（9.1%，这就是 AdamW）**、`Slice_*` 232、`MatMulV3_bf16` 221+218、`ReduceSum` 180。
+
+**判定：训练 step 不是 launch bound（地板只占 2.6%）。** 上一轮"1910 kernel × 4.47 µs"的推理方向性
+正确但数字错了，而且结论要改：即便 kernel 数翻倍，地板仍然只有 2.6%，**图捕获最多只能贡献 28.6 ms**。
+
+## 42. 任务 3：分段捕获实测
+
+**(A) 按模块前向捕获（预分配静态缓冲、模块间 copy_）**：10/10 全部捕获成功。
+
+| 段 | eager | replay | 加速 | bf16 parity |
+|---|---|---|---|---|
+| band_split | 3.694 ms | **1.227 ms** | **3.01x** | 0.0 |
+| enc62 | 0.891 | 0.632 | 1.41x | 2.6e-03（bf16 ULP 级） |
+| down62 | 0.131 | 0.109 | 1.20x | 0.0 |
+| enc32 | 0.703 | 0.555 | 1.27x | 2.6e-03 |
+| down32 | 0.120 | 0.092 | 1.30x | 0.0 |
+| enc16 | 0.383 | 0.295 | 1.30x | 2.6e-03 |
+| down16 | 0.077 | 0.051 | 1.51x | 0.0 |
+| dec16 | 0.385 | 0.298 | 1.29x | 2.6e-03 |
+| dec32 | 0.692 | 0.549 | 1.26x | 2.6e-03 |
+| dec62 | 0.868 | 0.633 | 1.37x | 2.6e-03 |
+| **合计** | **7.944** | **4.441** | **1.79x** | |
+
+合计只省 **3.50 ms**，占 1109.9 ms 的 **0.32%**。因为这些都是前向里的小段（前向整体 200 ms，
+forward 只占 step 的 14%），反向根本没有被覆盖。（up 段 `BandUp.forward(x, skip)` 是双输入，
+不能当单输入模块捕获，这里用 dec* 代替并对 up 段保持 eager。）
+
+**(B) `make_graphed_callables`（含前后向的官方 API）**：捕获成功、parity 0.0，
+但 forward 16.461 → 16.464 ms（**1.0x**），没有任何收益——同样是因为不是 dispatch bound。
+
+**(C) 全模型固定 bf16（不进出 autocast）**：11.616 → **10.634 ms**（−0.98 ms，kernel 1345 → 1403），
+bf16 vs autocast-bf16 parity **1.07e-02**（bf16 ULP 级，两者都是合法 bf16 结果）。
+对 step 时间的影响需要在训练态重测（推理态只省 8%）。
+
+**(D) 损失子图捕获**：本轮未做——它需要把自定义 `autograd.Function` 的伴随图一起捕获，
+在确认 (A)(B) 收益上限只有 0.3%/0 之后，优先级降到最低。
+
+## 43. 结论：500 ms 不能靠图捕获
+
+| 事实 | 数值 |
+|---|---|
+| launch 地板 | 28.6 ms（step 的 2.6%） |
+| 分段图实际省下 | 3.50 ms（0.32%） |
+| 整图推理省下 | 1.26 ms（1.115x） |
+| 到 500 ms 还差 | **610 ms 的设备工作量** |
+
+图捕获能消掉的只有 dispatch（22350 → 0），而这台机器上 dispatch 不是瓶颈。
+**唯一主因是设备侧的工作量本身**：22.4% 的 kernel 是 Cast（bf16 autocast 进出）、9.1% 是 AdamW 的
+Addcdiv、其余是 62 级 band block 的逐元素遍。下一步该做的是 C（固定 bf16 全模型，消 1432 个 Cast）
+和 AdamW 融合（把 585 个 Addcdiv 合成 1–2 个），而不是继续在图上花时间。
+
 # OVERNIGHT_SPEED3（速度：审计 + 优化实测）
 
 ## 33. CANN 算子审计（先查有没有原生算子，再谈改实现）

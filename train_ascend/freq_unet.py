@@ -59,6 +59,11 @@ def log_band_specs(n_bands: int, n_freq: int) -> list[tuple[int, int]]:
 
 
 # ------------------------------------------------------------------- building blocks
+# F.scaled_dot_product_attention on CANN runs its fused attention kernel on an internal
+# side stream, which makes the whole model uncapturable (endCaptureErr 107025: "capture model
+# contains a stream that was not joined"). Setting flash=False on pymss_core's Attention uses
+# its own manual softmax instead - same math, capturable, and measured faster on this stack.
+_MANUAL_ATTN = os.environ.get("PYMSS_ATTN_MANUAL", "0").lower() in {"1", "true", "yes", "on"}
 _FAST_BLOCK = os.environ.get("PYMSS_FAST_BLOCK", "1").lower() in {"1", "true", "yes", "on"}
 _TRITON_SILU = os.environ.get("PYMSS_TRITON_SILU", "1").lower() in {"1", "true", "yes", "on"}
 _EPS_T = {}
@@ -360,6 +365,8 @@ def build_model(cfg: FreqUNetConfig | None = None) -> BandUNetSeparator:
     for mod in model.modules():
         if hasattr(mod, "use_grouped_forward"):
             mod.use_grouped_forward = False
+        if _MANUAL_ATTN and hasattr(mod, "flash") and isinstance(getattr(mod, "flash"), bool):
+            mod.flash = False       # avoid SDPA's side stream: makes the model graph-capturable
     return model
 
 

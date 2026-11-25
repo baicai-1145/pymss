@@ -1,0 +1,576 @@
+{
+  "infer": {
+    "arch": "v1",
+    "batch": 1,
+    "frames": 690,
+    "attempts": [
+      {
+        "error_mode": null,
+        "ok": true,
+        "parity_rel_rms": 0.0,
+        "replay": {
+          "median_ms": 10.95,
+          "min_ms": 10.93
+        },
+        "replay_device_kernels": 1841.0,
+        "replay_aten_dispatches": 0.0,
+        "top": {
+          "Cast_9f288b80370c6545ffe8cef142d37f5c_high_performance_0": 589.0,
+          "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_66": 210.0,
+          "Mul_ee98c6628030785f610b924ab1557b31_high_performance_0": 75.0,
+          "LpNormV2_float32_c2256dac216c7845b8f3a710a99850d5_high_performance_134228013": 62.0,
+          "ClipByValueV2_54f1d1caf8fe36c496f699fefe98fbca_high_performance_8": 62.0,
+          "RealDiv_FLOAT32_high_precision_12": 62.0,
+          "Mul_ee98c6628030785f610b924ab1557b31_high_performance_8": 62.0,
+          "Add_BFLOAT16_high_performance_3": 62.0
+        }
+      }
+    ],
+    "eager": {
+      "median_ms": 12.213,
+      "min_ms": 12.127,
+      "device_kernels": 1345.0,
+      "aten_dispatches": 4120.0,
+      "top": {
+        "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_66": 210.0,
+        "Cast_9f288b80370c6545ffe8cef142d37f5c_high_performance_0": 93.0,
+        "Mul_ee98c6628030785f610b924ab1557b31_high_performance_0": 75.0,
+        "LpNormV2_float32_c2256dac216c7845b8f3a710a99850d5_high_performance_134228013": 62.0,
+        "ClipByValueV2_54f1d1caf8fe36c496f699fefe98fbca_high_performance_8": 62.0,
+        "RealDiv_FLOAT32_high_precision_12": 62.0,
+        "Mul_ee98c6628030785f610b924ab1557b31_high_performance_8": 62.0,
+        "Add_BFLOAT16_high_performance_3": 62.0
+      }
+    },
+    "ok": true,
+    "speedup": 1.115
+  },
+  "kernels": {
+    "step_ms": 1109.894,
+    "device_kernels": 6401,
+    "aten_dispatches": 22350,
+    "device_kernels_per_aten_dispatch": 0.29,
+    "top20_device_kernels": [
+      {
+        "kernel": "Mul_ee98c6628030785f610b924ab1557b31_high_performance_8",
+        "count": 830,
+        "share": 13.0,
+        "kind": "compute"
+      },
+      {
+        "kernel": "Cast_9f288b80370c6545ffe8cef142d37f5c_high_performance_0",
+        "count": 729,
+        "share": 11.4,
+        "kind": "framework"
+      },
+      {
+        "kernel": "Cast_b2717900ea7de2d41ea9c63d23aa269b_high_performance_0",
+        "count": 701,
+        "share": 11.0,
+        "kind": "framework"
+      },
+      {
+        "kernel": "Addcdiv_float32_high_performance_7",
+        "count": 585,
+        "share": 9.1,
+        "kind": "compute"
+      },
+      {
+        "kernel": "Slice_ee29dafe4fe21e12bb8d56ae91626cba_high_performance_150",
+        "count": 232,
+        "share": 3.6,
+        "kind": "framework"
+      },
+      {
+        "kernel": "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_131074",
+        "count": 221,
+        "share": 3.5,
+        "kind": "compute"
+      },
+      {
+        "kernel": "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_131138",
+        "count": 218,
+        "share": 3.4,
+        "kind": "compute"
+      },
+      {
+        "kernel": "ReduceSum_bfloat16_int64_high_performance_23633",
+        "count": 180,
+        "share": 2.8,
+        "kind": "compute"
+      },
+      {
+        "kernel": "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_4114",
+        "count": 165,
+        "share": 2.6,
+        "kind": "compute"
+      },
+      {
+        "kernel": "Mul_ee98c6628030785f610b924ab1557b31_high_performance_0",
+        "count": 126,
+        "share": 2.0,
+        "kind": "compute"
+      },
+      {
+        "kernel": "RealDiv_FLOAT32_high_precision_12",
+        "count": 118,
+        "share": 1.8,
+        "kind": "compute"
+      },
+      {
+        "kernel": "Slice_82e6b4faea71b451f217d7ea57c08012_high_performance_150",
+        "count": 117,
+        "share": 1.8,
+        "kind": "framework"
+      },
+      {
+        "kernel": "Transpose_float16_int64_high_performance_10002",
+        "count": 115,
+        "share": 1.8,
+        "kind": "framework"
+      },
+      {
+        "kernel": "Add_BFLOAT16_high_performance_8",
+        "count": 113,
+        "share": 1.8,
+        "kind": "compute"
+      },
+      {
+        "kernel": "ClipByValueV2_54f1d1caf8fe36c496f699fefe98fbca_high_performance_8",
+        "count": 86,
+        "share": 1.3,
+        "kind": "compute"
+      },
+      {
+        "kernel": "Transpose_float16_int64_high_performance_10006",
+        "count": 66,
+        "share": 1.0,
+        "kind": "framework"
+      },
+      {
+        "kernel": "LpNormV2_float32_c2256dac216c7845b8f3a710a99850d5_high_performance_134228013",
+        "count": 63,
+        "share": 1.0,
+        "kind": "compute"
+      },
+      {
+        "kernel": "Tanh_5c5e58e043224cccf51a06108010aaa_high_precision_5",
+        "count": 62,
+        "share": 1.0,
+        "kind": "compute"
+      },
+      {
+        "kernel": "GLU_b1035b3d7f6e0f89172a94a5a559e858_high_performance_2",
+        "count": 62,
+        "share": 1.0,
+        "kind": "compute"
+      },
+      {
+        "kernel": "GLUGrad_bf16_high_performance_27",
+        "count": 62,
+        "share": 1.0,
+        "kind": "compute"
+      }
+    ],
+    "top20_aten": [
+      {
+        "op": "aten::to",
+        "count": 1970,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::as_strided",
+        "count": 1948,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::copy_",
+        "count": 1498,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::view",
+        "count": 1425,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::empty_strided",
+        "count": 1386,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::_to_copy",
+        "count": 1376,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::item",
+        "count": 1295,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::_local_scalar_dense",
+        "count": 1295,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::transpose",
+        "count": 1243,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::t",
+        "count": 1111,
+        "kind": "compute"
+      },
+      {
+        "op": "aten::reshape",
+        "count": 688,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::add_",
+        "count": 678,
+        "kind": "compute"
+      },
+      {
+        "op": "aten::mul_",
+        "count": 592,
+        "kind": "compute"
+      },
+      {
+        "op": "aten::addcdiv_",
+        "count": 585,
+        "kind": "compute"
+      },
+      {
+        "op": "aten::detach",
+        "count": 580,
+        "kind": "framework"
+      },
+      {
+        "op": "aten::mul",
+        "count": 549,
+        "kind": "compute"
+      },
+      {
+        "op": "aten::linear",
+        "count": 442,
+        "kind": "compute"
+      },
+      {
+        "op": "aten::mm",
+        "count": 438,
+        "kind": "compute"
+      },
+      {
+        "op": "aten::sum",
+        "count": 342,
+        "kind": "compute"
+      },
+      {
+        "op": "aten::addmm",
+        "count": 225,
+        "kind": "compute"
+      }
+    ],
+    "framework_device_kernels": 2233,
+    "cast_device_kernels": 1432,
+    "cast_share_pct": 22.4,
+    "framework_share_pct": 34.9,
+    "launch_floor_ms": 28.6,
+    "launch_floor_pct_of_step": 2.6
+  },
+  "fixedbf16": {
+    "autocast": {
+      "median_ms": 11.616,
+      "device_kernels": 1345.0,
+      "aten": 4107.3
+    },
+    "fixed_bf16": {
+      "median_ms": 10.634,
+      "device_kernels": 1403.0,
+      "aten": 4106.0,
+      "parity_vs_autocast_rel_rms": 0.010742573998868465
+    },
+    "delta_ms": 0.982,
+    "delta_kernels": -58.0
+  },
+  "segs": {
+    "arch": "v1",
+    "segments": [
+      {
+        "name": "band_split",
+        "ok": true,
+        "in": [
+          1,
+          690,
+          4100
+        ],
+        "out": [
+          1,
+          690,
+          62,
+          192
+        ],
+        "eager_ms": 3.694,
+        "replay_ms": 1.227,
+        "speedup": 3.011,
+        "parity_rel_rms": 0.0
+      },
+      {
+        "name": "enc62",
+        "ok": true,
+        "in": [
+          1,
+          690,
+          62,
+          192
+        ],
+        "out": [
+          1,
+          690,
+          62,
+          192
+        ],
+        "eager_ms": 0.891,
+        "replay_ms": 0.632,
+        "speedup": 1.41,
+        "parity_rel_rms": 0.0026360591873526573
+      },
+      {
+        "name": "down62",
+        "ok": true,
+        "in": [
+          1,
+          690,
+          62,
+          192
+        ],
+        "out": [
+          1,
+          690,
+          32,
+          288
+        ],
+        "eager_ms": 0.131,
+        "replay_ms": 0.109,
+        "speedup": 1.202,
+        "parity_rel_rms": 0.0
+      },
+      {
+        "name": "enc32",
+        "ok": true,
+        "in": [
+          1,
+          690,
+          32,
+          288
+        ],
+        "out": [
+          1,
+          690,
+          32,
+          288
+        ],
+        "eager_ms": 0.703,
+        "replay_ms": 0.555,
+        "speedup": 1.267,
+        "parity_rel_rms": 0.002624186920002103
+      },
+      {
+        "name": "down32",
+        "ok": true,
+        "in": [
+          1,
+          690,
+          32,
+          288
+        ],
+        "out": [
+          1,
+          690,
+          16,
+          256
+        ],
+        "eager_ms": 0.12,
+        "replay_ms": 0.092,
+        "speedup": 1.304,
+        "parity_rel_rms": 0.0
+      },
+      {
+        "name": "enc16",
+        "ok": true,
+        "in": [
+          1,
+          690,
+          16,
+          256
+        ],
+        "out": [
+          1,
+          690,
+          16,
+          256
+        ],
+        "eager_ms": 0.383,
+        "replay_ms": 0.295,
+        "speedup": 1.298,
+        "parity_rel_rms": 0.0025982679799199104
+      },
+      {
+        "name": "down16",
+        "ok": true,
+        "in": [
+          1,
+          690,
+          16,
+          256
+        ],
+        "out": [
+          1,
+          690,
+          8,
+          128
+        ],
+        "eager_ms": 0.077,
+        "replay_ms": 0.051,
+        "speedup": 1.51,
+        "parity_rel_rms": 0.0
+      },
+      {
+        "name": "dec16",
+        "ok": true,
+        "in": [
+          1,
+          690,
+          16,
+          256
+        ],
+        "out": [
+          1,
+          690,
+          16,
+          256
+        ],
+        "eager_ms": 0.385,
+        "replay_ms": 0.298,
+        "speedup": 1.292,
+        "parity_rel_rms": 0.002602830994874239
+      },
+      {
+        "name": "dec32",
+        "ok": true,
+        "in": [
+          1,
+          690,
+          32,
+          288
+        ],
+        "out": [
+          1,
+          690,
+          32,
+          288
+        ],
+        "eager_ms": 0.692,
+        "replay_ms": 0.549,
+        "speedup": 1.26,
+        "parity_rel_rms": 0.002619758015498519
+      },
+      {
+        "name": "dec62",
+        "ok": true,
+        "in": [
+          1,
+          690,
+          62,
+          192
+        ],
+        "out": [
+          1,
+          690,
+          62,
+          192
+        ],
+        "eager_ms": 0.868,
+        "replay_ms": 0.633,
+        "speedup": 1.371,
+        "parity_rel_rms": 0.00264345807954669
+      }
+    ],
+    "graphed_callables": {
+      "ok": true,
+      "parity_rel_rms": 0.0,
+      "eager_ms": 16.461,
+      "graph_ms": 16.464,
+      "forward_speedup": 1.0
+    }
+  },
+  "summary": {
+    "root_cause_fixed": {
+      "error": "endCaptureErr 107025 'capture model contains a stream that was not joined'",
+      "cause": "F.scaled_dot_product_attention dispatches to a fused attention kernel that runs on an internal side stream; the model was therefore not capturable even with the official stream+empty_cache flow (which on its own does not fix it)",
+      "proof": "prefix capture bisect: stages 1-7 (band_split..down16) capture OK, adding the temporal blocks (which hold Attention) fails; capturing blk.msc alone is OK, capturing blk.freq with flash=True fails and with flash=False (pymss_core Attend, manual softmax) is OK",
+      "fix": "PYMSS_ATTN_MANUAL=1 sets flash=False on pymss_core Attention -> manual softmax, no side stream",
+      "math_equivalence": {
+        "fp32 rel_rms flash on vs off": 7.316e-07,
+        "note": "the 2.2e-04 seen at default hf32 comes from SDPA's internal hf32; with torch.npu.conv.allow_hf32=False they agree to 7.3e-07"
+      }
+    },
+    "infer_graph": {
+      "ok": true,
+      "eager_ms": 12.213,
+      "replay_ms": 10.95,
+      "speedup": 1.115,
+      "parity_rel_rms": 0.0,
+      "aten_dispatches": [
+        4120.0,
+        0.0
+      ],
+      "target_ms": 7.0,
+      "met": false
+    },
+    "training_kernels": {
+      "step_ms": 1109.894,
+      "device_kernels": 6401,
+      "aten_dispatches": 22350,
+      "framework_kernels": 2233,
+      "framework_share_pct": 34.9,
+      "cast_kernels": 1432,
+      "cast_share_pct": 22.4,
+      "launch_floor_ms": 28.6,
+      "launch_floor_pct": 2.6,
+      "verdict": "not launch bound: 6401 kernels x 4.47 us = 28.6 ms = 2.6% of a 1110 ms step"
+    },
+    "segments": {
+      "n_ok": 10,
+      "n": 10,
+      "eager_total_ms": 7.944,
+      "replay_total_ms": 4.441,
+      "saved_ms": 3.503,
+      "saved_pct_of_step": 0.32,
+      "best": "band_split"
+    },
+    "fixed_bf16": {
+      "autocast": {
+        "median_ms": 11.616,
+        "device_kernels": 1345.0,
+        "aten": 4107.3
+      },
+      "fixed_bf16": {
+        "median_ms": 10.634,
+        "device_kernels": 1403.0,
+        "aten": 4106.0,
+        "parity_vs_autocast_rel_rms": 0.010742573998868465
+      },
+      "delta_ms": 0.982,
+      "delta_kernels": -58.0
+    },
+    "conclusion": {
+      "graph_capture_ceiling_ms": 28.6,
+      "explain": "graph replay removes dispatch (22350 -> 0 aten) but the launch floor is only 2.6% of the step, and per-module graphs recover 3.5 ms of a 1110 ms step (0.3%). The 500 ms target cannot come from capture; it needs less device work (casts 22.4% of kernels, AdamW Addcdiv 9.1%, plus the backward elementwise passes).",
+      "distance_to_500ms": "1110 -> 500 needs 610 ms of device work removed; capture can supply <=28.6 ms"
+    }
+  }
+}
