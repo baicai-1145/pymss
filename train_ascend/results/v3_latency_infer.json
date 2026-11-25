@@ -1,0 +1,25 @@
+{
+  "arch": "v3",
+  "v1": {
+    "bf16": {
+      "median_ms": 11.641,
+      "min_ms": 11.563
+    },
+    "fp32": {
+      "median_ms": 16.869,
+      "min_ms": 16.786
+    },
+    "kernels": "error AttributeError(\"'profile' object has no attribute 'events'\")"
+  },
+  "v3": {
+    "bf16": {
+      "median_ms": 9.402,
+      "min_ms": 9.342
+    },
+    "fp32": {
+      "median_ms": 15.61,
+      "min_ms": 15.521
+    },
+    "kernels": "error AttributeError(\"'profile' object has no attribute 'events'\")"
+  }
+}

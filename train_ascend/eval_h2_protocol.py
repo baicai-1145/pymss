@@ -24,7 +24,7 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from freq_unet import FreqUNetConfig, build_model  # noqa: E402
+from arch_factory import build as build_arch  # noqa: E402
 from train import MusdbChunkDataset, scan_musdb, si_sdr, split_fc  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
@@ -96,9 +96,8 @@ def bootstrap_by_song(values: dict[str, list[float]], n_boot: int = 4000, seed: 
             "ci95_mean": [float(np.percentile(means, 2.5)), float(np.percentile(means, 97.5))]}
 
 
-def load_model(ckpt: Path, dev, n_fft: int):
-    cfg = FreqUNetConfig(n_fft=n_fft)
-    model = build_model(cfg).to(dev)
+def load_model(ckpt: Path, dev, n_fft: int, arch: str = "v1"):
+    model = build_arch(arch, n_fft=n_fft).to(dev)
     payload = torch.load(ckpt, map_location=dev, weights_only=False)
     if "model" in payload:
         model.load_state_dict(payload["model"])
@@ -107,7 +106,7 @@ def load_model(ckpt: Path, dev, n_fft: int):
         model.load_state_dict(payload["ema"]["shadow"], strict=False)
         kind = "ema"
     model.eval()
-    return model, int(payload.get("step", -1)), kind, cfg
+    return model, int(payload.get("step", -1)), kind, None
 
 
 def h2_protocol(chunk: int, test_tracks: list[dict]) -> tuple[list[dict], dict, dict]:
@@ -141,6 +140,7 @@ def main(argv=None) -> int:
     parser.add_argument("--chunk-size", type=int, default=352800)
     parser.add_argument("--n-fft", type=int, default=2048)
     parser.add_argument("--hop", type=int, default=512)
+    parser.add_argument("--arch", default="v1", choices=("v1", "v3"))
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
@@ -155,7 +155,7 @@ def main(argv=None) -> int:
     dataset = MusdbChunkDataset(test_tracks[:1], args.chunk_size, args.n_fft, args.hop)
     window = torch.hann_window(args.n_fft).to(device=dev, dtype=torch.float32)
 
-    model, step, kind, cfg = load_model(args.ckpt, dev, args.n_fft)
+    model, step, kind, _ = load_model(args.ckpt, dev, args.n_fft, args.arch)
     from train import _read_wav
 
     rows = []
@@ -195,7 +195,7 @@ def main(argv=None) -> int:
     leak = [r["leakage_rms"] for r in rows if not np.isnan(r["leakage_rms"])]
 
     summary = {
-        "ckpt": str(args.ckpt), "step": step, "weights": kind,
+        "ckpt": str(args.ckpt), "arch": args.arch, "step": step, "weights": kind,
         "protocol": "H2 archived 56 windows (45 songs)",
         "protocol_file": str(WINDOW_FILE),
         "windows": len(rows), "songs": len({r["song"] for r in rows}),

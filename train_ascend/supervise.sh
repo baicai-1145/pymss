@@ -1,17 +1,20 @@
 #!/bin/bash
 # Supervisor for the overnight run: restart train_long.py on any exit, at most MAX_RESTARTS.
-# Usage: setsid nohup ./supervise.sh /workspace/runs/overnight 10000 > supervise.log 2>&1 &
+# Usage: setsid nohup ./supervise.sh /workspace/runs/overnight 10000 [max_restarts] [arch] > ... &
+#   arch: v1 (depthwise band blocks) or v3 (window attention); default v1.
 DIR=${1:-/workspace/runs/overnight}
 STEPS=${2:-10000}
 MAX_RESTARTS=${3:-20}
+ARCH=${4:-v1}
+PROTO=${5:-both}
 P=/usr/local/python3.12.16/bin/python
 mkdir -p "$DIR"
 n=0
 while [ $n -lt $MAX_RESTARTS ]; do
   echo "[supervise] $(date -Is) launch #$n" | tee -a "$DIR/supervise.log"
   cd /workspace/pymss/train_ascend || exit 1
-  $P train_long.py --steps "$STEPS" --save-dir "$DIR" --resume auto \
-      --batch-size 24 --precision bf16 --fast-loss --num-workers 4 \
+  $P train_long.py --steps "$STEPS" --save-dir "$DIR" --resume auto --arch "$ARCH" \
+      --batch-size 24 --precision bf16 --fast-loss --num-workers 4 --eval-protocol "$PROTO" \
       >> "$DIR/stdout.log" 2>&1
   rc=$?
   echo "[supervise] $(date -Is) exit rc=$rc" | tee -a "$DIR/supervise.log"

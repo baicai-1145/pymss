@@ -1,0 +1,45 @@
+{
+  "method": {
+    "inference": "torch.no_grad, eval(), 8 s input (1, 2050, 690, 2), 20 iters after 5 warmup, median of per-iter wall time with npu synchronize",
+    "training": "train_long.py real loop (bf16 autocast, bs24, fast-loss, iSTFT adjoint, pinned async H2D), median of the step_ms field over the first 20-40 steps",
+    "note": "v1 numbers measured in the same process/session as v3 for the inference row; the training row uses the v1 run's own log (runs/overnight2)."
+  },
+  "inference_8s_ms": {
+    "v1": {
+      "bf16": 11.641,
+      "fp32": 16.869
+    },
+    "v3": {
+      "bf16": 9.402,
+      "fp32": 15.61
+    },
+    "v3_vs_v1_bf16_speedup": 1.238,
+    "v3_vs_v1_fp32_speedup": 1.081
+  },
+  "training_step_ms": {
+    "v1": 1154.3,
+    "v1_source": "runs/overnight2 summary.json (10000-step median)",
+    "v3": 1439.7,
+    "v3_source": "runs/v3_fromscratch train.jsonl (median of logged steps so far)",
+    "v3_over_v1": 1.247,
+    "throughput_steps_per_min": {
+      "v1": 52.0,
+      "v3": 41.7
+    }
+  },
+  "attention_impl": {
+    "sdpa_fwd_bwd_ms_at_62bands_bs24": 42.05,
+    "explicit_softmax_fwd_bwd_ms_at_62bands_bs24": 22.52,
+    "chosen": "explicit softmax (exact: fwd rel 2.46e-07, grad_x 2.78e-07 vs sdpa)",
+    "step_ms_before": 1544.7,
+    "step_ms_after_attention_switch": 1442.2,
+    "step_ms_after_gemm_fused_residual": 1439.7
+  },
+  "params": {
+    "v1": 20873908,
+    "v3": 19875890,
+    "reference_v1_spec": 20961844,
+    "cap": 21630000
+  },
+  "why_v3_trains_slower": "the block does qkv(192->576) + out(192->192) + SwiGLU(192->768, 384->192) at 62 bands, i.e. 2112 channel-widths of GEMM per token per level vs 1344 for v1's depthwise block (1.57x). Inference is faster because v3 replaces v1's 4-block 8-band temporal stack with 2 transformer layers + 1 MSC."
+}

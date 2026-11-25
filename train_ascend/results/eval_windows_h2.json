@@ -1,0 +1,13 @@
+{
+  "name": "h2_56",
+  "windows": 56,
+  "songs": 45,
+  "sha1": "85a8885f5c04f913ff1c67a1487cfce1664664e1",
+  "chunk": 352800,
+  "file": "/workspace/pymss/train_ascend/results/h2_56_windows.txt",
+  "notes": [
+    "'M' -> 'M.E.R.C. Music - Knockout' (alias)",
+    "'Triviul feat' -> 'Triviul feat. The Fiend - Widow'"
+  ],
+  "protocol": "h2_56"
+}

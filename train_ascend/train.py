@@ -32,7 +32,8 @@ import torch.nn.functional as F
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from freq_unet import FreqUNetConfig, build_model
+from arch_factory import build as build_arch
+from freq_unet import FreqUNetConfig, build_model  # noqa: F401  (v1 defaults)
 from fast_loss import stft_mag_fast  # cheap-adjoint |STFT|, math-equivalent (see fast_loss.py)
 from freq_unet import param_count  # noqa: E402
 
@@ -385,6 +386,7 @@ def main(argv=None) -> int:
     parser.add_argument("--resume", type=Path)
     parser.add_argument("--max-tracks", type=int, default=0)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--arch", default="v1", choices=("v1", "v3"))
     parser.add_argument("--log-every", type=int, default=1)
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args(argv)
@@ -413,8 +415,7 @@ def main(argv=None) -> int:
         tracks = tracks[: args.max_tracks]
     print(f"device={device} precision={args.precision} batch={args.batch_size}x{args.accum} tracks={len(tracks)}", flush=True)
 
-    cfg = FreqUNetConfig(n_fft=args.n_fft)
-    model = build_model(cfg).to(device)
+    model = build_arch(args.arch, n_fft=args.n_fft).to(device)
     total = param_count(model)
     print(f"model params={total} ({total / 1e6:.2f}M)", flush=True)
 

@@ -41,7 +41,8 @@ from evaluate import (  # noqa: E402
     build_protocol,
     evaluate as evaluate_protocol,
 )
-from freq_unet import FreqUNetConfig, build_model  # noqa: E402
+from arch_factory import build as build_arch
+from freq_unet import FreqUNetConfig, build_model  # noqa: F401  # noqa: E402
 from train import (  # noqa: E402
     EMA,
     MusdbChunkDataset,
@@ -137,7 +138,9 @@ def main(argv=None) -> int:
     parser.add_argument("--min-free-gb", type=float, default=50.0)
     parser.add_argument("--log-every", type=int, default=20)
     parser.add_argument("--resume", default="auto")
-    parser.add_argument("--eval-protocol", default="h2", choices=("h2", "own"),
+    parser.add_argument("--arch", default="v1", choices=("v1", "v3"),
+                        help="v1 = depthwise band blocks (the overnight baseline), v3 = window attention")
+    parser.add_argument("--eval-protocol", default="h2", choices=("h2", "own", "both"),
                         help="h2 = the archived H2 56 windows/45 songs (paired with H2), "
                              "own = our older 50-song 56-window set (not comparable)")
     parser.add_argument("--fast-loss", action="store_true", default=True)
@@ -173,27 +176,36 @@ def main(argv=None) -> int:
         prefetch_factor=2 if args.num_workers else None,
     )
 
-    cfg = FreqUNetConfig(n_fft=args.n_fft)
-    model = build_model(cfg).to(device)
+    model = build_arch(args.arch, n_fft=args.n_fft).to(device)
     params = sum(p.numel() for p in model.parameters())
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=0.01)
     ema = EMA(model, decay=args.ema_decay)
     window = torch.hann_window(args.n_fft).to(device=device, dtype=torch.float32)
-    channels = cfg.audio_channels
+    channels = 2  # audio_channels: v1 and v3 both use stereo input
 
-    if args.eval_protocol == "h2":
+    protocol_map = {}
+    if args.eval_protocol in ("h2", "both"):
         # H2's archived 56 windows over 45 songs: the only set we can compare against H2
         # checkpoint-by-checkpoint. Our own 50-song set is kept behind --eval-protocol own.
         from eval_h2_protocol import h2_protocol
 
-        protocol, tracks_by_song, manifest = h2_protocol(args.chunk_size, test_tracks)
-        manifest["protocol"] = "h2_56"
-    else:
-        tracks_by_song = {t["mixture"].parent.name: t for t in test_tracks}
-        protocol = build_protocol(test_tracks, args.chunk_size, N_WINDOWS)
-        manifest = window_manifest(protocol, args.chunk_size)
-        manifest["protocol"] = "own_50song_56win (NOT paired with H2)"
-    manifest_path = Path(__file__).resolve().parent / "results" / "eval_windows.json"
+        h2_prot, h2_tracks, h2_manifest = h2_protocol(args.chunk_size, test_tracks)
+        h2_manifest["protocol"] = "h2_56"
+        protocol_map["h2"] = (h2_prot, h2_tracks)
+    if args.eval_protocol in ("own", "both"):
+        own_tracks = {t["mixture"].parent.name: t for t in test_tracks}
+        own_prot = build_protocol(test_tracks, args.chunk_size, N_WINDOWS)
+        own_manifest = window_manifest(own_prot, args.chunk_size)
+        own_manifest["protocol"] = "own_50song_56win (NOT paired with H2)"
+        protocol_map["own"] = (own_prot, own_tracks)
+    # primary protocol drives best.pt (own keeps continuity with the v1 runs)
+    primary = "own" if "own" in protocol_map else "h2"
+    protocol, tracks_by_song = protocol_map[primary]
+    manifest = own_manifest if primary == "own" else h2_manifest
+    # one manifest per protocol: the legacy own-protocol file keeps its name so the frozen
+    # sha1 check for existing runs still works
+    name = "eval_windows.json" if primary == "own" else f"eval_windows_{primary}.json"
+    manifest_path = Path(__file__).resolve().parent / "results" / name
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     if manifest_path.exists():
         old = json.loads(manifest_path.read_text())
@@ -314,8 +326,19 @@ def main(argv=None) -> int:
 
         if step % args.eval_every == 0:
             t_eval = time.time()
-            scores = eval_both(model, ema, dataset, tracks_by_song, protocol, device, args, window)
-            scores["step"] = step
+            order = [t for t in protocol_map if t != primary] + [primary]
+            for tag in order:
+                prot, tbs = protocol_map[tag]
+                sc = eval_both(model, ema, dataset, tbs, prot, device, args, window)
+                sc["step"] = step
+                sc["eval_s"] = round(time.time() - t_eval, 1)
+                fname = f"eval-{step}.json" if tag == primary else f"eval_{tag}-{step}.json"
+                with (save_dir / fname).open("w") as fh:
+                    fh.write(json.dumps(sc, indent=2))
+                if tag != primary:
+                    with log_path.open("a") as fh:
+                        fh.write(json.dumps({"eval_" + tag: {k: v for k, v in sc.items() if k != "windows"}}) + "\n")
+            scores = sc          # last evaluated protocol; primary is evaluated last below
             scores["eval_s"] = round(time.time() - t_eval, 1)
             for which in ("raw", "ema"):
                 val = scores[which]["median_si_sdr"]
