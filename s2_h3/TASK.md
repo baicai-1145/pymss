@@ -26,10 +26,13 @@ cd /workspace/s2_h3 && git pull --ff-only          # 已有的 worktree
 ## 3. 数据（进行中）
 
 ```bash
-cd $S2 && PYTHONPATH=$S2 python protocol_check.py | tee protocol_check.log      # 必须 PROTOCOL_PASS
+git clone git@github.com:baicai-1145/s2-h3-ref.git /workspace/s2_h3_ref      # 私有库：56 窗逐样本参照（不在公开仓库里）
+cd $S2 && S2_REF_DIR=/workspace/s2_h3_ref/ref PYTHONPATH=$S2 python protocol_check.py | tee protocol_check.log
 ```
 
-`protocol_check.py` 用 Colab 导出的 56 窗参照逐窗比对（偏移相同 = 曲目长度相同；CRC 相同 = 解码样本逐位相同）。不 PASS 就停下把输出发给我，不要训练。
+`protocol_check.py` 用 Colab 导出的 56 窗参照逐窗比对：偏移相同 = 曲目长度相同；再逐样本比较（`stage.score()` 喂给模型的 float16 分辨率）。**通过条件：56 窗全部到位，且每窗要么逐位相同，要么每个采样的差异不超过 1 个 float16 ulp、有差异的采样点不超过 2%。** 打出 `PROTOCOL_PASS` 才能训练。
+
+已知情况：偏移全对、能量对到 1e-6、CRC 全不同，差异只在约 0.1% 的采样点上——这是解码/量化最后一位的差异。用逐样本比较量出实际幅度即可，**不必再追最后一位的确切规则**（除非顺手能定位）；把你已查到的现象和结论记进 `NPU_LOG.md`。测试集已经过闸门的话，训练集解码完只需重跑一次。
 
 ## 4. 预检（已完成：`PREFLIGHT_PASS`，10 个 arm，零改动）
 
