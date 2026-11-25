@@ -22,3 +22,6 @@ __pycache__/
 /out/H3/*
 !/out/H3/*.json
 !/out/H3/train-*.log
+# the pymss repo ignores every "data" and "resources" directory; these two are source
+!pymsst/data/
+!pymss_core/resources/
