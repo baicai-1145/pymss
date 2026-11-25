@@ -67,3 +67,17 @@ Two notes for whoever re-reads the per-sample comparison (`protocol_ulp.py` repr
 * Cause of the remaining difference is the decode arithmetic of the Colab build (last bits, ~1 LSB on 0.07 % of samples).
   Ruled out here: ffmpeg 4.4.2 = 9.0.2 bit-identically, mp3float vs fixed-point decoder, 8 CPU/SIMD paths, ffmpeg's own
   float->int16, 6 rounding rules x 2 scales x float32/float64 domain, libsndfile 1.0.31 vs 1.2.2, libmpg123.
+
+## `install_npu_trainer()` imports: the standalone `lightning` package is not installed here
+
+Symptom: `ModuleNotFoundError: No module named 'lightning'` on any `s2_aw_entry.py` run, then
+`MisconfigurationException: Found invalid type for plugin <lightning_fabric...MixedPrecision>`.
+Cause: `entry.install_npu_trainer()` imported `AcceleratorRegistry` and `MixedPrecision` from `lightning.fabric.plugins`
+(the standalone `lightning` meta-package, which is not installed and must not be, since installing it can drag a
+different pytorch-lightning).  With pytorch-lightning 2.6.6 the two classes live in different places, and PL's Trainer
+only accepts *its own* `MixedPrecision` subclass (`pytorch_lightning.plugins.precision.amp.MixedPrecision`), not
+`lightning_fabric.plugins.MixedPrecision` — verified with `isinstance` against the connector's `Precision`.
+Change: `from pytorch_lightning.accelerators import Accelerator, AcceleratorRegistry` and
+`from pytorch_lightning.plugins import MixedPrecision` (one-line import change, inside the `DEVICE.type == 'npu'` branch).
+Why the math is unchanged: only the plugin/registry objects handed to the Trainer changed; the accelerator is still one
+device and precision is still `bf16-mixed`, i.e. `torch.autocast('npu', bfloat16)`.  CUDA never executes this function.

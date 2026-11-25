@@ -192,8 +192,8 @@ def install_npu_trainer():
     """Ascend: Lightning 2.6 ships no NPU accelerator.  Register one (CUDAAccelerator's contract) and make the Trainer
     select it: one NPU, bf16 autocast typed for the npu device.  Never runs when DEVICE is not an NPU."""
     import pytorch_lightning as pl
-    from lightning.fabric.plugins import AcceleratorRegistry, MixedPrecision
-    from pytorch_lightning.accelerators import Accelerator
+    from pytorch_lightning.accelerators import Accelerator, AcceleratorRegistry
+    from pytorch_lightning.plugins import MixedPrecision   # PL 2.6 wants its own subclass, not lightning_fabric's
     from pytorch_lightning.strategies import SingleDeviceStrategy
 
     class NPUAccelerator(Accelerator):
