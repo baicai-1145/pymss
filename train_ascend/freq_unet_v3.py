@@ -113,6 +113,9 @@ class WindowAttention(Module):
         return out          # projection + residual are fused by BandBlock
 
 
+_FUSE_RESIDUAL = os.environ.get("PYMSS_V3_FUSE", "1").lower() in {"1", "true", "yes", "on"}
+
+
 def _linear_residual(x: torch.Tensor, h: torch.Tensor, linear: nn.Linear) -> torch.Tensor:
     """linear(h) + x in one pass.
 
@@ -121,6 +124,8 @@ def _linear_residual(x: torch.Tensor, h: torch.Tensor, linear: nn.Linear) -> tor
     on v1. Weights are cast to the activation dtype because autocast does not reach an
     explicit addmm call.
     """
+    if not _FUSE_RESIDUAL:
+        return x + linear(h)
     shape = x.shape
     flat_h = h.reshape(-1, linear.in_features)
     flat_x = x.reshape(-1, linear.out_features)
