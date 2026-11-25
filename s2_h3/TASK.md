@@ -6,7 +6,7 @@
 
 - 代码：`/workspace/s2_h3` 是 `/workspace/pymss` 的 worktree（分支 `exp/h3-ascend`）。实验目录 `S2=/workspace/s2_h3/s2_h3`，等价于 Colab 的 `/content/s2`。
 - 协议一个字不改：batch 24、AdamW 5e-4 / wd 0.01 / StepLR(40000, 0.9)、EMA 0.999、bf16-mixed、5k 步一段、56 窗评测、损失 = pymsst 的 `masked_loss`（时域 MSE + 分位数掩码，**没有 STFT 损失**）。
-- **训练必须走 Triton**：eager 在 NPU 上不是终点。做法是 profile 驱动的内核替换——每个 Triton 内核都要同时过"数值等价"和"确实更快"两道验证，才允许进训练。数学不变，只是实现变了。
+- **训练必须走 Triton**：eager 在 NPU 上不是终点，也不是兜底。做法是 profile 驱动的内核替换——每个 Triton 内核都要同时过"数值等价"和"确实更快"两道验证，才允许进训练。数学不变，只是实现变了。**正式训练不允许用 eager 启动。**
 - 数据必须是 Colab 那一份；`protocol_check.py` 打出 `PROTOCOL_PASS` 之前不许训练。
 
 ## 1. 取代码
@@ -69,9 +69,9 @@ cd $S2 && S2_REF_DIR=/workspace/s2_h3_ref/ref PYTHONPATH=$S2 python protocol_che
 
 ## 7. 参照与启动（数据 PASS 之后）
 
-1. **eager 参照**：用真实的训练入口跑 200 步，`--max-steps 200 --loss-history-interval 1 --train-log-interval 1`，结果放 `runs/H3-ref-eager/`，报 steps/s，把 loss 曲线提交。
+1. **验证参照（只用于验证，不是训练）**：用真实的训练入口、不开 Triton 跑 200 步，`--max-steps 200 --loss-history-interval 1 --train-log-interval 1`，结果放 `runs/H3-ref-eager/`，把 loss 曲线提交。它的用途只有一个：给 Triton 路径做等价对照。
 2. **Triton 参照**：同样 200 步，带 `S2_TRITON=...`，放 `runs/H3-ref-triton/`。同一 `--seed 0` 下两条 loss 曲线逐步对比：`mean(|Δloss|/loss) ≤ 1%` 才算通过；同时报两个 steps/s。
-3. **正式训练**（通过后）：
+3. **正式训练（通过后，全程 Triton）**：
 
 ```bash
 cd $S2 && S2_DEVICE=npu S2_ROOT=$S2 S2_SKIP_PIP=1 HF_ENDPOINT=https://hf-mirror.com \
@@ -81,7 +81,11 @@ cd $S2 && S2_DEVICE=npu S2_ROOT=$S2 S2_SKIP_PIP=1 HF_ENDPOINT=https://hf-mirror.
 
 必须脱离 ssh 会话（`setsid` + 重定向，或 tmux）。头 200 步内看一次：loss 有限；`runs/H3/train-5000.log` 里有 `ADAMW_START_VERIFIED H3 0 0.0005`；`npu-smi info` 的 HBM 占用。15k 是决策点：跑完 15k 段把结果推上来之后继续 20k/25k，不用等我；**不要启动其它 arm**。训练期间不要在 NPU 上跑别的任务。
 
-范围控制：Triton 只做 profile 排前 3 的热点；某个内核两次尝试仍不过准入标准，就记录原因、跳过，继续下一个。三个都处理完（通过或跳过）就按第 7 节启动——哪怕一个都没通过，也要用 eager 启动，不要让 NPU 空等。
+**训练必须是 Triton 的，没有例外。** eager 只出现在验证里（单算子参照、200 步参照曲线），**不允许用 eager 启动正式训练**——0.856 steps/s 没法做实验迭代。因此：
+
+- profile 排第 1 的热点（时间轴 DWConv 的权重梯度，496 ms）**必须解决**：两次不过准入就换方案再来（换 tile、换公式——dW 可以写成 31 个移位点积的归约，也可以 unfold 成 (c, k, b·T) 后做小 GEMM），直到过准入为止。启动的先决条件就是这个内核通过并启用。
+- 第 2、3 个热点（逐元素链、cast）尽力而为：按同样的准入标准做，不过就记录原因跳过。目标是整步明显快于 eager——每过一批准入，就报一次整步 ms 和相对 eager 的倍数。
+- 启动之后继续做下一批内核，在 5k 段的边界切换（切换前过同样的准入 + 200 步 loss 对照），每段记 steps/s。
 
 ## 8. 回传
 
@@ -104,6 +108,7 @@ git commit -m "H3@npu <阶段>: <一句话结果>" && git push origin exp/h3-asc
 - 改超参、损失定义、数据管线、评测窗口、优化器、EMA、学习率计划、段长。
 - 用 `train_ascend/` 的裸训练循环代替：那份配方和 Colab 的不等价。
 - 没过第 6 节准入标准的内核进训练。
+- 用 eager 启动正式训练，或训练中途退回 eager。
 - 训练时在 NPU 上并发跑别的东西。
 
 对照（Colab 的 H2，56 窗中位，EMA）：5k 5.066 / 10k 6.818 / 15k 7.742 / 20k 7.972 dB。判据：H3 在 15k 时与 H2@15k 差距 ≤ 0.3 dB 才进 50k；看趋势，不看单点。
