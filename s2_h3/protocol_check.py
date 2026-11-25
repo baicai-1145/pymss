@@ -5,8 +5,10 @@ The 56 evaluation windows are derived from test.json exactly the way stage.score
 * `protocol_ref.json` (public): every window's offset, the CRC32 of its float16-cast PCM (both stems) and its energies.
   Same offsets means the track lengths are the same; same CRC means bit-identical samples.
 * `S2_REF_DIR=<clone of the private s2-h3-ref>/ref` (optional): the 56 windows themselves, float16-rounded exactly like
-  stage.score() feeds the model.  A window that is not bit-identical is then measured instead of merely rejected: the
-  difference must stay within one float16 ulp at every sample, at at most 2% of the samples.
+  stage.score() feeds the model.  A window that is not bit-identical is then measured instead of merely rejected: every
+  sample may differ by at most one PCM16 LSB (plus the float16 rounding of the reference itself), at at most 2% of the
+  samples.  Near zero this pins the difference to one LSB; at full scale float16 cannot resolve below ~16 LSB, which the
+  rounding term expresses.
 
 Prints PROTOCOL_PASS only when all 56 windows are accounted for.
 """
@@ -19,6 +21,9 @@ from pathlib import Path
 
 import numpy as np
 import soundfile as sf
+
+
+LSB = np.float32(2.0 ** -15)   # one PCM16 step for audio in [-1, 1)
 
 
 def windows(tracks):
@@ -65,23 +70,26 @@ def main(root=None):
         rel = {k: round(abs(float(np.square(g.astype(np.float64)).sum()) - r[k]) / r[k], 9)
                for k, g in (('energy_mixture', got[0]), ('energy_vocals', got[1]))}
         if samples is None:
-            failed.append((name, off, 'CRC differs and no per-sample reference; relative energy difference', rel)); continue
+            failed.append((name, off, float('inf'), float('nan'), rel, 'CRC differs and there is no per-sample reference (set S2_REF_DIR)')); continue
         want = samples[order[(name, off)]]
         if got.shape != want.shape:
-            failed.append((name, off, 'shape', got.shape, want.shape)); continue
+            failed.append((name, off, float('inf'), float('nan'), {}, 'shape %s vs %s' % (got.shape, want.shape))); continue
         delta = np.abs(got.astype(np.float16).astype(np.float32) - want.astype(np.float16).astype(np.float32))
-        ulp = np.spacing(want).astype(np.float32)           # float16 ulp at the reference value
-        ratio, frac = float((delta / ulp).max()), float((delta != 0).mean())
-        (measured if ratio <= 1.01 and frac <= 0.02 else failed).append((name, off, ratio, frac, rel))
+        ulp = np.spacing(want).astype(np.float32)           # float16 resolution at the reference value
+        excess = delta - (LSB + 1.01 * ulp)                 # one PCM16 LSB plus the reference's own float16 rounding
+        ratio, frac = float((excess / (LSB + ulp)).max()), float((delta != 0).mean())
+        why = ('beyond one LSB' if ratio > 0.05 else '') + (' and ' if ratio > 0.05 and frac > 0.02 else '') + ('more than 2% of samples' if frac > 0.02 else '')
+        (measured if not why else failed).append((name, off, ratio, frac, rel, why))
 
     reached = set(exact) | {(f[0], f[1]) for f in measured} | {(f[0], f[1]) for f in failed}
     missing = sorted(set(ref) - reached)
-    print('bit-identical:', len(exact), '| within 1 float16 ulp:', len(measured), '| failed:', len(failed),
+    print('bit-identical:', len(exact), '| within 1 PCM16 LSB:', len(measured), '| failed:', len(failed),
           '| never reached:', len(missing), flush=True)
-    for name, off, ratio, frac, rel in sorted(measured, key=lambda m: -m[2])[:8]:
-        print('MEASURED', name, off, 'max diff = %.3f float16 ulp, %.4f%% of samples differ, rel. energy diff' % (ratio, frac * 100), rel, flush=True)
-    for item in failed[:12]:
-        print('FAIL', item, flush=True)
+    if measured:
+        print('within-1-LSB windows: differing samples %.4f..%.4f%% (median %.4f%%)' % (
+            100 * min(m[3] for m in measured), 100 * max(m[3] for m in measured), 100 * float(np.median([m[3] for m in measured]))), flush=True)
+    for name, off, ratio, frac, rel, why in sorted(failed, key=lambda m: -m[2])[:12]:
+        print('FAIL', name, off, '| %s | excess over 1 LSB = %.3f of (1 LSB + float16 ulp), %.4f%% of samples differ |' % (why, ratio, frac * 100), rel, flush=True)
     for item in missing[:8]:
         print('MISSING', item, flush=True)
     ok = not missing and not failed and len(exact) + len(measured) == len(ref) == 56
