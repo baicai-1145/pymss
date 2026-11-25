@@ -1,0 +1,9 @@
+{
+  "checkpoint": "ema-16000",
+  "train_median": 6.516765356063843,
+  "train_mean": 6.2529124714530315,
+  "test_median": 2.5027923583984375,
+  "test_mean": -1.2873604049374803,
+  "n_train": 46,
+  "n_test": 39
+}

@@ -1,0 +1,60 @@
+每窗明细（EMA step 16000 vs H2@10k，同一 56 窗）
+song                                                     offset     mine       h2    delta
+AM Contra - Heart Peripheral                            2908455    6.176    9.152   -2.975
+Al James - Schoolboy Facination                         2990101    7.163    6.699   +0.464
+Angels In Amplifiers - I'm Alright                      2642116   -2.634   -1.454   -1.180
+Arise - Run Run Run                                     4640674    3.594    6.754   -3.160
+BKS - Bulldozer                                         6256732   -4.778    3.072   -7.850
+BKS - Too Much                                          4543260    4.732    9.364   -4.631
+Ben Carrigan - We'll Talk About It All Tonight          5497541    7.020   13.264   -6.244
+Bobby Nobody - Stitch Up                                5289973    0.812    6.727   -5.915
+Buitraker - Revo X                                      6591724    4.597    6.882   -2.285
+Carlos Gonzalez - A Place For Us                        2698796    8.225    7.875   +0.350
+Cristina Vane - So Easy                                 7696215   10.031   12.703   -2.671
+Detsky Sad - Walkie Talkie                              5969322   -1.785   -6.284   +4.499
+Forkupines - Semantics                                  3179478    4.602    6.367   -1.765
+Georgia Wonder - Siren                                  8920580   -2.325   -2.293   -0.031
+Hollow Ground - Ill Fate                                2591482    4.189   -6.557  +10.746
+James Elder & Mark M Thompson - The English Actor       3787307    8.130   10.405   -2.275
+Juliet's Rescue - Heartbeats                            7155306   -8.745    3.868  -12.613
+Little Chicago's Finest - My Own                        1094464   -4.666    8.342  -13.008
+Lyndsey Ollard - Catching Up                            5406906    9.696   11.731   -2.035
+M                                                       1838529    2.531    4.459   -1.928
+Moosmusic - Big Dummy Shake                             8356196   11.035   14.837   -3.803
+Motor Tapes - Shore                                     5368129    8.873   10.905   -2.032
+Mu - Too Bright                                        10242803    3.627    6.605   -2.978
+Nerve 9 - Pray For The Rain                             2535892    5.208    7.144   -1.936
+PR - Happy Daze                                         2199530  -13.845   -1.224  -12.621
+PR - Oh No                                              2255813   -0.003    3.541   -3.544
+Punkdisco - Oral Hygiene                                8971413    8.818   -0.478   +9.296
+Raft Monk - Tiring                                      2090279  -11.104   -1.621   -9.483
+Secretariat - Over The Top                              6637701    7.109   10.335   -3.226
+Side Effects Project - Sing With Me                     1899887   -3.557    7.164  -10.721
+Signe Jakobsen - What Have You Done To Me               4428869    5.062    7.752   -2.690
+Skelpolu - Resurrection                                15438443  -10.164  -24.452  +14.288
+Speak Softly - Broken Man                               1554695   -6.667    2.460   -9.127
+Speak Softly - Like Horses                               108561   -2.827    7.618  -10.445
+The Doppler Shift - Atrophy                             8245234   -3.082   -0.707   -2.376
+The Easton Ellises (Baumi) - SDRNR                      9342565    0.977    4.788   -3.811
+The Easton Ellises - Falcon 69                          9515656   -3.424   -2.427   -0.997
+The Long Wait - Dark Horses                             9946366    6.888    7.942   -1.054
+The Mountaineering Club - Mallory                       4795608    4.885    8.636   -3.751
+The Sunshine Garcia Band - For I Am The Moon            7070608    9.744   12.271   -2.526
+Timboz - Pony                                          10177585   -0.005    3.818   -3.823
+Tom McKenzie - Directions                               4993979    2.900    8.388   -5.488
+Triviul feat                                             347612   10.143   11.287   -1.144
+Zeno - Signs                                            3144063    0.726    5.871   -5.145
+AM Contra - Heart Peripheral                            8032555    3.285    8.923   -5.638
+Al James - Schoolboy Facination                         8337826   -0.331    3.605   -3.936
+Angels In Amplifiers - I'm Alright                      3359931    3.275    6.301   -3.026
+Arise - Run Run Run                                     1078879    4.210    8.284   -4.074
+BKS - Too Much                                          1739006    7.878   11.285   -3.407
+Ben Carrigan - We'll Talk About It All Tonight          4992389    4.970   12.558   -7.588
+Bobby Nobody - Stitch Up                                1122898    4.709    6.546   -1.837
+Buitraker - Revo X                                      8536428   -4.867   -1.444   -3.423
+Cristina Vane - So Easy                                 9747185    1.629    7.068   -5.438
+Detsky Sad - Walkie Talkie                              2692133    5.351    4.656   +0.695
+Enda Reilly - Cur An Long Ag Seol                       3853469    8.844   11.205   -2.360
+Forkupines - Semantics                                  1684464    6.019    8.620   -2.601
+
+median -3.002 mean -3.148  win 7 / loss 49 / ties 0
