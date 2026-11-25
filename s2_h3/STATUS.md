@@ -1,1 +1,1 @@
-STATUS: training H3 5k (Triton dwconv_dw, 844.6 ms/step) | triton 1/3 (dwconv_dw 2.03x kernel / 1.32x step, 200-step loss rel 5e-5) | data PROTOCOL_PASS | done: profile, 200-step refs | updated 2026-11-25 22:24
+STATUS: training H3 5k running (Triton dwconv_dw, 844.6 ms/step) | QUEUE PAUSED 2026-11-25 22:30: run_h2.py SIGSTOPped (pid 521773) per TASK §10 so the 5k boundary gives an exclusive NPU timing window for dwconv_dw v2 (limit 45 min, fallback = resume with dwconv_dw) | data PROTOCOL_PASS | triton 1/3
