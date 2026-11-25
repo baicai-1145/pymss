@@ -157,12 +157,36 @@ def fused_norm_dwconv(x: torch.Tensor, gamma: torch.Tensor, weight: torch.Tensor
     return out
 
 
+class _SiluMul(torch.autograd.Function):
+    """silu(a) * g with an explicit (exact) backward.
+
+    A bare Triton call returns a tensor with no grad_fn, which silently cuts the graph for
+    every parameter upstream of it - it cost the first overnight run 3100 steps before the
+    zero gradient norm was noticed.
+    """
+
+    @staticmethod
+    def forward(ctx, a: torch.Tensor, g: torch.Tensor) -> torch.Tensor:
+        out = torch.empty_like(a)
+        n = a.numel()
+        block = 8192
+        _silu_mul_kernel[(triton.cdiv(n, block),)](a, g, out, n, BLOCK=block, num_warps=4)
+        ctx.save_for_backward(a, g)
+        return out
+
+    @staticmethod
+    def backward(ctx, grad_out: torch.Tensor):
+        a, g = ctx.saved_tensors
+        s = torch.sigmoid(a)
+        # d/da [a*s*g] = g*(s + a*s*(1-s));  d/dg = a*s
+        da = grad_out * g * (s * (1 + a * (1 - s)))
+        dg = grad_out * (a * s)
+        return da, dg
+
+
 def fused_silu_mul(a: torch.Tensor, g: torch.Tensor) -> torch.Tensor:
-    out = torch.empty_like(a)
-    n = a.numel()
-    block = 8192
-    _silu_mul_kernel[(triton.cdiv(n, block),)](a, g, out, n, BLOCK=block, num_warps=4)
-    return out
+    """Autograd-capable silu(a)*g (one kernel forward, exact analytic backward)."""
+    return _SiluMul.apply(a, g)
 
 
 class _NormDwconv(torch.autograd.Function):

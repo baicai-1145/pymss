@@ -1,4 +1,29 @@
 
+## 50. 关键 bug：Triton `silu*mul` 截断了反向图（已修）
+
+**现象**：第一次长跑（`runs/overnight`，3100 步）里 `grad_norm` 从 23 掉到 **精确 0.0**，
+`loss_sisdr`/`loss_leak` 恒为 0，raw SI-SDR 三个评测点冻在 −0.006 / −0.001 / −0.001 dB。
+
+**根因**：`fused_silu_mul` 直接调用 Triton kernel，返回的 tensor **没有 grad_fn**
+（`torch.empty_like` + kernel 写回，autograd 无从得知）。它位于每个 LocalBandBlock 的第二半，
+于是 `gate`/`n2` 及其上游全部拿不到梯度，只剩残差与 `p2` 在训练。
+前向对比是 rel 0.0，所以只比前向的检查发现不了——**这是"只验前向不验梯度"的典型陷阱**。
+
+**修复**：用 `torch.autograd.Function` 包住，反向给解析梯度
+`da = go*g*(s + a*s*(1-s))`, `dg = go*a*s`（`s = sigmoid(a)`）。
+
+**验证**：
+- kernel 级：fwd rel **0.0**、da rel **0.0**、dg rel **4.94e-08**；
+- 块级（fast vs 原始）：fwd **5.35e-06**、x.grad **2.49e-05**，
+  10 个参数逐个比对**全部一致**，两路都无零梯度参数；
+- 全模型 3 步真实训练：`grad_norm` **23.38 → 1.53 → 1.93**，**585/589 个参数**拿到梯度
+  （其余 4 个是不可训练 buffer）。
+
+**代价**：`runs/overnight` 的 3100 步作废（检查点保留作证据），已用修好的代码在
+`runs/overnight2` 从零重跑。步时不受影响（仍是 1.162 s/步）。
+
+教训写进流程：**任何自定义 kernel 进入训练前向，必须做逐参数梯度对比**，不能只比前向数值。
+
 ## 49. 追加：把带内 conv/dconv 改写成 matmul（实测后弃用）
 
 `PYMSS_FAST_RESAMPLE=1` 时 `BandDown`/`BandUp` 用 4 次移位 matmul 代替 Conv1d/ConvTranspose1d
