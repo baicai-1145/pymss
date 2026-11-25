@@ -124,6 +124,53 @@ class LocalBandBlock(Module):
         return y + self.p2(out)
 
 
+_FAST_RESAMPLE = os.environ.get("PYMSS_FAST_RESAMPLE", "0").lower() in {"1", "true", "yes", "on"}
+
+
+def _band_down_matmul(x: torch.Tensor, conv: Module, pad_odd: bool) -> torch.Tensor:
+    """Conv1d(k=4, stride=2, padding=1) over the band axis as 4 shifted matmuls.
+
+    The device routes the 3-D conv backward through Conv3DBackpropInputV2 (11.7 ms per
+    call at bs24); the matmul form is the same arithmetic in exactly 4 GEMMs (2.5 ms) plus
+    4 strided slices, and its backward is a GEMM backward.
+    """
+    b, t, f, c = x.shape
+    h = x.reshape(-1, f, c)
+    n = h.shape[0]
+    if pad_odd:
+        h = F.pad(h, (0, 0, 1, 1))
+    fpad = h.shape[1]
+    # conv(z, k=4, s=2, p=1): out[o] = sum_k z[2o + k - 1]
+    z = F.pad(h, (0, 0, 1, 1))                     # index -1 and fpad become zeros
+    fout = (fpad + 2 - 4) // 2 + 1
+    w = conv.weight.reshape(conv.weight.shape[0], conv.weight.shape[1], 4)
+    out = None
+    for k in range(4):
+        tap = z[:, k:k + 2 * fout:2, :]            # (n, fout, c)
+        y = tap.reshape(-1, tap.shape[-1]) @ w[:, :, k].t()      # (n*fout, c_out)
+        y = y.reshape(n, fout, -1)
+        out = y if out is None else out + y
+    out = out + conv.bias
+    return out.reshape(b, t, fout, -1)
+
+
+def _band_up_matmul(x: torch.Tensor, conv: Module, f_query: int) -> torch.Tensor:
+    """ConvTranspose1d(k=4, stride=2, padding=1) over the band axis as 4 scatter-adds."""
+    b, t, f, c = x.shape
+    h = x.reshape(-1, f, c)
+    n = h.shape[0]
+    fout = (f - 1) * 2 - 2 + 4                     # full transposed length
+    w = conv.weight                             # (c_in, c_out, 4)
+    acc = conv.bias.new_zeros(n, fout + 2, w.shape[1])
+    for k in range(4):
+        y = h @ w[:, :, k]                               # (n, f, c_out)
+        acc[:, k:k + 2 * f:2, :] += y
+    out = acc[:, 1:-1, :][:, :f_query]
+    if conv.bias is not None:
+        out = out + conv.bias
+    return out.reshape(b, t, out.shape[1], -1)
+
+
 class BandDown(Module):
     """Conv1d(k=4, stride=2, padding=1) along the band axis; pad 1 first for 62 bands."""
 
@@ -133,6 +180,8 @@ class BandDown(Module):
         self.conv = nn.Conv1d(dim_in, dim_out, 4, stride=2, padding=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if _FAST_RESAMPLE:
+            return _band_down_matmul(x, self.conv, self.pad_odd)
         b, t, f, c = x.shape
         h = x.reshape(b * t, f, c).transpose(1, 2)
         if self.pad_odd:
@@ -150,6 +199,9 @@ class BandUp(Module):
         self.gate = nn.Linear(dim_out, dim_out)
 
     def forward(self, x: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
+        if _FAST_RESAMPLE:
+            h = _band_up_matmul(x, self.up, skip.shape[2])
+            return h + skip * torch.sigmoid(self.gate(skip))
         b, t, f, c = x.shape
         h = self.up(x.reshape(b * t, f, c).transpose(1, 2))
         h = h.transpose(1, 2).reshape(b, t, h.shape[-1], h.shape[1])[:, :, : skip.shape[2]]
