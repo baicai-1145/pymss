@@ -60,6 +60,13 @@ def main(argv=None) -> int:
         print(f"\ntrain loss: {first:.4f} -> {last:.4f} over steps {tail[0][0]}..{tail[-1][0]}")
 
     if len(evals) >= 3:
+        # raw jitters by +-1.4 dB at bs24 with a constant LR, so the gate is judged on EMA,
+        # which is the weight set the answer should ship with.
+        ema_med = [e["ema"]["median_si_sdr"] for e in evals]
+        de1, de2 = ema_med[-2] - ema_med[-3], ema_med[-1] - ema_med[-2]
+        print(f"\nEMA deltas {de1:+.3f} / {de2:+.3f} dB -> "
+              + ("plateau (tune one variable)" if de1 < args.plateau_db and de2 < args.plateau_db
+                 else "still rising (continue training)"))
         med = [e["raw"]["median_si_sdr"] for e in evals]
         d1, d2 = med[-2] - med[-3], med[-1] - med[-2]
         verdict = ("plateau: two consecutive points below the 0.02 dB gate -> tune one variable"
