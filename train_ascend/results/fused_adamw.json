@@ -1,0 +1,45 @@
+{
+  "numerics": {
+    "steps": 5,
+    "param_rel_rms_per_step": [
+      0.0,
+      8.111259997001241e-10,
+      1.2257043158214742e-09,
+      1.5109252737843804e-09,
+      1.7964797427438839e-09
+    ],
+    "worst_rel_rms": 1.7964797427438839e-09,
+    "ok": true
+  },
+  "bench": {
+    "eager": {
+      "median_ms": 0.622,
+      "device_kernels": 32.0,
+      "top": [
+        "Addcdiv_float32_high_performance_7",
+        "ForeachMulScalar_e573c2f50bace431b4b3f11dd4fbf7b1_high_performance_10002",
+        "ForeachAddcmulScalar_502b5fc7521aa7228eb69f831c901231_high_performance_10002"
+      ]
+    },
+    "foreach": {
+      "median_ms": 0.548,
+      "device_kernels": 32.0,
+      "top": [
+        "Addcdiv_float32_high_performance_7",
+        "ForeachMulScalar_e573c2f50bace431b4b3f11dd4fbf7b1_high_performance_10002",
+        "ForeachAddcmulScalar_502b5fc7521aa7228eb69f831c901231_high_performance_10002"
+      ]
+    },
+    "fused": {
+      "median_ms": 0.536,
+      "device_kernels": 11.0,
+      "top": [
+        "ForeachMulScalar_e573c2f50bace431b4b3f11dd4fbf7b1_high_performance_10002",
+        "ForeachAddcmulScalar_502b5fc7521aa7228eb69f831c901231_high_performance_10002",
+        "ForeachAddcdivScalar_ddce1f6dbb89317ae90685c0fcd6c45f_high_performance_1"
+      ]
+    },
+    "speedup_vs_eager": 1.16,
+    "kernel_reduction": 2.91
+  }
+}

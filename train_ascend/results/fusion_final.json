@@ -1,0 +1,70 @@
+{
+  "date": "2026-11-25",
+  "baseline_step_ms": 1289.8,
+  "items": [
+    {
+      "id": "1",
+      "name": "fused AdamW",
+      "status": "done",
+      "what": "FusedAdamW: the whole AdamW update batched through torch._foreach_* (p *= 1-lr*wd; m,v; sqrt/div/add; addcdiv) -> ~7 batched kernels instead of one Addcdiv + two scalar ops per parameter tensor",
+      "why_not_aclnn": "torch_npu.npu_apply_adam_w tried first: 1.729 vs 0.622 ms eager for 24 tensors (2.7x slower) and disagreed with torch.optim.AdamW by 1.4e-04 per step at wd=0 (beta-power convention differs) -> unusable",
+      "numerics": {
+        "vs_torch_optim_AdamW_rel_rms_5_steps": 1.7964797427438839e-09,
+        "requirement": 1e-06,
+        "ok": true
+      },
+      "microbench_24_tensors": {
+        "eager_ms": 0.622,
+        "fused_ms": 0.536,
+        "eager_kernels": 32.0,
+        "fused_kernels": 11.0,
+        "speedup": 1.16,
+        "kernel_reduction": 2.91
+      },
+      "training_40_steps": {
+        "eager_ms_per_step": 1289.8,
+        "fused_ms_per_step": 1268.5,
+        "delta_ms": 21.3,
+        "final_loss_eager": 4.77609,
+        "final_loss_fused": 4.77368
+      },
+      "note": "only 21.3 ms in training although it removes ~585 Addcdiv kernels: each acts on a <=192x384 tensor, so they were numerous but never expensive"
+    },
+    {
+      "id": "2",
+      "name": "band_split normalize chain",
+      "status": "assessed_not_shipped",
+      "measured_ceiling": {
+        "band_split_fwd_bwd_device_kernels": 1314,
+        "share_of_step_kernels_pct": 20.5,
+        "band_split_fwd_eager_ms": 3.694,
+        "band_split_fwd_graph_ms": 1.227,
+        "ceiling_ms": "~6-8 (2.5 ms forward normalize chain + comparable backward)"
+      },
+      "blocker": "the existing triton kernel (npu_kernels_bandunet.bandsplit_norm_scale, measured 1.43-1.51x) fuses normalize+scale+gamma, but each of the 62 bands then needs its own GEMM with a different n_feat (4..132); fusing that means a kernel family plus a real backward, for a ceiling under 1% of the step"
+    },
+    {
+      "id": "3",
+      "name": "SwiGLU / gating / residual",
+      "status": "partly_already_on",
+      "already_on": "triton_blocks.fused_silu_mul is already the default in LocalBandBlock (_TRITON_SILU=1) with an autograd Function whose gradient truncation was fixed; _FAST_BLOCK folds the residual into the projection GEMM",
+      "measured_ceiling": {
+        "Mul_kernels": 830,
+        "share_pct": 13.0,
+        "note": "block0 fwd+bwd = 234 kernels whose top entries are Cast/Transpose/Slice/Add, not Mul; the remaining Mul are attention scale, RMSNorm and MSC gates on 2-8 MB tensors -> the same ~20 ms ceiling as AdamW"
+      }
+    }
+  ],
+  "total_achieved_ms": 21.3,
+  "target_ms": 850,
+  "reached": false,
+  "stop_reason": {
+    "arithmetic": "1110 - 21.3 (item 1) = 1088.7 ms; items 2/3 ceilings ~6-8 and ~10-20 ms, so the three items together land near 1065-1080 ms, not 850",
+    "why": "measured launch floor is 28.6 ms of a 1110 ms step (2.6%, GRAPH3); fusing kernels removes count, not device time. The 610 ms gap to 500 ms is device work in the backward of 62 band-block levels plus 1432 bf16 cast kernels",
+    "next": [
+      "fixed-dtype bf16 model to delete the 1432 Cast kernels",
+      "fuse the 62-band RMSNorm *backward* (that is where the Addcdiv kernels actually are)",
+      "cut backward elementwise passes in LocalBandBlock via make_fx-derived fusion"
+    ]
+  }
+}

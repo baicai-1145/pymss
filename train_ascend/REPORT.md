@@ -1384,6 +1384,65 @@ istft 路径必须做到 ~50 ms（需要自研 istft 伴随）。
 - **会改配方、不可默认采用**：减少 MR-STFT 分辨率、改 hop、把 MR-STFT 直接算在模型谱上（免 istft→stft）、损失进 bf16 autocast。
 - 未使用 fp16 训练；模型结构、损失定义、数据配方均未改动（`align_check` 的 9.34e-07 / 9.25e-03 仍然成立）。
 
+# OVERNIGHT_FUSION（三项逐元素融合：做了一项，另两项给出了实测天花板）
+
+## 44. [1] 融合 AdamW —— 完成，−21.3 ms
+
+**先试 aclnn，失败（两个原因都有实测）**：`torch_npu.npu_apply_adam_w` 在 24 个参数张量上
+**1.729 ms**（eager 0.622 ms，慢 2.7x），且与 `torch.optim.AdamW` **每步差 1.4e-04**（wd=0 时也一样，
+说明 beta-power 约定不同）。两条任何一条都足以否掉它。
+
+**最终实现**：`FusedAdamW` 用 `torch._foreach_*` 把整步批量化
+（`p *= 1-lr*wd` → `m,v` 更新 → `sqrt/div/add` → `addcdiv`），约 7 个批处理 kernel 代替
+"每参数一个 Addcdiv + 两个标量 op"。
+
+| 指标 | eager AdamW | FusedAdamW |
+|---|---|---|
+| 24 张量微基准 | 0.622 ms / 32 kernel | **0.536 ms / 11 kernel**（1.16x，kernel 数 2.91x↓） |
+| 与 torch.optim.AdamW 5 步参数差 | — | **rel_rms 1.80e-09**（要求 1e-6） |
+| 训练 40 步（bs24 bf16） | 1289.8 ms/step | **1268.5 ms/step（−21.3 ms）** |
+| 40 步后 loss | 4.77609 | 4.77368（差 0.05%） |
+
+**为什么只有 21.3 ms**：585 个 Addcdiv 每个只作用在 ≤192×384 的张量上——数量多但从来不是耗时项。
+这直接印证了 GRAPH3 的结论：这台机器的 step **不是 kernel 数驱动**（launch 地板 28.6 ms = 2.6%）。
+
+## 45. [2] band_split normalize 链 —— 给出实测天花板，未上线
+
+实测：`band_split` 前向+反向 **1314 个 device kernel = 整步 6401 的 20.5%**；但前向只有 3.694 ms
+（捕获成图后 1.227 ms），即整条 310 个 normalize kernel 只值 ~2.5 ms。
+
+已有的 `bandsplit_norm_scale`（1.43–1.51x）只融 normalize+scale+gamma；要按 b 方案把 Linear 也融进去，
+就得为 62 个不同 n_feat（4…132）各写一个 normalize+GEMM kernel 家族外加真实反向，
+而**上限只有 ~6–8 ms（不到 step 的 0.8%）**。按"每项必须有收益证据"的原则，这一项**不上线**，只记录上限。
+
+## 46. [3] SwiGLU / 门控 / 残差 —— 一半早就默认开启
+
+- `fused_silu_mul`（Triton）**已经是 `LocalBandBlock` 的默认路径**（`_TRITON_SILU=1`），
+  它的 autograd 截断问题上一轮已修，本轮复核梯度正常；
+- `_FAST_BLOCK` 也早已把残差折进投影 GEMM。
+- 剩余 Mul 830 个（13.0%）来自 attention scale、RMSNorm、MSC 门控；实测 `block0` 前向+反向 234 个
+  kernel 的头部是 **Cast/Transpose/Slice/Add，不是 Mul**，所以再写 `fused_gated_residual` 的收益同样在
+  ~20 ms 量级。
+
+## 47. 停止点（按你给的规则：没进 850 ms 就停下来报告）
+
+| 项 | 实测收益 |
+|---|---|
+| [1] 融合 AdamW | **−21.3 ms**（已上线，数值 1.8e-09） |
+| [2] band_split 融合 | 上限 −6~8 ms（未上线，理由见上） |
+| [3] SwiGLU/门控 | 已默认开启部分；新增融合上限 −10~20 ms |
+| 合计 | 1110 → 约 **1065–1080 ms**，**到不了 850 ms** |
+
+**卡在哪一项**：不是某一项做不动，而是**三项的收益天花板加起来都不够**。因为：
+- launch 地板只有 28.6 ms（2.6%），融合减少的是 kernel **个数**，不是设备**时间**；
+- 真正的 610 ms 缺口在**反向设备工作量**：62 级 band block 的反向逐元素遍
+  （其中 585 个 Addcdiv 实际来自 RMSNorm 反向而不是 AdamW）+ **1432 个 bf16 Cast kernel（22.4%）**。
+
+**下一轮唯一有意义的方向**（按预期收益排序）：
+1. **全模型固定 bf16**（去掉 autocast 进出，删 1432 个 Cast）——GRAPH3 已测推理侧 11.616→10.634 ms；
+2. **RMSNorm 反向融合**（Addcdiv 的真正来源，62 级 × 若干）；
+3. 用 `make_fx` 导出 `LocalBandBlock` 的反向图，按张量生命周期合并遍。
+
 # OVERNIGHT_GRAPH3（重做图捕获：找到真因，并给出 launch 地板）
 
 ## 39. 上一轮 6 种策略失败的真因（不是流程问题，是 SDPA 的副流）

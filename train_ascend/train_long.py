@@ -42,6 +42,7 @@ from evaluate import (  # noqa: E402
     evaluate as evaluate_protocol,
 )
 from arch_factory import build as build_arch
+from fused_adamw import make_optimizer
 from freq_unet import FreqUNetConfig, build_model  # noqa: F401  # noqa: E402
 from train import (  # noqa: E402
     EMA,
@@ -141,6 +142,10 @@ def main(argv=None) -> int:
     parser.add_argument("--v3-window", type=int, default=None, help="ablation: window 8 -> 16")
     parser.add_argument("--v3-bottleneck-depth", type=int, default=None, help="ablation: 2 -> 3")
     parser.add_argument("--v3-n-msc", type=int, default=None, help="ablation: MSC 1 -> 2")
+    parser.add_argument("--optim", default="fused", choices=("eager", "foreach", "fused"),
+                        help="AdamW flavour; fused is torch_npu.npu_apply_adam_w (measured slower "
+                             "and not bit-compatible with torch.optim.AdamW - see fused_adamw.py)")
+    parser.add_argument("--weight-decay", type=float, default=0.01)
     parser.add_argument("--arch", default="v1", choices=("v1", "v3"),
                         help="v1 = depthwise band blocks (the overnight baseline), v3 = window attention")
     parser.add_argument("--eval-protocol", default="h2", choices=("h2", "own", "both"),
@@ -182,7 +187,7 @@ def main(argv=None) -> int:
     model = build_arch(args.arch, n_fft=args.n_fft, window=args.v3_window,
                        n_bottleneck=args.v3_bottleneck_depth, n_msc=args.v3_n_msc).to(device)
     params = sum(p.numel() for p in model.parameters())
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=0.01)
+    optimizer = make_optimizer(model, args.optim, args.lr, args.weight_decay)
     ema = EMA(model, decay=args.ema_decay)
     window = torch.hann_window(args.n_fft).to(device=device, dtype=torch.float32)
     channels = 2  # audio_channels: v1 and v3 both use stereo input

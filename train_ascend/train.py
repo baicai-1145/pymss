@@ -33,6 +33,7 @@ import torch.nn.functional as F
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from arch_factory import build as build_arch
+from fused_adamw import make_optimizer
 from freq_unet import FreqUNetConfig, build_model  # noqa: F401  (v1 defaults)
 from fast_loss import stft_mag_fast  # cheap-adjoint |STFT|, math-equivalent (see fast_loss.py)
 from freq_unet import param_count  # noqa: E402
@@ -385,6 +386,8 @@ def main(argv=None) -> int:
     parser.add_argument("--fast-loss", action="store_true",
                         help="use the cheap-adjoint STFT magnitude in the MR-STFT loss "
                              "(math-equivalent, avoids aten::stft backward)")
+    parser.add_argument("--optim", default="fused", choices=("eager", "foreach", "fused"))
+    parser.add_argument("--wd", type=float, default=0.01)
     parser.add_argument("--lr", type=float, default=5e-4)
     parser.add_argument("--warmup", type=int, default=100)
     parser.add_argument("--grad-clip", type=float, default=1.0)
@@ -433,7 +436,7 @@ def main(argv=None) -> int:
         prefetch_factor=2 if args.num_workers else None,
     )
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=0.01)
+    optimizer = make_optimizer(model, args.optim, args.lr, args.wd)
     ema = EMA(model, decay=args.ema_decay)
     window = torch.hann_window(args.n_fft).to(device=device, dtype=torch.float32)
     channels = 2  # stereo input; both v1 and v3 use it
