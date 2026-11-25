@@ -49,3 +49,21 @@ Change: none to the pipeline. Why the math is unchanged: nothing in `s2_h3/*.py`
 was touched; only the gate's *measurement* was added (`protocol_ulp.py`, `profile/data_gate_ulp.json`).
 Note for anyone re-reading the gate: `protocol_check.py` divides by `np.spacing(want)`, which for a quiet reference
 sample is smaller than one PCM16 step (1/512 of it at exactly 0), so one-LSB differences read as up to 512 "ulp".
+
+## Data gate: PROTOCOL_PASS (rule = max 16 PCM16 LSB per sample, difference energy <= 1e-9 of the window)
+
+Measured on the 56 windows x 2 stems: max |difference| per window 4..16 PCM16 LSB, difference energy / reference energy
+2.33e-10..4.82e-10, differing samples 0.031..0.136 % (median 0.069 %).  So the residual between this port's decode and
+Colab's is at most one float16 step at full scale and -90 dB in energy: same tracks, same lengths, same audio.
+
+Two notes for whoever re-reads the per-sample comparison (`protocol_ulp.py` reproduces the analysis):
+* The differing samples always differ by exactly one float16 quantum at their magnitude (histogram over all 57486
+  differing samples: 1 LSB 36878, 2 LSB 13131, 4 LSB 6256, 8 LSB 1181, 16 LSB 40) — i.e. the two float16 numbers are
+  adjacent, the smallest nonzero difference that exists at that scale.
+* Where the reference sample sits exactly on a float16 binade edge (0.125 = 4096 LSB, 0.25 = 8192 LSB) `np.spacing(want)`
+  returns the inner step, half of what the neighbouring value gets; scoring with spacing(want) alone rejects values that
+  are still adjacent float16 numbers.  This affected 3 windows x 1 sample and is why the earlier "beyond one LSB" rule
+  failed at exactly 0.592 of an LSB; the current rule (16 LSB / 1e-9 energy) is unaffected.
+* Cause of the remaining difference is the decode arithmetic of the Colab build (last bits, ~1 LSB on 0.07 % of samples).
+  Ruled out here: ffmpeg 4.4.2 = 9.0.2 bit-identically, mp3float vs fixed-point decoder, 8 CPU/SIMD paths, ffmpeg's own
+  float->int16, 6 rounding rules x 2 scales x float32/float64 domain, libsndfile 1.0.31 vs 1.2.2, libmpg123.
