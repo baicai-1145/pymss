@@ -1,0 +1,509 @@
+{
+"source": "Colab 2026-11-24/25 runs: the 56 protocol windows of the MUSDB18-HQ MP3 data prepared by prepare.py; CRC32 of the float16-cast PCM per stem",
+"windows": [
+{
+"name": "AM Contra - Heart Peripheral",
+"off": 2908455,
+"length": 352800,
+"crc_mixture": 2986265391,
+"crc_vocals": 780094952,
+"energy_mixture": 7156.991656830534,
+"energy_vocals": 1377.1371413664892
+},
+{
+"name": "Al James - Schoolboy Facination",
+"off": 2990101,
+"length": 352800,
+"crc_mixture": 1530577139,
+"crc_vocals": 2960600430,
+"energy_mixture": 3368.657591830939,
+"energy_vocals": 1408.9346378585324
+},
+{
+"name": "Angels In Amplifiers - I'm Alright",
+"off": 2642116,
+"length": 352800,
+"crc_mixture": 218966256,
+"crc_vocals": 1553864808,
+"energy_mixture": 10302.586726912297,
+"energy_vocals": 483.2392062926665
+},
+{
+"name": "Arise - Run Run Run",
+"off": 4640674,
+"length": 352800,
+"crc_mixture": 2132806809,
+"crc_vocals": 710302843,
+"energy_mixture": 17442.366378402337,
+"energy_vocals": 2277.069226679392
+},
+{
+"name": "BKS - Bulldozer",
+"off": 6256732,
+"length": 352800,
+"crc_mixture": 3265440501,
+"crc_vocals": 3021446942,
+"energy_mixture": 14021.209411742166,
+"energy_vocals": 2272.1811511591077
+},
+{
+"name": "BKS - Too Much",
+"off": 4543260,
+"length": 352800,
+"crc_mixture": 4081643520,
+"crc_vocals": 4129036894,
+"energy_mixture": 13817.132636408322,
+"energy_vocals": 5284.458600404672
+},
+{
+"name": "Ben Carrigan - We'll Talk About It All Tonight",
+"off": 5497541,
+"length": 352800,
+"crc_mixture": 2873128303,
+"crc_vocals": 3096008317,
+"energy_mixture": 1124.3945198468864,
+"energy_vocals": 858.1607596371323
+},
+{
+"name": "Bobby Nobody - Stitch Up",
+"off": 5289973,
+"length": 352800,
+"crc_mixture": 3171809976,
+"crc_vocals": 3656046962,
+"energy_mixture": 7336.093274332583,
+"energy_vocals": 2215.2817152226344
+},
+{
+"name": "Buitraker - Revo X",
+"off": 6591724,
+"length": 352800,
+"crc_mixture": 455814316,
+"crc_vocals": 70382159,
+"energy_mixture": 11421.281561145559,
+"energy_vocals": 968.2886871481314
+},
+{
+"name": "Carlos Gonzalez - A Place For Us",
+"off": 2698796,
+"length": 352800,
+"crc_mixture": 4094843460,
+"crc_vocals": 211147744,
+"energy_mixture": 4170.720062933862,
+"energy_vocals": 1660.080456781201
+},
+{
+"name": "Cristina Vane - So Easy",
+"off": 7696215,
+"length": 352800,
+"crc_mixture": 953929968,
+"crc_vocals": 1195406956,
+"energy_mixture": 9000.638715867884,
+"energy_vocals": 2597.395051578991
+},
+{
+"name": "Detsky Sad - Walkie Talkie",
+"off": 5969322,
+"length": 352800,
+"crc_mixture": 626794253,
+"crc_vocals": 800362992,
+"energy_mixture": 9575.490636721253,
+"energy_vocals": 1043.1996515234932
+},
+{
+"name": "Forkupines - Semantics",
+"off": 3179478,
+"length": 352800,
+"crc_mixture": 1089251060,
+"crc_vocals": 2169928202,
+"energy_mixture": 18891.233460140415,
+"energy_vocals": 3705.6051195291802
+},
+{
+"name": "Georgia Wonder - Siren",
+"off": 8920580,
+"length": 352800,
+"crc_mixture": 760613083,
+"crc_vocals": 2269907908,
+"energy_mixture": 12606.79616050329,
+"energy_vocals": 3424.2172687696293
+},
+{
+"name": "Hollow Ground - Ill Fate",
+"off": 2591482,
+"length": 352800,
+"crc_mixture": 1174700201,
+"crc_vocals": 716979117,
+"energy_mixture": 13000.97157452628,
+"energy_vocals": 230.36907513439655
+},
+{
+"name": "James Elder & Mark M Thompson - The English Actor",
+"off": 3787307,
+"length": 352800,
+"crc_mixture": 3397613739,
+"crc_vocals": 1138510677,
+"energy_mixture": 8819.60696071107,
+"energy_vocals": 4626.2695293314755
+},
+{
+"name": "Juliet's Rescue - Heartbeats",
+"off": 7155306,
+"length": 352800,
+"crc_mixture": 3312629014,
+"crc_vocals": 2602034139,
+"energy_mixture": 6278.628967825323,
+"energy_vocals": 1183.2540559303015
+},
+{
+"name": "Little Chicago's Finest - My Own",
+"off": 1094464,
+"length": 352800,
+"crc_mixture": 259778668,
+"crc_vocals": 736274318,
+"energy_mixture": 2365.811001784168,
+"energy_vocals": 817.4820927074179
+},
+{
+"name": "Lyndsey Ollard - Catching Up",
+"off": 5406906,
+"length": 352800,
+"crc_mixture": 830645565,
+"crc_vocals": 2060305726,
+"energy_mixture": 3565.8634874084964,
+"energy_vocals": 1509.995759587735
+},
+{
+"name": "M",
+"off": 1838529,
+"length": 352800,
+"crc_mixture": 1014532592,
+"crc_vocals": 727704837,
+"energy_mixture": 9875.004425926134,
+"energy_vocals": 3630.952823774889
+},
+{
+"name": "Moosmusic - Big Dummy Shake",
+"off": 8356196,
+"length": 352800,
+"crc_mixture": 1753214146,
+"crc_vocals": 4167052993,
+"energy_mixture": 5852.305287400261,
+"energy_vocals": 1193.7731618629768
+},
+{
+"name": "Motor Tapes - Shore",
+"off": 5368129,
+"length": 352800,
+"crc_mixture": 3676305301,
+"crc_vocals": 1321260324,
+"energy_mixture": 11922.569284788333,
+"energy_vocals": 5284.8820066563785
+},
+{
+"name": "Mu - Too Bright",
+"off": 10242803,
+"length": 352800,
+"crc_mixture": 2368726980,
+"crc_vocals": 2360086229,
+"energy_mixture": 9007.627613965422,
+"energy_vocals": 2764.423554211855
+},
+{
+"name": "Nerve 9 - Pray For The Rain",
+"off": 2535892,
+"length": 352800,
+"crc_mixture": 1740115339,
+"crc_vocals": 3894951779,
+"energy_mixture": 11265.475161860697,
+"energy_vocals": 5033.092224566266
+},
+{
+"name": "PR - Happy Daze",
+"off": 2199530,
+"length": 352800,
+"crc_mixture": 2260179765,
+"crc_vocals": 2386943559,
+"energy_mixture": 26056.176691040397,
+"energy_vocals": 143.47329124528915
+},
+{
+"name": "PR - Oh No",
+"off": 2255813,
+"length": 352800,
+"crc_mixture": 2496259658,
+"crc_vocals": 367979397,
+"energy_mixture": 18416.137046285905,
+"energy_vocals": 630.0015328871086
+},
+{
+"name": "Punkdisco - Oral Hygiene",
+"off": 8971413,
+"length": 352800,
+"crc_mixture": 2838882946,
+"crc_vocals": 680090552,
+"energy_mixture": 1790.4861323134974,
+"energy_vocals": 216.79682543873787
+},
+{
+"name": "Raft Monk - Tiring",
+"off": 2090279,
+"length": 352800,
+"crc_mixture": 3655610240,
+"crc_vocals": 1876337928,
+"energy_mixture": 23742.283769651316,
+"energy_vocals": 3422.4098294423893
+},
+{
+"name": "Secretariat - Over The Top",
+"off": 6637701,
+"length": 352800,
+"crc_mixture": 3929531443,
+"crc_vocals": 1266638115,
+"energy_mixture": 13200.922350822948,
+"energy_vocals": 2997.7027138192207
+},
+{
+"name": "Side Effects Project - Sing With Me",
+"off": 1899887,
+"length": 352800,
+"crc_mixture": 1448511671,
+"crc_vocals": 1455401289,
+"energy_mixture": 8823.880160250701,
+"energy_vocals": 3376.993753956631
+},
+{
+"name": "Signe Jakobsen - What Have You Done To Me",
+"off": 4428869,
+"length": 352800,
+"crc_mixture": 380746105,
+"crc_vocals": 1855402400,
+"energy_mixture": 16994.787277864292,
+"energy_vocals": 5651.266556044109
+},
+{
+"name": "Skelpolu - Resurrection",
+"off": 15438443,
+"length": 352800,
+"crc_mixture": 277003107,
+"crc_vocals": 1976040351,
+"energy_mixture": 21717.76443990413,
+"energy_vocals": 681.5867569111288
+},
+{
+"name": "Speak Softly - Broken Man",
+"off": 1554695,
+"length": 352800,
+"crc_mixture": 3602527098,
+"crc_vocals": 48166358,
+"energy_mixture": 17300.314934466034,
+"energy_vocals": 1469.5577691113576
+},
+{
+"name": "Speak Softly - Like Horses",
+"off": 108561,
+"length": 352800,
+"crc_mixture": 500236063,
+"crc_vocals": 2007092036,
+"energy_mixture": 5132.232849931344,
+"energy_vocals": 1996.398282462731
+},
+{
+"name": "The Doppler Shift - Atrophy",
+"off": 8245234,
+"length": 352800,
+"crc_mixture": 2166351621,
+"crc_vocals": 3539992942,
+"energy_mixture": 14712.361676116474,
+"energy_vocals": 557.5985907372087
+},
+{
+"name": "The Easton Ellises (Baumi) - SDRNR",
+"off": 9342565,
+"length": 352800,
+"crc_mixture": 1259968911,
+"crc_vocals": 3669004524,
+"energy_mixture": 19844.2147196522,
+"energy_vocals": 7767.531233950518
+},
+{
+"name": "The Easton Ellises - Falcon 69",
+"off": 9515656,
+"length": 352800,
+"crc_mixture": 3250115282,
+"crc_vocals": 1209780026,
+"energy_mixture": 17079.50375800766,
+"energy_vocals": 2996.9194560656324
+},
+{
+"name": "The Long Wait - Dark Horses",
+"off": 9946366,
+"length": 352800,
+"crc_mixture": 2083333050,
+"crc_vocals": 708192470,
+"energy_mixture": 4496.427000202239,
+"energy_vocals": 1560.72560642194
+},
+{
+"name": "The Mountaineering Club - Mallory",
+"off": 4795608,
+"length": 352800,
+"crc_mixture": 1331066264,
+"crc_vocals": 1524338380,
+"energy_mixture": 13977.024560716935,
+"energy_vocals": 507.59257674682885
+},
+{
+"name": "The Sunshine Garcia Band - For I Am The Moon",
+"off": 7070608,
+"length": 352800,
+"crc_mixture": 1007199295,
+"crc_vocals": 2845354720,
+"energy_mixture": 10389.273123499006,
+"energy_vocals": 2685.3345703035593
+},
+{
+"name": "Timboz - Pony",
+"off": 10177585,
+"length": 352800,
+"crc_mixture": 3826847560,
+"crc_vocals": 3440588793,
+"energy_mixture": 10701.22205480095,
+"energy_vocals": 1381.65714040678
+},
+{
+"name": "Tom McKenzie - Directions",
+"off": 4993979,
+"length": 352800,
+"crc_mixture": 2263162304,
+"crc_vocals": 800053579,
+"energy_mixture": 10151.990242943168,
+"energy_vocals": 2421.3265723679215
+},
+{
+"name": "Triviul feat",
+"off": 347612,
+"length": 352800,
+"crc_mixture": 993097923,
+"crc_vocals": 817508523,
+"energy_mixture": 5187.374520777725,
+"energy_vocals": 1171.0790058076382
+},
+{
+"name": "Zeno - Signs",
+"off": 3144063,
+"length": 352800,
+"crc_mixture": 685834461,
+"crc_vocals": 695169487,
+"energy_mixture": 13548.3544309875,
+"energy_vocals": 3395.338707235642
+},
+{
+"name": "AM Contra - Heart Peripheral",
+"off": 8032555,
+"length": 352800,
+"crc_mixture": 642040106,
+"crc_vocals": 1747491853,
+"energy_mixture": 19913.918499363586,
+"energy_vocals": 6277.858190082945
+},
+{
+"name": "Al James - Schoolboy Facination",
+"off": 8337826,
+"length": 352800,
+"crc_mixture": 2142038986,
+"crc_vocals": 162833266,
+"energy_mixture": 14684.761118546128,
+"energy_vocals": 8690.78834087681
+},
+{
+"name": "Angels In Amplifiers - I'm Alright",
+"off": 3359931,
+"length": 352800,
+"crc_mixture": 24448184,
+"crc_vocals": 4072182257,
+"energy_mixture": 9880.86642308347,
+"energy_vocals": 3127.1138757662848
+},
+{
+"name": "Arise - Run Run Run",
+"off": 1078879,
+"length": 352800,
+"crc_mixture": 2679992643,
+"crc_vocals": 117532522,
+"energy_mixture": 20000.286814035848,
+"energy_vocals": 4410.510982903652
+},
+{
+"name": "BKS - Too Much",
+"off": 1739006,
+"length": 352800,
+"crc_mixture": 1067820965,
+"crc_vocals": 174122109,
+"energy_mixture": 6340.045606482774,
+"energy_vocals": 2475.51980814524
+},
+{
+"name": "Ben Carrigan - We'll Talk About It All Tonight",
+"off": 4992389,
+"length": 352800,
+"crc_mixture": 4256842650,
+"crc_vocals": 614222830,
+"energy_mixture": 2100.481494639069,
+"energy_vocals": 1475.2688935082406
+},
+{
+"name": "Bobby Nobody - Stitch Up",
+"off": 1122898,
+"length": 352800,
+"crc_mixture": 3866225422,
+"crc_vocals": 3987290080,
+"energy_mixture": 5990.193421948701,
+"energy_vocals": 1483.9609393067658
+},
+{
+"name": "Buitraker - Revo X",
+"off": 8536428,
+"length": 352800,
+"crc_mixture": 2108909960,
+"crc_vocals": 871843614,
+"energy_mixture": 19116.20036266558,
+"energy_vocals": 2490.9665943449363
+},
+{
+"name": "Cristina Vane - So Easy",
+"off": 9747185,
+"length": 352800,
+"crc_mixture": 1378771823,
+"crc_vocals": 3256986811,
+"energy_mixture": 14284.929157497361,
+"energy_vocals": 5130.383140769787
+},
+{
+"name": "Detsky Sad - Walkie Talkie",
+"off": 2692133,
+"length": 352800,
+"crc_mixture": 1765687633,
+"crc_vocals": 3832302546,
+"energy_mixture": 9914.03810145706,
+"energy_vocals": 3131.601343449205
+},
+{
+"name": "Enda Reilly - Cur An Long Ag Seol",
+"off": 3853469,
+"length": 352800,
+"crc_mixture": 543196210,
+"crc_vocals": 1039564162,
+"energy_mixture": 17409.716665199026,
+"energy_vocals": 6826.346445616335
+},
+{
+"name": "Forkupines - Semantics",
+"off": 1684464,
+"length": 352800,
+"crc_mixture": 3344094558,
+"crc_vocals": 4171997183,
+"energy_mixture": 16844.558521932922,
+"energy_vocals": 2244.183022674173
+}
+]
+}
