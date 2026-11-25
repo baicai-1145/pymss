@@ -1,1 +1,1 @@
-STATUS: PROTOCOL_PASS (56/56, max 16 PCM16 LSB, diff energy 5e-10) | profile done: eager 0.856 steps/s (1169 ms), dwconv dW 496 ms | next: triton kernels | updated 2026-11-25 22:05
+STATUS: triton 1/3 passed (dwconv_dw, 2.03x on the kernel, 844.6 vs 1111.8 ms/step = 1.32x end-to-end, 200-step loss rel 5e-5) | data PROTOCOL_PASS | next: training H3 5k->25k with S2_TRITON=dwconv_dw | updated 2026-11-25 22:20

@@ -1,0 +1,28 @@
+{
+ "eager": {
+  "steps": 200,
+  "first": 0.005229221191257238,
+  "last": 0.0016331042861565948,
+  "finite": true
+ },
+ "triton": {
+  "steps": 200,
+  "first": 0.005229221191257238,
+  "last": 0.001633190899156034,
+  "finite": true
+ },
+ "comparison": {
+  "steps": 200,
+  "mean_rel": 4.920590858031526e-05,
+  "max_rel": 0.00019217605280156142,
+  "limit": 0.01,
+  "pass_": true
+ },
+ "throughput": {
+  "eager_ms": 1111.8,
+  "eager_steps_per_s": 0.899,
+  "triton_ms": 844.6,
+  "triton_steps_per_s": 1.184,
+  "speedup": 1.316362775278238
+ }
+}

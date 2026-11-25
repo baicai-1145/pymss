@@ -20,6 +20,7 @@ os.environ['ARM'] = 'H3'
 
 import torch  # noqa: E402
 import torch_npu  # noqa: E402,F401
+import triton  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
@@ -47,6 +48,57 @@ def timed(fn, reps=20, sync=None):
 def shapes():
     """The MSC depthwise conv at the training shape: (b*f, hid, t) with b=24, f=62, hid=384, t=258."""
     return 24 * 62, 384, 258, 31
+
+
+def bench_dw_stage(dtype):
+    """Only the weight gradient: eager autograd (Conv3DBackpropFilterV2) vs the Triton kernel, buffer reset per rep."""
+    import triton_npu
+    from torch import nn
+    n, c, t, k = shapes()
+    torch.manual_seed(0)
+    conv = nn.Conv1d(c, c, k, padding=k // 2, groups=c).npu().to(dtype)
+    x = torch.randn(n, c, t, device='npu', dtype=dtype)
+    dy = torch.randn(n, c, t, device='npu', dtype=dtype)
+
+    def eager_dw():
+        y = torch.nn.functional.conv1d(x, conv.weight, conv.bias, padding=k // 2, groups=c)
+        y.backward(dy)
+        out = conv.weight.grad.clone()
+        conv.weight.grad = None
+        return out
+
+    cfg = triton_npu._cfg()
+    dw = torch.zeros(c, k, device='npu', dtype=torch.float32)
+    db = torch.zeros(c, device='npu', dtype=torch.float32)
+
+    def tri_dw():
+        dw.zero_(); db.zero_()
+        triton_npu._dw_dw[(triton.cdiv(c, cfg['bc']), cfg['ns'])](dy, x, dw, db, n, c, t, k, NS=cfg['ns'],
+                                                                BC=cfg['bc'], BT=cfg['bt'], BK=triton_npu._pow2(k),
+                                                                HAS_B=True, num_warps=1)
+        return dw.clone()
+
+    want, got = eager_dw().reshape(c, k).float(), tri_dw()
+    errs = dict(out=rel_rms(got, want))
+    # The fp32 gate compares against eager autograd, but that reduction (1488x258 terms) is itself inexact; a float64
+    # reference shows which side is off.  Chunked over rows to bound memory.
+    if dtype is torch.float32:
+        px64 = torch.nn.functional.pad(x.double(), (k // 2, k // 2))
+        ref64 = torch.zeros(c, k, device=x.device, dtype=torch.float64)
+        for n0 in range(0, n, 256):
+            dy64 = dy[n0:n0 + 256].double()
+            ref64 += sum((dy64 * px64[n0:n0 + 256, :, j:j + t]).sum(dim=(0, 2)) for j in range(k)).unsqueeze(-1) \
+                if False else torch.stack([(dy64 * px64[n0:n0 + 256, :, j:j + t]).sum(dim=(0, 2)) for j in range(k)], -1)
+        scale = ref64.square().mean().sqrt()
+        errs['vs_float64'] = float((got.double() - ref64).square().mean().sqrt() / scale)
+        errs['eager_vs_float64'] = float((want.double() - ref64).square().mean().sqrt() / scale)
+    a, b = [], []
+    for _ in range(2):
+        a.append(timed(eager_dw)); b.append(timed(tri_dw))
+    ms_e, ms_t = min(a), min(b)
+    return dict(kernel='dwconv_dw', dtype=str(dtype).split('.')[-1], shape=f'{n}x{c}x{t} k={k}',
+                errors={k2: round(v, 9) for k2, v in errs.items()}, eager_ms=round(ms_e, 2),
+                triton_ms=round(ms_t, 2), speedup=round(ms_e / ms_t, 2))
 
 
 def bench_dwconv(dtype):
@@ -136,11 +188,12 @@ def main():
     assert triton_npu.available(), 'triton not importable'
     rows = []
     for dtype in (torch.float32, torch.bfloat16):
-        rows.append(bench_dwconv(dtype))
+        rows.append(bench_dw_stage(dtype))          # the adopted target
         rows.append(bench_silu_mul(dtype))
+        rows.append(bench_dwconv(dtype))            # full conv in Triton: recorded, rejected (no compile in UB)
     ref = {str(d).split('.')[-1]: step_loss(None, d) for d in (torch.float32, torch.bfloat16)}
     step = {}
-    for names in (['dwconv'], ['silu_mul'], ['dwconv', 'silu_mul']):
+    for names in (['dwconv_dw'], ['silu_mul'], ['dwconv_dw', 'silu_mul']):
         got = step_loss(names, None)
         step['+'.join(names)] = dict(loss=got, rel_fp32=abs(got - ref['float32']) / ref['float32'])
     out = dict(rows=rows, step_loss_ref=ref, step_loss=step, limits=dict(fp32=FP32_LIMIT, bf16=BF16_LIMIT,
@@ -149,7 +202,8 @@ def main():
     print(f'{"kernel":10s} {"dtype":9s} {"eager ms":>9s} {"triton ms":>10s} {"speedup":>8s}   errors (out/dx/dw/db)')
     for r in rows:
         lim = FP32_LIMIT if r['dtype'] == 'float32' else BF16_LIMIT
-        ok = all(v <= lim for v in r['errors'].values()) and r['triton_ms'] < r['eager_ms']
+        scored = {k2: v for k2, v in r['errors'].items() if k2 not in ('vs_float64', 'eager_vs_float64')}
+        ok = all(v <= lim for v in scored.values()) and r['triton_ms'] < r['eager_ms']
         print(f'{r["kernel"]:10s} {r["dtype"]:9s} {r["eager_ms"]:9.2f} {r["triton_ms"]:10.2f} {r["speedup"]:8.2f}   '
               f'{ {k: f"{v:.1e}" for k, v in r["errors"].items()} } {"PASS" if ok else "FAIL"}')
     print(f'step loss ref (eager): {ref}')

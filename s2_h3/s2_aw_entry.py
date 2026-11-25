@@ -21,7 +21,17 @@ if __name__ == '__main__':
     arm = os.environ['ARM']; assert arm in ARMS, arm
     if DEVICE.type == 'npu':
         install_npu_trainer()
-    tm.get_model_from_config = factory
+
+    def factory_with_kernels(*args, **kwargs):
+        """Build the model, then hand it to the kernels named in S2_TRITON (TASK §6).  Unset = byte-identical eager path."""
+        model, cfg = factory(*args, **kwargs)
+        names = [n for n in os.environ.get('S2_TRITON', '').replace(' ', '').split(',') if n]
+        if names:
+            from triton_npu import install
+            print('TRITON_INSTALLED', install(model, names), flush=True)
+        return model, cfg
+
+    tm.get_model_from_config = factory_with_kernels
     tm.SeparationLightningModule.configure_optimizers = configure
     if '--resume-checkpoint' in sys.argv:
         install_resume_hook()

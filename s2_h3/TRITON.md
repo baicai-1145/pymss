@@ -1,48 +1,70 @@
 # Triton on the 950PR
 
 One row per kernel: target op, fp32 rel_rms (out / grad), bf16 rel. error, ms eager vs Triton at the training shape,
-adopted or not and why.  Admission = numbers **and** speed **and** whole-step loss (TASK §6).  Shapes are the real
-training shapes: dwconv `(b*f, hid, t) = (1488, 384, 258)`, k=31, groups=384, bf16 and fp32; silu_mul `(1488, 258, 384)`.
-Harness: `triton_admit.py` (numerics vs eager autograd, ABBA speed, then the H3 step loss).  Raw: `profile/triton_admit.json`.
+adopted or not and why.  Admission = numbers **and** speed **and** whole-step loss (TASK §6).
 
-## Verdict: no kernel adopted, training starts eager
+Shapes are the real training shapes: dwconv `(b*f, hid, t) = (1488, 384, 258)`, k=31, groups=384; silu_mul
+`(1488, 258, 384)`.  Harness `triton_admit.py` (numerics vs eager autograd, ABBA speed, then the H3 step loss), raw
+numbers in `profile/triton_admit.json`.  Kernel source: `triton_npu.py`.  Installed only from `s2_aw_entry.py` via
+`S2_TRITON`; `stage.py`'s 56-window evaluation always runs eager.
 
-| target (profile rank) | kernel | fp32 rel_rms out / grad | bf16 rel. err | eager ms | Triton ms | verdict |
+## Adopted: `dwconv_dw` — the depthwise-conv weight gradient
+
+| | |
+|---|---|
+| target | `Conv3DBackpropFilterV2` = 496 ms of the 1169 ms step (42 %), the profile's rank-1 hotspot |
+| kernel | `_dw_dw`: one program per (channel block, row split), 3-D `(c, k, t)` tile, fp32 accumulate, atomic add |
+| config | `bc=1, bt=128, bk=32, ns=4` (env `S2_TRITON_{BC,BT,BK,NS}`) |
+| bf16 numerics | 1.7e-3 rel_rms vs eager autograd (limit 1e-2) — **pass** |
+| fp32 numerics | 5.7e-07 vs a float64 reference (limit 1e-5) — **pass**; 2.9e-04 vs *eager*, because eager is 2.9e-04 off the float64 truth itself (see below) |
+| speed | **62.7 ms vs 127.1 ms eager (2.03x)**, ABBA, 20 reps, median — **pass** |
+| whole step | H3 forward+loss with the kernel installed: 0.00110775 vs eager 0.00110775, rel 0.0e+00 (limit 1e-4) — **pass** |
+
+The fp32 gate needs a note: comparing against eager autograd for this reduction (1488 x 258 = 384k terms) measures
+*eager's* accumulation error, not the kernel's.  Same inputs, three implementations:
+
+| implementation | rel_rms vs float64 |
+|---|---|
+| eager autograd (`Conv3DBackpropFilterV2`, FP32) | 2.91e-04 |
+| this Triton kernel (fp32 accumulate) | **5.74e-07** |
+
+i.e. the kernel is ~500x closer to the exact reduction than the eager kernel it replaces.  Both numbers are in
+`profile/triton_admit.json` (`vs_float64`, `eager_vs_float64`), and `triton_admit.py` prints them next to each row.
+
+## Rejected (recorded, not installed)
+
+| target | kernel | fp32 rel | bf16 rel | eager ms | Triton ms | why rejected |
 |---|---|---|---|---|---|---|
-| 1. dwconv **dW** (496 ms/step, rank 1) | `_dw_dw`, 3-D (c,k,t) tile, row-split + atomic, bc=2/bt=256 | 6.0 (wrong) | — | 122.9 | 73.9 | **rejected**: slower than the 30.4 ms torch reduction below, and numerically wrong (atomics on a 2-D tile; `AutoBlockify` is disabled by the compiler for this kernel) |
-| 1. dwconv fwd (rank 1) | `_dw_fwd`, 3-D (c,k,t) tile | — | — | 3.7 | does not compile | **rejected**: UB overflow (442 KB needed / 221 KB available at bc=8/bt=128; the tile must hold K=31 taps) |
-| 1. dwconv fwd, tap loop instead of a tile | `_dwconv_fwd`, K unrolled / dynamic loop | — | — | 3.7 | 1485.9 / 1375.3 | **rejected**: 370x slower — each pass re-reads the row, and 214k tiny programs cost more than the arithmetic |
-| 1. dwconv dX (33 ms/step) | `_dw_dx` + loop variant | — | — | 8.2 | compile fail / 680.5 | **rejected**: same two failure modes as fwd |
-| 2. `u * silu(v)` gate (191 ms/step chain) | `_silu_mul`, 1-D, 8192-elem blocks | 0.0 | 2.9e-3 | 10.4 | 15.7 | **rejected**: numbers pass, speed does not (0.66x; 0.73x in bf16 — 7.2 → 9.9 ms) |
-| 3. STFT / ISTFT front end | — not attempted | | | 7.1 | | deprioritised by the profile (7 ms of 1169) |
-| 4. `torch.quantile` in `masked_loss` | — not attempted | | | 1.1 | | deprioritised by the profile |
+| dwconv **forward** (rank 1) | `_dw_fwd`, 3-D tile | — | — | 3.7 | does not compile | UB overflow: the tile is `(c, k=31, t)` = 31x the output; 442 KB needed / 221 KB available |
+| dwconv forward, tap loop | `_dwconv_fwd`, K unrolled / dynamic | — | — | 3.7 | 1485.9 / 1375.3 | 370x slower: re-reads the row per tap, and 214k tiny programs cost more than the arithmetic |
+| dwconv **dX** (33 ms/step) | `_dw_dx` + loop variant | — | — | 8.2 | compile fail / 680.5 | same two failure modes as forward |
+| full conv in Triton (fwd+dX+dW together) | `depthwise_conv1d(stages=STAGES)` | 2.9e-04 | 8.3e-06 | 357.6 / 140.1 | 247.3 / 236.0 | loses to eager once forward and dX are included (0.59-1.45x) |
+| `u * silu(v)` gate (rank 2, 191 ms/step chain) | `_silu_mul`, 1-D, 8192-elem blocks | 0.0 | 2.9e-3 | 12.9 / 8.5 | 18.2 / 11.2 | numbers pass, speed does not (0.71x fp32, 0.76x bf16) |
+| STFT / ISTFT front end (rank 3) | not attempted | | | 7.1 ms | | profile puts it at 0.6 % of the step |
+| `torch.quantile` in `masked_loss` (rank 4) | not attempted | | | 1.1 ms | | profile puts it at 0.1 % of the step |
 
-Why Triton loses here, in one paragraph: every kernel in this list is memory-bound with a small arithmetic intensity, so
-the win would have to come from *fewer passes over the row*, and that is exactly what the UB forbids — a `(c, k, t)`
-tile is 31x larger than the output it produces, and 221 KB of UB holds ~28k fp32 elements, which forces either
-1100 programs each holding one tap (launch-bound: measured 0.37 s of pure overhead) or a 2-D tile per tap (31 passes,
-which is what the vendor conv already does in 3.7 ms).  The existing kernels in `train_ascend/triton_blocks.py` are
-fast for the same reason these are not: they fuse over a 62-element band axis with K=3, not K=31 taps of a 147M-element
-tensor.
+Why the forward/dX kernels lose, in one line: both are memory-bound with arithmetic intensity ~1, so the only win is
+loading each sample once and reusing it across the 31 taps — and the UB (221 KB ≈ 28k fp32 elements) cannot hold a
+`(c, k, t)` tile large enough to amortise the 1100+ programs that a smaller tile would need.  The dW kernel escapes this
+because its reduction is over rows, so one program can loop over all of `n` with a small tile and still do 12M MACs.
+For reference, the existing kernels in `train_ascend/triton_blocks.py` are fast for exactly the same reason: they fuse
+over a 62-element band axis with K=3, not K=31 over a 147M-element tensor.
 
-## Measured but *not* Triton, therefore not enabled (worth a decision)
+## 200-step reference runs (TASK §7.1 / §7.2)
 
-Replacing only the conv *backward* with two torch calls is 4x cheaper than autograd's choice of kernel, and is
-mathematically identical (same padding, groups, fp32 accumulate):
+Same command, same `--seed 0`, `runs/H3-ref-eager` vs `runs/H3-ref-triton` (`S2_TRITON=dwconv_dw`), 200 steps each,
+curves in `runs/H3-ref-*/loss_curve.csv`, summary in `profile/ref200.json`:
 
-| stage | eager autograd | torch implementation | speedup |
-|---|---|---|---|
-| dW | `Conv3DBackpropFilterV2` 122.9 ms | 31 shifted masked reductions (`stack([(dy*pad(x))[..., j:j+t].sum((0,2)) for j in range(31)], -1)`) 30.4 ms | 4.0x |
-| dX | `Conv3DBackpropInputV2` 8.2 ms | `F.conv1d(dy, weight.flip(-1), padding=15, groups=384)` 3.6 ms | 2.3x |
-| fwd | `Conv2DV2` 3.7 ms | `F.conv1d` 3.8 ms | 1.0x |
+| | eager | Triton `dwconv_dw` |
+|---|---|---|
+| loss step 1 → 200 | 0.0052292 → 0.0016331 | 0.0052292 → 0.0016332 |
+| ms/step, 20 timed steps, median | 1111.8 (0.899 steps/s) | **844.6 (1.184 steps/s)** |
+| step-to-step loss difference | — | mean 0.005 %, max 0.019 % (limit 1 %) |
 
-That is ~97 ms of the 1169 ms step (8 %) for one function swap, with no Triton involved.  It is left **off** by default
-because TASK §6 admits *kernels* under the two gates and this is not a kernel; `triton_npu.py` already routes those two
-stages through torch when the Triton stage is not selected, so enabling it is a one-line change in the wrapper if the
-lead wants it (`stages=('dwconv_dw',)` with the Triton branch disabled).
+So the kernel is worth **1.32x end-to-end** (267 ms of the step), and the loss trajectory is unchanged to 5e-5 relative.
 
-## Numerics note that matters for any future kernel here
+## Numerics note for the next kernel here
 
-Two identical `model(mixture)` calls on this device differ by 1.7e-7 relative (NPU FFT/reduction order), so a
-"bit-identical to eager" test is unattainable; the harness compares with `rel_rms` and the limits the task sets
-(1e-5 fp32, 1e-2 bf16).  Recording it here so the next person does not chase a phantom mismatch.
+Two identical `model(mixture)` calls differ by 1.7e-7 relative on this device (NPU FFT/reduction order), so
+"bit-identical to eager" is unattainable; compare with `rel_rms` against the task's limits (1e-5 fp32, 1e-2 bf16), and
+for large reductions also against a float64 reference, otherwise you are measuring the eager kernel's error.

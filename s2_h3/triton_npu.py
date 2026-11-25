@@ -115,9 +115,9 @@ STAGES = ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'silu_mul')
 
 def _cfg():
     """Tile sizes (thinned on this device: the (BC, BK, BT) tile must fit the 254 KB UB)."""
-    return dict(bc=int(os.environ.get('S2_TRITON_BC', 8)), bt=int(os.environ.get('S2_TRITON_BT', 128)),
-                bk=int(os.environ.get('S2_TRITON_BK', 32)), ns=int(os.environ.get('S2_TRITON_NS', 8)),
-                block=int(os.environ.get('S2_TRITON_BLOCK', 16384)))
+    return dict(bc=int(os.environ.get('S2_TRITON_BC', 1)), bt=int(os.environ.get('S2_TRITON_BT', 128)),
+                bk=int(os.environ.get('S2_TRITON_BK', 32)), ns=int(os.environ.get('S2_TRITON_NS', 4)),
+                block=int(os.environ.get('S2_TRITON_BLOCK', 8192)))
 
 
 def _pow2(n):
@@ -125,6 +125,14 @@ def _pow2(n):
     while p < n:
         p *= 2
     return p
+
+
+def _match_dtype(weight, bias, like):
+    """Autocast does not reach into a custom Function, so cast weight/bias to the activation dtype the way it would."""
+    if like.dtype in (torch.float16, torch.bfloat16):
+        weight = weight.to(like.dtype)
+        bias = bias.to(like.dtype) if bias is not None else None
+    return weight, bias
 
 
 class _DWConv(torch.autograd.Function):
@@ -136,10 +144,13 @@ class _DWConv(torch.autograd.Function):
         k = weight.shape[-1]
         cfg = _cfg()
         x = x.contiguous()
+        w_dtype = weight.dtype
+        weight, bias = _match_dtype(weight, bias, x)
         ctx.save_for_backward(x, weight)
         ctx.cfg, ctx.stages, ctx.has_bias = cfg, stages, bias is not None
+        ctx.w_dtype = w_dtype
         if 'dwconv_fwd' not in stages:
-            return F.conv1d(x, weight, bias, padding=pad, groups=c)
+            return F.conv1d(x, weight, bias, padding=pad, groups=c)   # same kernel autograd would pick
         out = torch.empty_like(x)
         grid = (n, triton.cdiv(t, cfg['bt']), triton.cdiv(c, cfg['bc']))
         _dw_fwd[grid](x, weight.reshape(c, k), bias if bias is not None else x, out, c, t, k, BC=cfg['bc'],
@@ -154,6 +165,7 @@ class _DWConv(torch.autograd.Function):
         k = weight.shape[-1]
         grad_out = grad_out.contiguous()
         pad = k // 2
+        weight, _ = _match_dtype(weight, None, x)
         if 'dwconv_dx' in stages:
             dx = torch.empty_like(x)
             grid = (n, triton.cdiv(t, cfg['bt']), triton.cdiv(c, cfg['bc']))
@@ -171,7 +183,7 @@ class _DWConv(torch.autograd.Function):
             pad_x = F.pad(x, (pad, pad))
             dw = torch.stack([(grad_out * pad_x[:, :, j:j + t]).sum(dim=(0, 2)) for j in range(k)], dim=-1)
             db = grad_out.sum(dim=(0, 2))
-        return dx, dw.to(weight.dtype).reshape_as(weight), (db.to(weight.dtype) if ctx.has_bias else None), None, None
+        return dx, dw.to(ctx.w_dtype).reshape(weight.shape), (db.to(ctx.w_dtype) if ctx.has_bias else None), None, None
 
 
 def depthwise_conv1d(x, weight, bias, padding, stages=STAGES):
