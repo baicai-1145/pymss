@@ -16,3 +16,8 @@ out/*
 out/H3/*
 !out/H3/*.json
 !out/H3/train-*.log
+!runs/H3-ref-*/
+runs/H3-ref-*/*
+!runs/H3-ref-*/*.json
+!runs/H3-ref-*/*.log
+!runs/H3-ref-*/*.csv
