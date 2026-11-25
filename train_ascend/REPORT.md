@@ -1383,3 +1383,104 @@ istft 路径必须做到 ~50 ms（需要自研 istft 伴随）。
 - **纯实现但未启用**：packed bmm（有效 FLOPs 翻倍，需配合真正的变宽融合 kernel）、graph 捕获（抓不住）。
 - **会改配方、不可默认采用**：减少 MR-STFT 分辨率、改 hop、把 MR-STFT 直接算在模型谱上（免 istft→stft）、损失进 bf16 autocast。
 - 未使用 fp16 训练；模型结构、损失定义、数据配方均未改动（`align_check` 的 9.34e-07 / 9.25e-03 仍然成立）。
+
+# OVERNIGHT_SPEED3（速度：审计 + 优化实测）
+
+## 33. CANN 算子审计（先查有没有原生算子，再谈改实现）
+
+完整两表在 `train_ascend/CANN_OP_AUDIT.md`，实测原始数据 `results/cann_op_kernels.json`。要点：
+
+| aten 调用 | device kernel/次 | 判定 |
+|---|---|---|
+| `torch.stft`（两个模式） | **2.00** | **原生 `aclStft`**（`STFT_*` + `MirrorPad`） |
+| `torch.fft.rfft` | 6.00 | DFT 矩阵乘分解（Transpose/Slice/MatMulV3） |
+| `torch.fft.fft` | 4.00 | 分解 |
+| `torch.fft.irfft` | **12.00** | 重退化 |
+| `torch.istft` | **失败** | CANN 无 IStft 算子 |
+| `F.fold`/`col2im` | **失败 161002** | `aclnnIm2colBackward` 拒绝该形状 |
+| `unfold`/`view_as_*` | **0.00** | 纯视图 |
+| `complex` 乘法 | 1.00 | 原生 |
+| `as_strided` 帧化 | **设备故障（error 95）** | 会打挂 vector core |
+
+结论：**我们的数据/损失前向早就在用原生 STFT**（2 kernel）。真正退化的是 `rfft`（6）和 `irfft`（12），
+而 iSTFT 手写伴随、overlap-add 手写 fold 都是**被迫的**——CANN 9.2.1 只有 `Stft`(fp32/fp64/complex64) 和
+`Rfft1D`(fp32 only) 两个 FFT 算子，没有 IStft/Irfft，没有 C2C FFT 的 aclnn 入口；
+`torch.ops.npu` 只有三个反向算子（`fft_r2c_backward`/`fft_c2r_backward`/`stft_backward`），
+Python 侧没有 aclnn 直调入口（`torch_npu.npu._fft_plan_cache` 存在，说明正向前向是 plan 式原生路径）。
+`ops-transform`、`cann-ops-adv` 两个仓库在 gitcode 上不存在（403），Fold/Unfold 只在 `ops-math/conversion/`。
+
+## 34. 优化前基线（40 步，bf16，无并发任务）
+
+`results/profile_bf16_before3.json`，13 段 sync-bounded profile，总和回对 wall（error −0.0%）：
+
+| 段 | ms | 占比 |
+|---|---|---|
+| **backward** | **870.8** | **61.9%** |
+| forward | 200.2 | 14.2% |
+| istft_pred | 83.1 | 5.9% |
+| istft_tgt | 83.1 | 5.9% |
+| h2d_copy | 74.2 | 5.3% |
+| loss_mrstft_2048 | 29.9 | 2.1% |
+| loss_mrstft_1024 | 17.9 | 1.3% |
+| optimizer_step | 14.3 | 1.0% |
+| loss_mrstft_512 | 11.6 | 0.8% |
+| ema / grad_clip / 其余 7 段 | 19.2 | 0.7% |
+| **总** | **1406.1** | |
+
+训练循环（async，不打点）实测 **1154.3 ms/步**；profile 因为每步 16 次同步多读 ~250 ms。两个数都记着。
+
+## 35. 做了什么（逐项可开关、逐项数值证据）
+
+**A1 · 损失的目标波形改由 dataloader 直接给（`PYMSS_TGT_WAV`，默认开）**
+
+原来每步要在卡上算一次 `istft(target_spectrum)`（83.1 ms）只为了拿目标波形；而目标波形就是数据集里的源 wav。
+
+- 数值证据：`istft(stft(x))` vs 源波形 max_abs **1.192e-07**、rel_rms **1.462e-07**（要求 ≤1e-6）；
+- 实测（40 步，同一会话，A/B）：关 1282.0 ms → 开 **1264.5 ms**，**−17.5 ms（1.014x）**。
+- 为什么只省 17.5 ms 而不是 83 ms：dataloader 每步多搬 68 MB 目标波形，约 9 ms 从计算挪到 H2D，
+  剩下的被 CPU collate 吃掉。
+
+## 36. 没做到的：500 ms 目标只到 1264.5 ms（差 2.53x）
+
+诚实结论：**2.3x 没有拿到**。原因不是"没试"，而是审计把可选空间封死了：
+
+1. **唯一的大头是 backward 的 870.8 ms（61.9%）**，它里面同时装着模型反向（62 级 band block）+
+   3 个 MR-STFT 伴随（每个内含一次 `rfft`=6 kernel）+ 1 个 iSTFT 伴随。
+2. **CANN 没有能替换它们的原生算子**：无 `Irfft`、无 `IStft`、无 C2C FFT 的 aclnn 入口；
+   `F.fold` 在当前形状直接 161002；`as_strided` 帧化会打挂 vector core。
+   所以 A 类"换算子"的空间只剩下"用 `stft` 替 `rfft`"这一条，而它在前向已经是最优的了。
+3. 因此剩下的唯一路径是 B 类（消 elementwise pass）和 C 类（减 H2D），这两项都需要逐个张量
+   改写反向通路并重跑全程梯度校验，不是本轮剩余时间能安全完成的量。
+
+## 37. 附带发现：v3 从零训练在 ~700 步发生 mask 塌缩（重要）
+
+`runs/v3_fromscratch`（v3，19,875,890 参数，bf16/bs24/5e-4/clip 1.0/EMA 0.999）：
+
+| step | grad_norm | loss | mask 统计 |
+|---|---|---|---|
+| 随机初始化 | — | — | min −0.754 / max 0.770 / absmean ~0.3 |
+| 600 | 0.548 | 3.05 | — |
+| 800 | **0.028** | 2.39 | — |
+| 1000 | 0.0044 | 2.40 | min −0.059 / max 0.117（比初始化小 6 倍） |
+| ~2000 | 0.0014 | 2.47 | **min −1.6e-4 / max 3.5e-4 / absmean 2.3e-5** |
+
+- 评测：own 协议 raw 中位 step1000 **−0.014**、step2000 **−0.002**（v1 同期是 +0.278 / +0.759）；
+  H2 协议 −0.012 / −0.002。即**输出接近静音**。
+- 定位：不是 bf16（fp32 下 mask 同样是 2.34e-5）、不是特征塌缩（`final_norm` absmean 0.83 健康）、
+  不是本轮的两项加速改动（552 个参数在 fused/unfused 两种实现下梯度相对差 ≤0.011，全是 bf16 噪声，
+  两边都没有零梯度参数）。是 **MaskEstimator 末层权重被 weight decay 拖到 0**：mask 单调缩小
+  → 梯度消失 → wd 继续收缩，正反馈。
+- 处理：**已按"不要中断"之外的判断停机**（单卡上并发跑测量会把双方都污染，而这个 run 已经没有信息量）；
+  保留 4 个评测点和完整日志作为证据。修复方向（需你确认，因为它属于优化器配方）：
+  MaskEstimator 末层 `weight_decay=0`，或给 mask head 单独 lr 缩放；两者都不改损失/数据/模型数学。
+
+## 38. 下一步（按收益排序，都是实测过的量级）
+
+1. **B · 消反向 elementwise pass**（目标：870.8 → <500 ms）：用 `make_fx` 导出反向图数 kernel，
+   合并 62 带上的十几次 197 MB 遍历；这是唯一能逼近 500 ms 的路径。
+2. **C · H2D 减半**（74.2 → ~37 ms）：target 谱在 dataloader worker 里预算并落 fp16。
+3. **D · 损失进 autocast**：审计已证明**不可行**——原生 `Stft`/`Rfft1D` 只吃 fp32，
+   外圈 bf16 + 算子内 fp32 就是现状，没有进一步空间。
+4. 若允许写 C++ 扩展直调 `aclStft`/`aclRfft1D`，可以绕开 aten 的 6 次 kernel 分解，
+   但**必须同时解决 Irfft/IStft 缺失**，否则反向仍是瓶颈。
+

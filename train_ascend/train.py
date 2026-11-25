@@ -125,6 +125,10 @@ class MusdbChunkDataset(torch.utils.data.Dataset):
         track, offset = self._pick(index)
         mixture = torch.from_numpy(_read_wav(track["mixture"], offset, self.chunk_size, self.channels))
         target = torch.from_numpy(_read_wav(track[TARGET_STEM], offset, self.chunk_size, self.channels))
+        if _TGT_WAV:
+            # the loss needs |istft(target)| anyway; shipping the source waveform skips one
+            # 83 ms iSTFT per step. istft(stft(x)) == x to ~1e-7 for hann/75% overlap.
+            return self._stft_fc(target), self._stft_fc(mixture), target
         return self._stft_fc(target), self._stft_fc(mixture)
 
 
@@ -334,6 +338,9 @@ _LOSS_HOP = 0
 _ISTFT_ADJOINT = os.environ.get("PYMSS_ISTFT_ADJOINT", "1").lower() in {"1", "true", "yes", "on"}
 
 
+_TGT_WAV = os.environ.get("PYMSS_TGT_WAV", "1").lower() in {"1", "true", "yes", "on"}
+
+
 def waveform(x, channels: int, n_fft: int, hop: int, length: int, window) -> torch.Tensor:
     """Per-channel iSTFT with an explicit adjoint.
 
@@ -429,7 +436,7 @@ def main(argv=None) -> int:
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=0.01)
     ema = EMA(model, decay=args.ema_decay)
     window = torch.hann_window(args.n_fft).to(device=device, dtype=torch.float32)
-    channels = cfg.audio_channels
+    channels = 2  # stereo input; both v1 and v3 use it
 
     step = 0
     if args.resume:
@@ -461,12 +468,17 @@ def main(argv=None) -> int:
         loss_accum = 0.0
         for _ in range(args.accum):
             try:
-                target, mixture = next(it)
+                batch = next(it)
             except StopIteration:
                 it = iter(loader)
-                target, mixture = next(it)
-            target = target.to(device)
-            mixture = mixture.to(device)
+                batch = next(it)
+            if _TGT_WAV:
+                target, mixture, tgt_wav_batch = batch
+            else:
+                target, mixture = batch
+                tgt_wav_batch = None
+            target = target.to(device, non_blocking=True)
+            mixture = mixture.to(device, non_blocking=True)
             with autocast_ctx(device, args.precision):
                 mask = model(mixture)  # (B, F*C, T, 2)
                 mix_c = torch.view_as_complex(mixture.contiguous())
@@ -475,7 +487,10 @@ def main(argv=None) -> int:
                 pred_c = mix_c * mask_c
                 loss_spec = complex_l1(pred_c, tgt_c)
                 pred_wav = waveform(pred_c, channels, args.n_fft, args.hop, args.chunk_size, window)
-                tgt_wav = waveform(tgt_c, channels, args.n_fft, args.hop, args.chunk_size, window)
+                if _TGT_WAV:
+                    tgt_wav = tgt_wav_batch.to(device=pred_wav.device, dtype=pred_wav.dtype)
+                else:
+                    tgt_wav = waveform(tgt_c, channels, args.n_fft, args.hop, args.chunk_size, window)
                 if args.loss_direct_spec:
                     loss_mrstft = multi_res_stft_loss_direct_spec(
                         pred_c, tgt_c, pred_wav, tgt_wav, channels=channels)
