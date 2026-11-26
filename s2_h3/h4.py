@@ -21,7 +21,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from h3 import BANDS, V_WIDTH, BlockFeedForward, StaticBandMixer, block_mean
+from h3 import BANDS, V_WIDTH, BlockFeedForward, StaticBandMixer, block_mean, expand_blocks
 from pymss_core.modules.bs_roformer.transformer import (
     RMSNorm,
     apply_rotary_emb_fast,
@@ -58,7 +58,7 @@ class StridedLatentMSC(nn.Module):
         if self.band_up is not None:
             z = torch.matmul(self.band_up, z)
         if self.stride > 1:
-            z = z.repeat_interleave(self.stride, 1)[:, :t]
+            z = expand_blocks(z, self.stride, t)
         return z
 
 
@@ -149,7 +149,7 @@ class StridedPooledKVAttention(nn.Module):
         if self.band_up is not None:
             out = torch.matmul(self.band_up, out)
         if qs > 1:
-            out = out.repeat_interleave(qs, 1)[:, :frames]
+            out = expand_blocks(out, qs, frames)
         return out
 
 
@@ -167,7 +167,7 @@ class BlockStaticBandMixer(nn.Module):
         if self.stride <= 1:
             return self.mixer(x)
         out = self.mixer(block_mean(x, self.stride))
-        return out.repeat_interleave(self.stride, 1)[:, :x.shape[1]]
+        return expand_blocks(out, self.stride, x.shape[1])
 
 
 def _sdpa(q, k, v, dh, dropout):
@@ -232,7 +232,7 @@ class BlockSlowBandAttention(nn.Module):
             attn = (a @ v).transpose(1, 2)
         out = attn * gates
         out = self.to_out(out.flatten(-2)).view(b, blocks, f, -1)
-        return out.repeat_interleave(s, 1)[:, :t] if s > 1 else out
+        return expand_blocks(out, s, t)
 
 
 _CENTERS_CACHE: dict[tuple[int, int, str], torch.Tensor] = {}

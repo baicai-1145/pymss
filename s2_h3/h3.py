@@ -31,6 +31,29 @@ def block_mean(x, stride):
     return x.reshape(x.shape[0], blocks, stride, *x.shape[2:]).sum(2) * (1.0 / stride)
 
 
+
+_EXPAND_INDEX: dict = {}
+
+
+def expand_blocks(out, stride, frames):
+    """`out.repeat_interleave(stride, 1)[:, :frames]` as one gather.
+
+    The interleave materialises a `stride`-times larger tensor and the crop then copies the part it keeps -- two full
+    passes over up to 4x the data, which showed up as the single largest op in the 219 ms profile (a 3-call, 11.9 ms
+    `Slice`).  Every kept frame `i` simply comes from block `i // stride`, so an `index_select` produces the identical
+    tensor in one pass and without the 4x intermediate.  Pure gather: bit-exact, so the tier-1 gate applies.
+    """
+    if stride <= 1:
+        return out
+    key = (frames, stride, out.device, out.dtype)
+    idx = _EXPAND_INDEX.get(key)
+    if idx is None:
+        idx = (torch.arange(frames, device=out.device) // stride)
+        _EXPAND_INDEX.clear()
+        _EXPAND_INDEX[key] = idx
+    return out.index_select(1, idx)
+
+
 class StaticBandMixer(nn.Module):
     def __init__(self, dim, heads, dropout=0.0, norm=None):
         super().__init__()
@@ -114,7 +137,7 @@ class BlockFeedForward(nn.Module):
 
     def forward(self, x):  # (b, t, band, dim)
         out = self.net(block_mean(x, self.stride))
-        return out.repeat_interleave(self.stride, 1)[:, :x.shape[1]]
+        return expand_blocks(out, self.stride, x.shape[1])
 
 
 def apply_h3(model, cfg, static=STATIC_STACKS, stride=STRIDE, v_width=V_WIDTH):

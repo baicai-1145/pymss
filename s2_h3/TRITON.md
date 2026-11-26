@@ -325,3 +325,14 @@ So launch reduction is now worth **~1.4 ms**, not the projected 50-80 ms: at 223
 earlier 94 ms "dispatch gap" was mostly the unpinned H2D plus profiler overhead, both already fixed. P2-a as a lever is
 exhausted — the remaining distance to 105 ms has to come from device time (the `freq[*].ffn` 29.4 ms block, `time[1]` MSC
 34 ms, `mask_head` 13.9 ms), not from capturing launches.
+
+## `expand_blocks` — bare `repeat_interleave + crop` replaced by one gather: NEUTRAL in ms, real in HBM
+
+The largest single op in the 219 ms profile was a **3-call, 11.9 ms `Slice`**, i.e. the `repeat_interleave(stride,1)[:, :t]`
+crop that materialises a `stride`-times larger tensor and then copies the kept part. Replacing it with
+`out.index_select(1, arange(t)//stride)` is a **pure gather — bit-exact by construction**, so it needs no tier-1 run, and
+it removes the 4x intermediate. Five sites (h3.py:117, h4.py:61/152/170/235).
+
+Measured: **223.0 -> 222.5 ms** (within noise) but **HBM 14.1 -> 13.7 GB**. So the `Slice` was not the leak its 11.9 ms
+suggested — the gather pays its own copy — and this lands as a memory win, not a speed win. Kept because it is exact and
+strictly less traffic; not claimed as a milestone.
