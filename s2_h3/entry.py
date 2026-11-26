@@ -46,6 +46,8 @@ ARMS = {
     'H2N128': dict(params=10440536),
     'BandUNet': dict(params=20961844),
     'H3': dict(dilations=(1,), mult=4, gate_dropout=False, params=20274048),
+    'H4': dict(dilations=(1,), mult=4, gate_dropout=False, params=20267200),
+    'H4s': dict(dilations=(1,), mult=4, gate_dropout=False, params=20264896),
 }
 
 # Names: the mechanism, the way a paper would state it.  PoolKV = frequency-axis attention whose keys/values are pooled
@@ -56,6 +58,8 @@ ALIASES = {
     'Baseline': 'A', 'baseline': 'A',
     'PoolKV': 'H2', 'PoolKV-M': 'H2M', 'PoolKV-MG': 'H2MG', 'PoolKV-N128': 'H2N128',
     'StaticStride': 'H3',
+    'Hourglass': 'H4',
+    'Hourglass-Fast': 'H4s',
 }
 
 
@@ -69,7 +73,7 @@ def conv_forward(conv, x):
     """Depthwise Conv1d on (N, C, T).  oneDNN's 1-D depthwise path runs at ~2.5 GB/s on the EPYC; the same
     convolution as a 2-D kernel over an empty height axis in channels_last reaches 3.6x that, bit-identically."""
     from pymss_core.modules.bs_roformer.transformer import FAST
-    if not FAST.get('conv2d_cl', True) or conv.groups != conv.in_channels:
+    if x.device.type != 'cpu' or not FAST.get('conv2d_cl', True) or conv.groups != conv.in_channels:
         return conv(x)
     y = F.conv2d(x.unsqueeze(2).contiguous(memory_format=torch.channels_last), conv.weight.unsqueeze(2), conv.bias,
                  padding=(0, conv.padding[0]), dilation=(1, conv.dilation[0]), groups=conv.groups)
@@ -164,6 +168,9 @@ def factory(*args, **kw):
         if arm == 'H3':
             from h3 import apply_h3
             apply_h3(m, cfg)
+        if arm in ('H4', 'H4s'):
+            from h4 import apply_h4
+            apply_h4(m, cfg, arm=arm)
     return m, cfg
 
 
@@ -186,6 +193,33 @@ def structure_ok(m):
                 and tuple(i for i, block in enumerate(m.convs) if isinstance(block, PooledKVAttention)) == H2_ATTENTION_LAYERS
                 and sum(p.numel() for p in m.parameters()) == spec['params'])
     ok = len(m.convs) == 6 and len(m.temporal_norms) == 6 and all(isinstance(layer[0], nn.Identity) for layer in m.layers)
+    if m.arm in ('H4', 'H4s'):
+        from h3 import BlockFeedForward
+        from h4 import H4_PROFILES, BlockSlowBandAttention, BlockStaticBandMixer, StridedLatentMSC, StridedPooledKVAttention
+        prof = H4_PROFILES[m.arm]
+        for i, (cv, tspec) in enumerate(zip(m.convs, prof['time_cfg'])):
+            if tspec[0] == 'pkv':
+                _, qs, kvs, r = tspec
+                ok &= isinstance(cv, StridedPooledKVAttention) and (cv.q_stride, cv.kv_stride, cv.bands_r) == (qs, kvs, r)
+            else:
+                _, s, k, r = tspec
+                if s == 1 and k == 31 and r == 62:
+                    ok &= isinstance(cv, MSC) and tuple(cv.convs[0].kernel_size) == (31,)
+                else:
+                    ok &= isinstance(cv, StridedLatentMSC) and (cv.stride, cv.k, cv.bands_r) == (s, k, r)
+        for i, (_, frequency) in enumerate(m.layers):
+            mixer, feedforward = frequency.layers[0]
+            as_, fs_ = prof['freq_attn_stride'][i], prof['freq_ffn_stride'][i]
+            if i < 3:
+                ok &= isinstance(mixer, BlockStaticBandMixer) and mixer.stride == as_
+            else:
+                ok &= isinstance(mixer, BlockSlowBandAttention) and mixer.stride == as_
+            if fs_ == 1:
+                ok &= type(feedforward) is FeedForward
+            else:
+                ok &= isinstance(feedforward, BlockFeedForward) and feedforward.stride == fs_
+        ok &= sum(p.numel() for p in m.parameters()) == spec['params']
+        return ok
     for i, cv in enumerate(m.convs):
         if (m.arm.startswith('H2') or m.arm == 'H3') and i in H2_ATTENTION_LAYERS:
             ok &= isinstance(cv, PooledKVAttention) and (cv.heads, cv.head_dim, cv.stride) == (2, 64, 4)
@@ -302,7 +336,7 @@ def check():
             assert ''.join(order) == 'TF' * 6, order   # event order per stack: temporal conv, then frequency transformer
             assert structure_ok(m), arm
             checked = list(m.convs) + list(m.temporal_norms)
-            if arm in ('H2M', 'H2MG', 'H2N128', 'H3'):
+            if arm in ('H2M', 'H2MG', 'H2N128', 'H3', 'H4', 'H4s'):
                 checked += [frequency for _, frequency in m.layers]
             if arm == 'H2N128':
                 checked += [m.downsample, m.upsample]
