@@ -187,3 +187,17 @@ cache owns them), positions are selected *after* interleaving, and `npu_rope()` 
 `S2_NPU_ROPE=1`: loss rel **4.88e-06** vs clean `a2bc621`, `convs.4.query` no longer in the top gradient deltas, worst
 remaining is the fp32 BandSplit norm gain (5.4e-02, the old path detached it). Also restored the CPU fp32
 `F.rms_norm` fastpath that round 2 had dropped.
+
+## Win 1 — `npu_swiglu` in MSC (measured, not yet default)
+
+`S2_NPU_SWIGLU=1` on the H4s step: **274.2 -> 234.3 ms/step (-39.9 ms, -14.5 %)**, HBM 14.5 -> 14.0 GB, loss identical
+to 8 decimals (rel 2.37e-06). The mechanism is the one measured in the audit: `chunk(2, -1)` returns non-contiguous
+views and the elementwise mul on those views is ~17x slower under autocast than the fused op on the whole tensor.
+Implemented as a one-time in-place swap of the two halves of `proj_in.weight`/`bias` in `_make_npu_swiglu`, so
+`npu_swiglu` (`silu(first) * second`) computes exactly MSC's `first * silu(second)`.
+
+**Why it is still off by default:** the swap makes `proj_in` a *permuted* parameterisation, so `dL/dW` rows come back
+permuted (observed: rel 1.42 on exactly `proj_in.weight`/`bias`, everything else <= 1.6e-02, loss rel 2e-06). That is
+correct for a fresh run, but resuming `resume-5000.ckpt` would leave Adam's `exp_avg`/`exp_avg_sq` and the EMA shadow in
+the *old* row order while the weights are in the new one. Enabling it for the resume therefore requires permuting those
+four tensors identically at load (a ~10-line hook, exact by construction). Not enabled until that hook exists.
