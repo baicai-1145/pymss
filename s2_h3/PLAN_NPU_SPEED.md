@@ -29,6 +29,29 @@ Why first: it is 2 syncs/step *and* the precondition for R4 (no graph can be cap
 Gate: numerics unchanged (it removes a check, not math) + the existing `entry.py check` + step timing. Also verify once
 offline that `torch.fft.rfft`/`irfft` on this device are not degenerate at the model's `n_fft`, so the cache is honest.
 
+### R1b. Batched band forward in training (new finding, run in the same window as R1)
+`bands.py:15` `should_use_grouped_forward(module) = module.use_grouped_forward and (not module.training or
+experimental_train_grouped_bands())` → in **training** both `BandSplit.forward` (`bands.py:75`) and
+`MaskEstimator.forward` (`bands.py:352`) fall back to the per-band Python path
+(`torch.stack([to_feature(split) for ...])` / `torch.cat([mlp(band) for ...])`), i.e. 62 bands × (norm + linear) with the
+casts around them. `pymsst/training/fused_roformer.py:128` does `os.environ.setdefault(CORE_GROUPED_TRAIN_ENV, "1")`,
+but only inside the fused trainer, which is off on NPU — so the shipped run pays the loop.
+Note the flag is read **per call** (`_env_flag` inside a lambda), so it can be toggled without rebuilding the model, but
+each config is still measured in a fresh process to keep caches honest.
+
+Test matrix, in this order:
+1. baseline (no env),
+2. `PYMSS_CORE_EXPERIMENTAL_TRAIN_GROUPED_BANDS=1` → `_forward_grouped` band split + `_forward_layer_grouped_mlp` /
+   `_forward_by_band_fast` mask path,
+3. additionally `PYMSS_CORE_EXPERIMENTAL_DEEP_MASK_GROUPING=1` → `_can_group_mlp()` becomes true in training and the
+   fully batched MLP path (`bands.py:116`) runs.
+Measured per config: **forward/backward equivalence** (output and *every* gradient vs baseline; the grouped path is a
+re-parameterisation — `grouped_linear` is `bmm` where the loop is 62 `mv`s — so expect ~1e-6 rel, not 0),
+**CPU op-launch count** (profiler `key_averages` call sum), **step ms**, HBM peak.
+Gate: gradient rel ≤ 1e-2 (bf16) and step strictly faster; then the 200-step loss control ≤ 1 % before admitting.
+Risk: the grouped path has only been exercised in eval; if the plan bails out it silently falls back per band, so the
+op count is the honest signal that it engaged (a step-time win with an unchanged op count would mean something else).
+
 ### R2. Graph capture (largest expected win; needs R1)
 H4s step has ~1000+ small ops at only 76 % NPU util → host dispatch bound. Test in order, on the **model core**
 then the whole step: `torch.compile(..., backend='npugraphs')`, `backend='inductor', mode='reduce-overhead'`,
