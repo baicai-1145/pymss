@@ -82,10 +82,13 @@ class MSC(nn.Module):
         u, v = self.proj_in(x).chunk(2, dim=-1)
         g = self.gate_drop(u * F.silu(v))
         hid = g.shape[-1]
-        g = g.permute(0, 2, 1, 3).reshape(b * f, t, hid).transpose(1, 2)
-        g = sum(c(g) for c in self.convs)
-        g = g.transpose(1, 2).reshape(b, f, t, hid).permute(0, 2, 1, 3)
-        return self.drop(self.proj_out(g))
+        # One transpose into the conv layout instead of three: the old form copied (b,t,f,hid)->(b,f,t,hid),
+        # the conv result back, and then fed a strided view to proj_out.  proj_out is a Linear over the last
+        # axis, so it can run on the conv layout as a single matmul against the weight's transpose.
+        gc = g.permute(0, 2, 1, 3).reshape(b * f, t, hid).transpose(1, 2).contiguous()   # (b*f, hid, t)
+        h = sum(c(gc) for c in self.convs)                                              # (b*f, hid, t)
+        o = torch.matmul(self.proj_out.weight, h) + self.proj_out.bias[:, None]          # (b*f, d, t)
+        return self.drop(o.reshape(b, f, d, t).permute(0, 3, 1, 2))
 
 
 class ArmModel(BSRoformer):
