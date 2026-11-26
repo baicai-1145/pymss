@@ -16,3 +16,10 @@ except Exception as exc:
     errs = [l for l in msg.splitlines() if re.search(r'error|fatal|undefined reference|cannot find|not found', l, re.I)]
     print('COMPILE_FAIL', type(exc).__name__)
     for l in errs[:8]: print('   ', l[:180])
+    if 'undefined symbol' in msg:
+        import re as _re
+        m = _re.search(r"undefined symbol: (\S+)", msg)
+        print('    SYMBOL:', m.group(1) if m else '?')
+        print('    so keeps the same hash regardless of LDFLAGS -> check the link line:')
+        for l in msg.splitlines():
+            if 'zig c++' in l and ('-o ' in l or '.so' in l): print('    LINK:', l[:400])
