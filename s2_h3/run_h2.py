@@ -6,7 +6,7 @@ import sys
 
 ROOT = Path(os.environ.get('S2_ROOT', '/content/s2'))
 ARM = os.environ.get('H2_ARM', 'H2')
-assert ARM in ('H2', 'H2M', 'H2MG', 'H2N128', 'BandUNet', 'H3')
+assert ARM in ('H2', 'H2M', 'H2MG', 'H2N128', 'BandUNet', 'H3', 'H4', 'H4s')
 # On the Ascend box the queue runs on Triton kernels only: eager is 0.86 steps/s and cannot carry experiment
 # iteration (TASK.md section 7).  The 200-step reference runs call the training entry directly, not this file.
 if os.environ.get('S2_DEVICE') == 'npu':

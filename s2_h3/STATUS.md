@@ -1,1 +1,1 @@
-STATUS: 50k run 10/10 stages OK (5k 5.24 dB, 10k 6.37 dB, 15k 7.09 dB, 20k 7.71 dB, 25k 8.32 dB, 30k 8.38 dB, 35k 8.63 dB, 40k 8.7 dB, 45k 8.93 dB, 50k 9.1 dB) | 95.6 steps/min (627 ms/step), S2_TRITON=dwconv_dw_bmm | 200-step control 0.0076% | updated 2026-11-26 07:48
+STATUS: 10 stages OK (H3 5k 5.24 dB, H3 10k 6.37 dB, H3 15k 7.09 dB, H3 20k 7.71 dB, H3 25k 8.32 dB, H3 30k 8.38 dB, H3 35k 8.63 dB, H3 40k 8.70 dB, H3 45k 8.93 dB, H3 50k 9.10 dB) | 95.6 steps/min (627 ms/step) on H3, S2_TRITON=dwconv_dw_bmm | MS repo baicai1145/s2-h3-ascend-ema | updated 2026-11-26 17:43
