@@ -1,0 +1,3 @@
+/workspace/s2_h3/s2_h3/pymss_core/npu_fft.py:445: UserWarning: An output with one or more elements was resized since it had shape [64, 17, 32], which does not match the required output shape [64, 32, 32]. This behavior is deprecated, and in a future PyTorch release outputs will not be resized unless they have zero elements. You can explicitly reuse an out tensor t by resizing it, inplace, to zero elements with t.resize_(0). (Triggered internally at /__w/pytorch/pytorch/aten/src/ATen/native/Resize.cpp:30.)
+  spec = torch.fft.rfft(frames_flat, dim=-1)  # (N, T, F)
+STAGE_OK H3 45000 8.93286657333374
