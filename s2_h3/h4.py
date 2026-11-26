@@ -158,6 +158,25 @@ class BlockStaticBandMixer(nn.Module):
         return out.repeat_interleave(self.stride, 1)[:, :x.shape[1]]
 
 
+def _sdpa(q, k, v, dh, dropout):
+    """`F.scaled_dot_product_attention` on the (bt, h, f, d) layout, or None when unusable.
+
+    Returns (bt, f, h, dv) to match the `.transpose(1, 2)` the manual path performed.
+    """
+    try:
+        padded = int(v.shape[-1])
+        target = 32 if padded <= 32 else ((padded + 31) // 32) * 32
+        if target != padded:
+            vp = torch.zeros(*v.shape[:-1], target, device=v.device, dtype=v.dtype)
+            vp[..., :padded] = v
+        else:
+            vp = v
+        out = F.scaled_dot_product_attention(q, k, vp, dropout_p=dropout, scale=dh ** -0.5)
+        return out[..., :padded].transpose(1, 2)
+    except Exception:
+        return None
+
+
 class BlockSlowBandAttention(nn.Module):
     """Full band-axis attention evaluated once per `stride`-frame block (Q/K/V/gates/out all at block rate)."""
     def __init__(self, dim, heads, dim_head, v_width, stride, dropout=0.0, rotary_embed=None, norm=None):
@@ -185,13 +204,19 @@ class BlockSlowBandAttention(nn.Module):
             q, k = rotate_qk_fast_bnhd(self.rotary_embed, q, k)
         q, k = q.transpose(1, 2), k.transpose(1, 2)
         v = self.to_v(y).view(bt, f, h, dv).transpose(1, 2)
-        a = torch.softmax(q @ k.transpose(-1, -2) * dh ** -0.5, -1)
-        if self.training and self.dropout:
-            a = F.dropout(a, self.dropout)
         # gates must follow the flattened (b*blocks, f, ...) layout of `a @ v`: applied to the 4-D `y` they broadcast as
         # (b, blocks, f, h, 1) against (b*blocks, f, h, dv), which raises for b > 1 and silently mis-gates for b == 1.
         gates = self.to_gates(y.reshape(bt, f, -1)).sigmoid().unsqueeze(-1)
-        out = (a @ v).transpose(1, 2) * gates
+        # One fused attention kernel instead of softmax + two matmuls.  `v_dim` (16) is not a multiple of the 32 B the
+        # CANN kernel wants for the value head dim, so V is zero-padded to 64 and sliced back (V3 measured 2.53 -> 1.42
+        # ms); padding contributes exactly zero because the padded columns multiply the same softmax weights.
+        attn = _sdpa(q, k, v, dh, self.dropout if self.training else 0.0)
+        if attn is None:
+            a = torch.softmax(q @ k.transpose(-1, -2) * dh ** -0.5, -1)
+            if self.training and self.dropout:
+                a = F.dropout(a, self.dropout)
+            attn = (a @ v).transpose(1, 2)
+        out = attn * gates
         out = self.to_out(out.flatten(-2)).view(b, blocks, f, -1)
         return out.repeat_interleave(s, 1)[:, :t] if s > 1 else out
 

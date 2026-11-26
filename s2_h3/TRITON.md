@@ -242,3 +242,17 @@ Gate-tier correction (the lead's): resumes are gated against a reference frozen 
 against the fresh-run curve — `profile/h4s_ref200.json` is steps 1-200 with loss ~0.0052, while step 5000 sits at
 ~0.00065, so comparing them is meaningless (the first attempt scored a bogus 87.6 %). Also `loss_curve.csv` needs
 `--loss-history-interval 1` to carry one row per step; the default 25 produced 8 rows.
+
+## Win 5 — SDPA in BlockSlowBandAttention: 223.0 -> 216.5 ms/step
+
+Manual `softmax(q@k^T*scale) -> @v` replaced by `F.scaled_dot_product_attention` with V zero-padded to a 32 B multiple
+(`v_dim` is 16) and sliced back; padded columns multiply the same softmax weights so they contribute exactly zero. The
+manual path stays as the fallback when SDPA raises. Measured **-6.5 ms** (223.0 -> 216.5), launches 28,257 -> 28,221,
+HBM 13.5 GB — better than the -3.3 ms V3 projected for the inner attention alone.
+
+## Literal export round-trip (closes the open flag)
+
+`runs/swiglu5233/ema-5200.pt` (81,232,409 B) written through `export_core_checkpoint` from the swapped EMA shadow:
+`convs.1.proj_in.weight` comes back in the ORIGINAL row order, `cos(block0, original)` **0.9957** vs **0.0026** for the
+swapped source, and the file is the exact inverse permutation. So the disk path and the in-memory `state_dict` path
+agree — CPU/H4s inference of exported weights is untouched.
