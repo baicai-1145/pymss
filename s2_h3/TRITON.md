@@ -243,7 +243,7 @@ against the fresh-run curve — `profile/h4s_ref200.json` is steps 1-200 with lo
 ~0.00065, so comparing them is meaningless (the first attempt scored a bogus 87.6 %). Also `loss_curve.csv` needs
 `--loss-history-interval 1` to carry one row per step; the default 25 produced 8 rows.
 
-## Win 5 — SDPA in BlockSlowBandAttention: 223.0 -> 216.5 ms/step
+## Win 5 — SDPA in BlockSlowBandAttention: REVERTED (opt-in `S2_SDPA=1`), not admitted
 
 Manual `softmax(q@k^T*scale) -> @v` replaced by `F.scaled_dot_product_attention` with V zero-padded to a 32 B multiple
 (`v_dim` is 16) and sliced back; padded columns multiply the same softmax weights so they contribute exactly zero. The
@@ -256,3 +256,24 @@ HBM 13.5 GB — better than the -3.3 ms V3 projected for the inner attention alo
 `convs.1.proj_in.weight` comes back in the ORIGINAL row order, `cos(block0, original)` **0.9957** vs **0.0026** for the
 swapped source, and the file is the exact inverse permutation. So the disk path and the in-memory `state_dict` path
 agree — CPU/H4s inference of exported weights is untouched.
+
+### Why Win 5 was reverted
+
+The measured speed is real (**-6.5 ms**, 223.0 -> **216.5**) but its 200-step resume-tier gate **failed**: max per-step
+relative loss deviation **8.3343 % at step 5171, mean 1.7080 %** (limit 1 %). My own rule says a failed gate is not an
+admitted milestone, so `S2_SDPA` now defaults **off** and the milestone baseline is **223.0 ms/step**.
+
+Cause is RNG order, not arithmetic. `F.scaled_dot_product_attention` fuses the attention dropout, so it draws from the
+Philox stream differently than `F.dropout(a, p)` on the manual softmax matrix; every downstream dropout mask shifts and
+the two 200-step curves are different realisations, not different functions. Deterministic eval-mode check (all dropout
+off, identical inputs, identical seed):
+
+| check | result |
+|---|---|
+| loss, SDPA vs manual | **rel 2.93e-06** |
+| 555 gradients | worst **2.18e-02** on `band_split.to_features.0.0.gamma` — the same fp32-norm artifact that reads 3.4e-02 / 5.4e-02 in the already-admitted comparisons |
+
+So the gate as written cannot judge any change that perturbs dropout consumption. To admit Win 5 one of these is needed
+and each is a rule/semantics decision, not engineering: (a) accept deterministic eval parity as the gate for RNG-order
+changes, (b) drop attention dropout (a semantic change), or (c) freeze a new reference *with* `S2_SDPA=1` and gate later
+changes against it, admitting SDPA itself on the eval parity above.

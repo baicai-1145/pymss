@@ -15,6 +15,8 @@ allocating frame rate and band rank to each mid/deep residual writer according t
 H4  = balanced variant (L1.ffn s=2, L2.attn s=2, L5.time s=2 k=15, L5.attn s=2)
 H4s = 10x speed variant (L1.ffn s=4, L2.attn s=4, L5.time s=4 k=9, L5.attn s=4)
 """
+import os
+
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -163,6 +165,8 @@ def _sdpa(q, k, v, dh, dropout):
 
     Returns (bt, f, h, dv) to match the `.transpose(1, 2)` the manual path performed.
     """
+    if os.environ.get('S2_SDPA', '0').lower() not in ('1', 'true', 'yes'):
+        return None
     try:
         padded = int(v.shape[-1])
         target = 32 if padded <= 32 else ((padded + 31) // 32) * 32
