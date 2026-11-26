@@ -36,3 +36,5 @@ ADAMW_START_VERIFIED H3 30000 0.0005
 /workspace/s2_h3/s2_h3/pymss_core/npu_fft.py:159: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
 Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:822.)
   if float(out_planes.abs().max()) != 0.0:
+`Trainer.fit` stopped: `max_steps=35000` reached.
+Exported pymss-core checkpoint: /workspace/s2_h3/s2_h3/runs/H3/ema-35000.pt
