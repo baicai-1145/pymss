@@ -35,6 +35,14 @@ if __name__ == '__main__':
     tm.SeparationLightningModule.configure_optimizers = configure
     if '--resume-checkpoint' in sys.argv:
         install_resume_hook()
+    original_save = getattr(tm.SeparationLightningModule, 'on_save_checkpoint', None)
+
+    def save_checkpoint(module, checkpoint):
+        # Tag the on-disk parameter convention so a resume can never apply the npu_swiglu row swap twice.
+        checkpoint['swiglu_permuted'] = bool(getattr(module.model, 'swiglu_permuted', False))
+        return original_save(module, checkpoint) if original_save is not None else None
+
+    tm.SeparationLightningModule.on_save_checkpoint = save_checkpoint
     original = EMA.on_train_start
 
     def check(cb, trainer, module):
@@ -49,6 +57,7 @@ if __name__ == '__main__':
         assert fused_note and s.last_epoch == step and int(cb.ema_model.n_averaged) == step
         assert math.isclose(opt.param_groups[0]['lr'], 5e-4 * .9 ** (step // 40000)) and opt.param_groups[0]['weight_decay'] == .01
         print('ADAMW_START_VERIFIED', arm, step, opt.param_groups[0]['lr'], flush=True)
+        print('SWIGLU_CONVENTION', 'swapped' if getattr(model, 'swiglu_permuted', False) else 'original', flush=True)
 
     EMA.on_train_start = check
     runpy.run_module('pymsst', run_name='__main__', alter_sys=True)

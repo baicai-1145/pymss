@@ -80,12 +80,28 @@ def conv_forward(conv, x):
     return y.squeeze(2)
 
 
-def _make_npu_swiglu(module):
+def swiglu_env():
+    """`S2_NPU_SWIGLU` defaults ON; `S2_SWIGLU_PREPERMUTED=1` says the weights on disk are already swapped."""
+    off = os.environ.get('S2_NPU_SWIGLU', '').lower() in ('0', 'false', 'no')
+    return (not off), os.environ.get('S2_SWIGLU_PREPERMUTED', '').lower() in ('1', 'true', 'yes')
+
+
+def _make_npu_swiglu(module, prepermuted=False):
     """Bind `torch_npu.npu_swiglu` to an MSC gate, swapping proj_in's output rows exactly once.
 
     ``npu_swiglu(x) = silu(first_half) * second_half`` while MSC computes ``first * silu(second)``.  Swapping the two
     halves of ``proj_in.weight``/``bias`` makes the fused op compute the identical function: the swap is a pure
-    re-parameterisation, applied in place once, so a checkpoint loaded *before* the first forward keeps its meaning.
+    re-parameterisation.
+
+    The swap permutes the stored parameters, so it is a *model-wide convention*, not a local detail: from then on the
+    weights, the Adam moments and the EMA shadow all live swapped.  Three rules keep that consistent
+    (``convert_swiglu_ckpt.py`` does the offline half of it):
+
+    * fresh training swaps at build time, before `configure_optimizers` and before `EMA.on_fit_start` copy the weights;
+    * a resume must pass `S2_SWIGLU_PREPERMUTED=1` and a checkpoint that was converted (params, Adam moments and
+      ``ema_model.*`` swapped) -- `install_resume_hook` refuses the mismatch instead of silently corrupting the run;
+    * `export_core_checkpoint` un-swaps on the way out, so eval weights stay in the original convention and CPU/GPU
+      inference code never learns about this.
     """
     try:
         import torch_npu
@@ -95,15 +111,37 @@ def _make_npu_swiglu(module):
         return None
     if module.proj_in.out_features % 2:
         return None
-    weight, bias = module.proj_in.weight, module.proj_in.bias
-    half = module.proj_in.out_features // 2
+    if not prepermuted:
+        swap_proj_in_halves_(module.proj_in)
+    return lambda x: torch_npu.npu_swiglu(module.proj_in(x), dim=-1)
+
+
+def swap_proj_in_halves_(linear):
+    """Swap the two output halves of `linear` in place (weight dim 0, bias dim 0).  Exact, no dtype change."""
+    weight, bias = linear.weight, linear.bias
+    half = weight.shape[0] // 2
     with torch.no_grad():
         w = weight.detach().clone()
         weight[:half].copy_(w[half:]); weight[half:].copy_(w[:half])
         if bias is not None:
             b = bias.detach().clone()
             bias[:half].copy_(b[half:]); bias[half:].copy_(b[:half])
-    return lambda x: torch_npu.npu_swiglu(module.proj_in(x), dim=-1)
+
+
+def prepare_swiglu(model):
+    """Bind the fused gate on every MSC in `model` at build time, i.e. before the optimizer and the EMA exist."""
+    enabled, prepermuted = swiglu_env()
+    if not enabled:
+        return False
+    bound = 0
+    for module in model.modules():
+        if isinstance(module, MSC) and module._npu_swiglu is None:
+            fn = _make_npu_swiglu(module, prepermuted=prepermuted)
+            if fn is not None:
+                module._npu_swiglu = fn
+                bound += 1
+    model.swiglu_permuted = bound > 0
+    return model.swiglu_permuted
 
 
 class MSC(nn.Module):
@@ -121,8 +159,6 @@ class MSC(nn.Module):
 
     def forward(self, x):  # (b, t, f, d)
         b, t, f, d = x.shape
-        if self._npu_swiglu is None and os.environ.get('S2_NPU_SWIGLU', '').lower() in ('1', 'true', 'yes'):
-            self._npu_swiglu = _make_npu_swiglu(self)
         if self._npu_swiglu is not None:
             # One CANN kernel for silu+mul.  `chunk(2,-1)` yields non-contiguous views, and under autocast the
             # elementwise mul on those views measured 67.8 -> 34.4 ms on L1; the fused op takes the whole tensor.
@@ -205,6 +241,8 @@ def factory(*args, **kw):
         if arm in ('H4', 'H4s'):
             from h4 import apply_h4
             apply_h4(m, cfg, arm=arm)
+    if arm != 'BandUNet' and arm != 'H2N128':
+        prepare_swiglu(m)
     return m, cfg
 
 
@@ -397,6 +435,10 @@ def install_resume_hook():
     old_load, old_fit, old_start = LM.on_load_checkpoint, EMA.on_fit_start, EMA.on_train_start
     def load(module, ck):
         old_load(module, ck)
+        swapped = bool(getattr(module, 'swiglu_permuted', False))
+        tagged = bool(ck.get('swiglu_permuted', False))
+        assert swapped == tagged, ('swiglu convention mismatch: model swapped=%s but checkpoint tagged=%s; convert it with '
+                                   'convert_swiglu_ckpt.py or set S2_NPU_SWIGLU=0 / S2_SWIGLU_PREPERMUTED to match' % (swapped, tagged))
         sd = ck['state_dict']; keys = [k for k in sd if k.startswith('ema_model.')]
         if ck['global_step']:
             assert keys and ck['optimizer_states']
