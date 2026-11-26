@@ -170,7 +170,10 @@ class BlockSlowBandAttention(nn.Module):
         a = torch.softmax(q @ k.transpose(-1, -2) * dh ** -0.5, -1)
         if self.training and self.dropout:
             a = F.dropout(a, self.dropout)
-        out = (a @ v).transpose(1, 2) * self.to_gates(y).sigmoid().unsqueeze(-1)
+        # gates must follow the flattened (b*blocks, f, ...) layout of `a @ v`: applied to the 4-D `y` they broadcast as
+        # (b, blocks, f, h, 1) against (b*blocks, f, h, dv), which raises for b > 1 and silently mis-gates for b == 1.
+        gates = self.to_gates(y.reshape(bt, f, -1)).sigmoid().unsqueeze(-1)
+        out = (a @ v).transpose(1, 2) * gates
         out = self.to_out(out.flatten(-2)).view(b, blocks, f, -1)
         return out.repeat_interleave(s, 1)[:, :t] if s > 1 else out
 
