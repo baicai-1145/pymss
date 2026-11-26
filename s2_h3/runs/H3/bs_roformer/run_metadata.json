@@ -206,7 +206,8 @@
       "fused_kernel_mask_estimator_final_mode": null,
       "cuda_graph_mode": "off",
       "cuda_graph_active": "off",
-      "train_log_interval": 50
+      "train_log_interval": 50,
+      "scheduler": "off"
     },
     "augmentations": {
       "enable": true,
@@ -227,5 +228,8 @@
     "cuda_available": false,
     "cuda_device_count": 0,
     "cuda_device_name": null
-  }
+  },
+  "ema_active": true,
+  "ema_decay": 0.999,
+  "scheduler": "off"
 }

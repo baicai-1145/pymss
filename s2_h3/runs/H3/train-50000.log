@@ -36,3 +36,12 @@ ADAMW_START_VERIFIED H3 45000 0.00045000000000000004
 /workspace/s2_h3/s2_h3/pymss_core/npu_fft.py:159: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
 Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:822.)
   if float(out_planes.abs().max()) != 0.0:
+`Trainer.fit` stopped: `max_steps=50000` reached.
+Exported pymss-core checkpoint: /workspace/s2_h3/s2_h3/runs/H3/ema-50000.pt
+V1126 07:48:44.895207 607572 ../torch_npu/csrc/core/npu/NPUCachingAllocator.cpp:1596] PTA CachingAllocator free: free = 8192, cached = 12582912, allocated = 559104
+V1126 07:48:44.895263 607572 ../torch_npu/csrc/core/npu/NPUCachingAllocator.cpp:1552] Freeing memory block: size=2048, ptr=0x12005aff8000, device=0
+V1126 07:48:44.895267 607572 ../torch_npu/csrc/core/npu/NPUCachingAllocator.cpp:2582] Freeing block to cache: size=2048, ptr=0x12005aff8000, device=0
+V1126 07:48:44.895271 607572 ../torch_npu/csrc/core/npu/NPUCachingAllocator.cpp:1596] PTA CachingAllocator free: free = 2048, cached = 12582912, allocated = 557056
+V1126 07:48:44.895274 607572 ../torch_npu/csrc/core/npu/NPUCachingAllocator.cpp:1552] Freeing memory block: size=557056, ptr=0x12007f000000, device=0
+V1126 07:48:44.895276 607572 ../torch_npu/csrc/core/npu/NPUCachingAllocator.cpp:2582] Freeing block to cache: size=557056, ptr=0x12007f000000, device=0
+V1126 07:48:44.895278 607572 ../torch_npu/csrc/core/npu/NPUCachingAllocator.cpp:1596] PTA CachingAllocator free: free = 557056, cached = 12582912, allocated = 0
