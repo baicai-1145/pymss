@@ -224,3 +224,21 @@ contiguous rows, partial sums in `(NS,K,C)` reduced by one torch sum, no atomics
 Caveat recorded from the run: the NTC tensors are built with `x.transpose(1,2)` / `grad_out.transpose(1,2)`, i.e. two
 copies per conv rather than the zero-copy NTC layout V3 recommends (build `x_ntc` once in MSC and reuse it for fwd).
 Removing those two transposes is the next increment on this win.
+
+## Win 1 ADMITTED as default (with Win 2): 223.0 ms/step
+
+Gated on the RESUME tier after the lead's `4aa3f2d` fix (the resume assert read `swiglu_permuted` off the
+LightningModule instead of `module.model`, so the prepermuted path always looked unswapped):
+
+| check | result |
+|---|---|
+| `SWIGLU_PREPARE` | `bound=4 prepermuted=True swapped=True` |
+| `SWIGLU_CONVENTION` / `RESUME_VERIFIED` | `swapped` / `5000 EMA 5000 Adam [5000]` |
+| **per-step loss gate** vs `profile/h4s_resume5000_ref200.json` (200 steps, 5001->5200) | **max 0.2018 % at step 5188, mean 0.0271 %** (limit 1 %) |
+| export sanity (`_unswap_swiglu` on the saved swapped ckpt) | **PASS** — as-saved cos(block0, original) 0.0023 -> after unswap **0.9969**, and unswap is the exact inverse permutation |
+| **Win 1 + Win 2 step time** | **223.0 ms, 4.48 steps/s, 28,257 launches, HBM 14.1 GB** |
+
+Gate-tier correction (the lead's): resumes are gated against a reference frozen from the *same* resume point, not
+against the fresh-run curve — `profile/h4s_ref200.json` is steps 1-200 with loss ~0.0052, while step 5000 sits at
+~0.00065, so comparing them is meaningless (the first attempt scored a bogus 87.6 %). Also `loss_curve.csv` needs
+`--loss-history-interval 1` to carry one row per step; the default 25 produced 8 rows.
