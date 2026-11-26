@@ -39,7 +39,9 @@ class StridedLatentMSC(nn.Module):
             q = torch.empty(bands_r, BANDS)
             nn.init.orthogonal_(q)
             self.band_down = nn.Parameter(q.clone())
-            self.band_up = nn.Parameter(q.T.clone())
+            # .T.clone() keeps the transposed (1, 62) stride, and a non-contiguous Parameter makes every
+            # multi-tensor optimizer path fail (`Tensors to combine must be contiguous` in NpuFusedAdamW).
+            self.band_up = nn.Parameter(q.T.contiguous())
         else:
             self.band_down = None
             self.band_up = None
@@ -76,15 +78,23 @@ class StridedPooledKVAttention(nn.Module):
             q = torch.empty(bands_r, BANDS)
             nn.init.orthogonal_(q)
             self.band_down = nn.Parameter(q.clone())
-            self.band_up = nn.Parameter(q.T.clone())
+            # .T.clone() keeps the transposed (1, 62) stride, and a non-contiguous Parameter makes every
+            # multi-tensor optimizer path fail (`Tensors to combine must be contiguous` in NpuFusedAdamW).
+            self.band_up = nn.Parameter(q.T.contiguous())
         else:
             self.band_down = None
             self.band_up = None
 
     @staticmethod
     def _centers(frames, stride, device):
-        starts = torch.arange(0, frames, stride, device=device)
-        return starts + ((frames - starts).clamp(max=stride) - 1) // 2
+        # cached: the shape is static, and a per-step arange is both a launch and a graph-capture obstacle
+        key = (frames, stride, str(device))
+        cached = _CENTERS_CACHE.get(key)
+        if cached is None:
+            starts = torch.arange(0, frames, stride, device=device)
+            cached = starts + ((frames - starts).clamp(max=stride) - 1) // 2
+            _CENTERS_CACHE[key] = cached
+        return cached
 
     def forward(self, x):  # (b, t, band, dim)
         b, frames, bands, dim = x.shape
@@ -177,6 +187,8 @@ class BlockSlowBandAttention(nn.Module):
         out = self.to_out(out.flatten(-2)).view(b, blocks, f, -1)
         return out.repeat_interleave(s, 1)[:, :t] if s > 1 else out
 
+
+_CENTERS_CACHE: dict[tuple[int, int, str], torch.Tensor] = {}
 
 H4_PROFILES = {
     'H4': dict(

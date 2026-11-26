@@ -51,6 +51,10 @@ _VENDOR_FFT_ALLOWED = frozenset()
 #: Sizes where the vendor kernel returned wrong values or raised; remembered so the
 #: exact path is used without re-testing every call.
 _VENDOR_FFT_BAD: set[int] = set()
+#: (n_fft, device) pairs whose vendor transform already answered correctly once.  The silent-zero probe costs two full
+#: reductions *and two host syncs* per transform and is a ``torch.compile`` graph break, so it must not run per step:
+#: the first call for a shape decides, everything after it is trusted.
+_VENDOR_FFT_OK: set[tuple[int, str]] = set()
 
 _DFT_CACHE: dict[tuple[int, str, torch.dtype], tuple[torch.Tensor, torch.Tensor]] = {}
 
@@ -122,7 +126,7 @@ def vendor_fft_trusted(n: int, device=None) -> bool:
     return cached
 
 
-def _result_check_required(device) -> bool:
+def _result_check_required(device, n_fft=None) -> bool:
     """Return ``True`` when a vendor FFT answer needs the silent-zero probe.
 
     Only the vendors that answer with zeros instead of raising need this
@@ -138,6 +142,8 @@ def _result_check_required(device) -> bool:
     """
     from .device import fft_result_check_required
 
+    if n_fft is not None and (n_fft, str(device)) in _VENDOR_FFT_OK:
+        return False
     return fft_result_check_required(device)
 
 
@@ -446,9 +452,11 @@ def stft_npu(
         except Exception:
             _VENDOR_FFT_BAD.add(n_fft)
             spec = None
-        if spec is None or (_result_check_required(frames_flat.device) and _degenerate(spec, frames_flat)):
+        if spec is None or (_result_check_required(frames_flat.device, n_fft) and _degenerate(spec, frames_flat)):
             _VENDOR_FFT_BAD.add(n_fft)
             spec = _rfft_matmul(frames_flat, n_fft)
+        else:
+            _VENDOR_FFT_OK.add((n_fft, str(frames_flat.device)))
     else:
         spec = _rfft_matmul(frames_flat, n_fft)
     if normalized:
@@ -501,9 +509,11 @@ def istft_npu(
         except Exception:
             _VENDOR_FFT_BAD.add(n_fft)
             frames = None
-        if frames is None or (_result_check_required(flat_spec.device) and _degenerate(frames, flat_spec)):
+        if frames is None or (_result_check_required(flat_spec.device, n_fft) and _degenerate(frames, flat_spec)):
             _VENDOR_FFT_BAD.add(n_fft)
             frames = _irfft_matmul(flat_spec, n_fft)
+        else:
+            _VENDOR_FFT_OK.add((n_fft, str(flat_spec.device)))
     else:
         frames = _irfft_matmul(flat_spec, n_fft)
     frames = frames * window
