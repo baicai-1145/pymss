@@ -1,1 +1,1 @@
-STATUS: 50k run 5/10 stages OK (5k 5.24 dB, 10k 6.37 dB, 15k 7.09 dB, 20k 7.71 dB, 25k 8.32 dB) | 95.6 steps/min (627 ms/step), S2_TRITON=dwconv_dw_bmm | 200-step control 0.0076% | updated 2026-11-26 03:27
+STATUS: 50k run 6/10 stages OK (5k 5.24 dB, 10k 6.37 dB, 15k 7.09 dB, 20k 7.71 dB, 25k 8.32 dB, 30k 8.38 dB) | 95.6 steps/min (628 ms/step), S2_TRITON=dwconv_dw_bmm | 200-step control 0.0076% | updated 2026-11-26 04:19
