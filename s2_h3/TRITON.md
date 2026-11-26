@@ -301,3 +301,27 @@ So a third RNG consumer remains inside the model forward. Ruled out: `nn.Dropout
 `torch.nn.functional.dropout` (wrapped), every `self.dropout(...)` site (all are `nn.Dropout` instances), SDPA (off by
 default after the Win 5 revert). Remaining suspects are native ops that request the default generator internally, which
 the per-module capture bisect (the technique that localised the 161002 mixer error in four runs) will pin down.
+
+## P2-a — full-core NPUGraph capture: ACHIEVED, but NEUTRAL (219.5 vs 220.9 ms)
+
+The third Philox consumer was **not** Win 5 and not `BlockSlowBandAttention`: it was
+`h4.py StridedPooledKVAttention.forward` calling `F.scaled_dot_product_attention(..., dropout_p=self.dropout ...)`
+unconditionally (a plain float, invisible to both the `nn.Dropout` and the `F.dropout` wrappers). Located by the RNG
+state-advance probe, not by capture bisect: forward hooks + generator-state snapshots around one eager forward, three
+hits (`convs.0`, `convs.4`, root `ArmModel`).
+
+**Semantics choice (deliberate): exact.** Dropping on `out` would be a different function, so the pooled-KV path now
+runs the manual `softmax(q k^T * d^-0.5) -> stateless dropout on the scores -> @ v`, with SDPA only when dropout is
+inactive. Identical distribution and identical placement; only the RNG order changes, which is what tier 2 covers.
+
+With that, `torch.npu.graph` captures the **whole step** (fwd + bwd + `opt.step`) and replays it:
+
+| | ms |
+|---|---|
+| eager step (fwd+bwd+opt) | 220.9 |
+| **NPUGraph replay of the same step** | **219.5** |
+
+So launch reduction is now worth **~1.4 ms**, not the projected 50-80 ms: at 223 ms the step is **device-bound**, and the
+earlier 94 ms "dispatch gap" was mostly the unpinned H2D plus profiler overhead, both already fixed. P2-a as a lever is
+exhausted — the remaining distance to 105 ms has to come from device time (the `freq[*].ffn` 29.4 ms block, `time[1]` MSC
+34 ms, `mask_head` 13.9 ms), not from capturing launches.

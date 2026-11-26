@@ -71,10 +71,26 @@ class _StatelessDropout(torch.autograd.Function):
         return dx, None, None
 
 
-def dropout(x, p, seed_buf):
+_SEED = None
+
+
+def seed_buffer(device=None):
+    """The process-wide seed tensor; creation is idempotent so callers never thread it through modules."""
+    global _SEED
+    if _SEED is None:
+        _SEED = torch.zeros(1, device=device, dtype=torch.int64)
+    return _SEED
+
+
+def bump():
+    """Advance the seed.  Must be called OUTSIDE the captured region, once per replay."""
+    seed_buffer().add_(1)
+
+
+def dropout(x, p, seed_buf=None):
     if not HAS_TRITON or p <= 0.0:
         return x
-    return _StatelessDropout.apply(x, p, seed_buf)
+    return _StatelessDropout.apply(x, p, seed_buffer(x.device) if seed_buf is None else seed_buf)
 
 
 def install(model, seed_buf):

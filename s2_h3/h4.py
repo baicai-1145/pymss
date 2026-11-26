@@ -133,7 +133,17 @@ class StridedPooledKVAttention(nn.Module):
             key = apply_rotary_emb_fast(cos.index_select(1, kv_pos), sin.index_select(1, kv_pos), key).transpose(1, 2)
         value = value.transpose(1, 2).contiguous()
 
-        out = F.scaled_dot_product_attention(query, key, value, dropout_p=self.dropout if self.training else 0.0)
+        if self.training and self.dropout:
+            # Exact semantics, graph-safe: SDPA can only drop on the scores internally (host Philox, which aborts
+            # capture), and dropping on `out` instead would be a different function.  So the manual path is used with
+            # the stateless kernel on the score matrix -- identical distribution, identical placement.
+            import npu_dropout
+            # SDPA's default scale, spelled out so the manual path is the same function.
+            scores = (query @ key.transpose(-1, -2)) * (query.shape[-1] ** -0.5)
+            probs = npu_dropout.dropout(torch.softmax(scores, -1), self.dropout)
+            out = probs @ value
+        else:
+            out = F.scaled_dot_product_attention(query, key, value)
         out = out.transpose(1, 2) * self.gates(xq_f).sigmoid().unsqueeze(-1)
         out = self.output(out.flatten(-2)).reshape(b, r_bands, tq, dim).transpose(1, 2).contiguous()
         if self.band_up is not None:
