@@ -23,10 +23,11 @@ import torch.nn.functional as F
 try:
     import triton
     import triton.language as tl
+    import triton.language.extra.cann.extension as ext
     HAS_TRITON = True
 except Exception:  # noqa: BLE001
     HAS_TRITON = False
-    triton = tl = None
+    triton = tl = ext = None
 
 
 def available() -> bool:
@@ -142,7 +143,48 @@ if HAS_TRITON:
         tl.store(OUT + offs, (a * tl.sigmoid(a) * g).to(OUT.dtype.element_ty), mask=m)
 
 
-STAGES = ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2', 'dwconv_dw_bmm', 'silu_mul')
+
+@triton.jit
+def _dw_ntc_tiled(X_ptr, DY_ptr, OUT_ptr, N, C: tl.constexpr, T: tl.constexpr, K: tl.constexpr,
+                  BT: tl.constexpr, BC: tl.constexpr, NS: tl.constexpr):
+    """Channels-last (N,T,C) depthwise-conv dW on a persistent grid, one UB-resident tile per (n, time block).
+
+    Source: NPU_SPEED_GUIDE_V3.md (measured there 18.17 -> 7.62 ms on L1).  C=384 is 32B aligned, so
+    ``ext.extract_slice`` walks contiguous rows instead of an unaligned vector shift, and the (BT+K-1, BC) tile
+    stays in UB.  Partial sums land in (NS, K, C) and are reduced by one tiny torch sum (no atomics).
+    """
+    pid = tl.program_id(0); n_cb = C // BC; cb = pid % n_cb; sp = pid // n_cb
+    n_per = (N + NS - 1) // NS; n0 = sp * n_per; n1 = tl.minimum(n0 + n_per, N)
+    c_off = cb * BC + tl.arange(0, BC); pad: tl.constexpr = K // 2; BT_PAD: tl.constexpr = BT + K - 1
+    ot_pad = tl.arange(0, BT_PAD); ot = tl.arange(0, BT); n_tb: tl.constexpr = (T + BT - 1) // BT
+    acc = tl.zeros((K, BC), dtype=tl.float32)
+    for n in range(n0, n1):
+        base = n * T * C
+        for tb in range(n_tb):
+            t0 = tb * BT; tx = t0 + ot_pad - pad
+            mx = (tx >= 0) & (tx < T); ty = t0 + ot; my = ty < T
+            x_tile = tl.load(X_ptr + base + tl.where(mx, tx, 0)[:, None] * C + c_off[None, :],
+                             mask=mx[:, None], other=0.0).to(tl.float32)
+            y_tile = tl.load(DY_ptr + base + tl.where(my, ty, 0)[:, None] * C + c_off[None, :],
+                             mask=my[:, None], other=0.0).to(tl.float32)
+            for k in range(K):
+                xk = ext.extract_slice(x_tile, offsets=(k, 0), sizes=(BT, BC), strides=(1, 1))
+                total = tl.sum(xk * y_tile, axis=0)
+                cur = ext.extract_slice(acc, offsets=(k, 0), sizes=(1, BC), strides=(1, 1))
+                acc = ext.insert_slice(acc, cur + total[None, :], offsets=(k, 0), sizes=(1, BC), strides=(1, 1))
+    ok = tl.arange(0, K)
+    tl.store(OUT_ptr + sp * K * C + ok[:, None] * C + c_off[None, :], acc)
+
+
+def dw_ntc(x_ntc, dy_ntc, k, ns=9, bt=128, bc=64):
+    """dW from channels-last tensors, (N,T,C) each -> (C,K) fp32."""
+    n, t, c = x_ntc.shape
+    out = torch.empty(ns, k, c, device=x_ntc.device, dtype=torch.float32)
+    _dw_ntc_tiled[(c // bc * ns,)](x_ntc, dy_ntc, out, n, C=c, T=t, K=k, BT=bt, BC=bc, NS=ns, num_warps=1)
+    return out.sum(0)
+
+
+STAGES = ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2', 'dwconv_dw_bmm', 'dwconv_dw_ntc', 'silu_mul')
 
 
 def _cfg():
@@ -206,7 +248,10 @@ class _DWConv(torch.autograd.Function):
                          num_warps=1)
         else:
             dx = F.conv1d(grad_out, weight.flip(-1), padding=pad, groups=c)
-        if 'dwconv_dw_bmm' in stages:                                # §10(b): cube core, batched GEMV over (n*c) rows
+        if 'dwconv_dw_ntc' in stages:                                # V3 Win 2: channels-last, persistent grid
+            dw = dw_ntc(x.transpose(1, 2), grad_out.transpose(1, 2), k)
+            db = grad_out.sum(dim=(0, 2)) if ctx.has_bias else dw
+        elif 'dwconv_dw_bmm' in stages:                                # §10(b): cube core, batched GEMV over (n*c) rows
             pad_x = F.pad(x, (pad, pad))
             chunk = int(os.environ.get('S2_TRITON_BMM_CHUNK', 8))
             dt = x.dtype                                     # bf16 on the cube: FP32 here cost 85 ms/step vs 25
@@ -287,7 +332,7 @@ def install(model, names):
     names = set(STAGES) if 'all' in names else set(names) & set(STAGES)
     assert names, f'nothing to install from {names}'
     done = []
-    conv_stages = tuple(s for s in ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2', 'dwconv_dw_bmm')
+    conv_stages = tuple(s for s in ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2', 'dwconv_dw_bmm', 'dwconv_dw_ntc')
                         if s in names)
     if conv_stages:
         count = 0

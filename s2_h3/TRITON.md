@@ -209,3 +209,18 @@ Smaller than the audit's -16 ms because H4s's `optimizer+ema` segment is only 19
 AveragedModel's Python loop, which `FlatEMA` (one `lerp_` on `get_combined_params()`) does replace. Two API facts
 found while wiring it: `get_combined_params()` returns a *list* whose entries are `None` until the first `step()`, and
 `NpuFusedAdamW` is not an `AdamW` subclass, so `s2_aw_entry.py`'s callback assertion now accepts either type.
+
+## Win 2 — channels-last NTC Triton dW (`S2_TRITON=dwconv_dw_ntc`), ADMITTED
+
+Kernel is V3's `_dw_ntc_tiled` verbatim (persistent grid, UB-resident `(BT+K-1, BC)` tile, `ext.extract_slice` walking
+contiguous rows, partial sums in `(NS,K,C)` reduced by one torch sum, no atomics). Two independent measurements:
+
+| what | result |
+|---|---|
+| standalone on L1 `(N=1488,T=258,C=384,K=31)`, BT=128 BC=64 NS=9, grid=(54,) | **7.65 ms** vs **18.17 ms** for `dwconv_dw_bmm` |
+| accuracy vs float64 on 32 samples | **rel 1.73e-07** |
+| whole training step | **272.8 -> 262.8 ms** (launches 44.4k -> **28,353**; 186 launches -> 1 per conv) |
+
+Caveat recorded from the run: the NTC tensors are built with `x.transpose(1,2)` / `grad_out.transpose(1,2)`, i.e. two
+copies per conv rather than the zero-copy NTC layout V3 recommends (build `x_ntc` once in MSC and reuse it for fwd).
+Removing those two transposes is the next increment on this win.
