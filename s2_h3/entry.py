@@ -10,8 +10,8 @@ ARMS (temporal branch applied per stack before the frequency transformer):
           H2 with stacks 0-2 = gated static band mixer, stacks 3-5 = slow routing (q/k every 4 frames) + narrow v
           + FFN every 4 frames (h3.py; frozen audit in .tmp/freq-attn-audit/FINDINGS.md H)   20,274,048
 
-Names (ALIASES below, both spellings work everywhere, including ARM=<name>):  A = Stock, H2 = Pedal, H2M/H2MG/H2N128
-= Pedal-M / Pedal-MG / Pedal-N128, H3 = Largo.
+Names (ALIASES below; both spellings work everywhere, including ARM=<name>):  A = Baseline, H2 = PoolKV, H2M/H2MG/H2N128
+= PoolKV-M / PoolKV-MG / PoolKV-N128, H3 = StaticStride.
 """
 import copy
 import os
@@ -48,14 +48,14 @@ ARMS = {
     'H3': dict(dilations=(1,), mult=4, gate_dropout=False, params=20274048),
 }
 
-# Talk about the arms by name; the code keeps the original keys so every archived result, weight file and run
-# directory still resolves.  Pedal = the frequency-axis attention with pooled keys/values in layers 0 and 4 (the audit's
-# finding: per-frame routing is a noisy sample around a slow mean).  Largo = Pedal taken further: layers 0-2 drop
-# attention for a static band mixer, layers 3-5 route every 4th frame with a narrow v and a 4-frame FFN.
+# Names: the mechanism, the way a paper would state it.  PoolKV = frequency-axis attention whose keys/values are pooled
+# into the slow-moving band summary (layers 0 and 4 keep attention, the rest is unchanged).  StaticStride = layers 0-2
+# drop attention for a static band mixer, layers 3-5 compute q/k every 4th frame with a narrow v and a 4-frame FFN.
+# The code keeps the original keys so every archived result, weight file and run directory still resolves.
 ALIASES = {
-    'Stock': 'A', 'Baseline': 'A', 'baseline': 'A',
-    'Pedal': 'H2', 'Pedal-M': 'H2M', 'Pedal-MG': 'H2MG', 'Pedal-N128': 'H2N128',
-    'Largo': 'H3',
+    'Baseline': 'A', 'baseline': 'A',
+    'PoolKV': 'H2', 'PoolKV-M': 'H2M', 'PoolKV-MG': 'H2MG', 'PoolKV-N128': 'H2N128',
+    'StaticStride': 'H3',
 }
 
 

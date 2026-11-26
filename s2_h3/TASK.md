@@ -133,13 +133,15 @@ git commit -m "H3@npu <阶段>: <一句话结果>" && git push origin exp/h3-asc
 
 ## 12. 名字（2026-11-26）
 
-从此在文档、提交信息、`STATUS.md`、报告里用名字，代码里两个写法都认（`entry.ALIASES` / `entry.resolve`）：
+论文里的叫法，按机制命名，不用代号也不用品牌名。代码两个写法都认（`entry.ALIASES` / `entry.resolve`）：
 
-| 名字 | 代码键 | 是什么 | 参数量 | 50k 中位 |
+| 论文里的名字 | 代码键 | 机制 | 参数量 | 50k 中位 |
 |---|---|---|---:|---:|
-| **Stock** | A | 原始 BS-RoFormer（baseline） | 24.59M | 9.295 |
-| **Pedal** | H2 | 频率轴注意力在 0、4 层换成池化 K/V——审计结论是"逐帧路由只是围绕慢变均值的噪声采样"，把 K/V 压成那个均值 | 21.58M | **9.406** |
-| **Largo** | H3 | Pedal 再走一步：0–2 层不要注意力，换门控静态带混合；3–5 层每 4 帧才路由一次 + 窄 v + 每 4 帧一个 FFN | 20.27M | 9.103 |
-| Pedal-M / Pedal-MG / Pedal-N128 | H2M / H2MG / H2N128 | Pedal 的变体 | 19.40M / 19.40M / 10.44M | — |
+| **BS-RoFormer** | A | 原始模型（baseline） | 24.59M | 9.295 |
+| **PoolKV** | H2 | 频率轴注意力在 0、4 层的 K/V 池化，其余层不变（审计结论：逐帧路由是围绕慢变均值的噪声采样） | 21.58M | **9.406** |
+| **StaticStride** | H3 | 0–2 层注意力换成静态带混合；3–5 层每 4 帧算一次 q/k + 窄 v + 每 4 帧一个 FFN | 20.27M | 9.103 |
+| PoolKV-M / PoolKV-MG / PoolKV-N128 | H2M / H2MG / H2N128 | PoolKV 的规模变体 | 19.40M / 19.40M / 10.44M | — |
 
-已有的产物（`runs/H2`、`out/H3`、权重文件名、HF 仓库路径）不改名——都是归档，改名只会让链接和历史断掉。新跑的东西用名字当 `ARM`（例如 `ARM=Largo`），目录就会叫 `out/Largo`。
+已有的产物（`runs/H2`、`out/H3`、权重文件名、HF 仓库路径）不改名——都是归档，改名只会让链接和历史断掉。新跑的东西用名字当 `ARM`（例如 `ARM=StaticStride`），目录就会叫 `out/StaticStride`。
+
+写表格时建议直接用机制短语（"pooled K/V, L0+L4"、"static mixing L0–2, strided q/k L3–5"），名字只当行内简称，避免读者以为它是两个不同的方法而不是同一思路的两档力度。
