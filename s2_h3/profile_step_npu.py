@@ -19,7 +19,7 @@ from collections import defaultdict
 from pathlib import Path
 
 os.environ.setdefault('S2_DEVICE', 'npu')
-os.environ['ARM'] = 'H3'
+ARM = os.environ.setdefault('ARM', 'H3') or os.environ['ARM']
 
 import torch  # noqa: E402
 import torch_npu  # noqa: E402,F401
@@ -116,7 +116,7 @@ def main():
     args = ap.parse_args()
 
     torch.manual_seed(0)
-    model = build('H3').to(DEVICE)
+    model = build(os.environ.get('ARM', 'H3')).to(DEVICE)
     names = [x for x in os.environ.get('S2_TRITON', '').replace(' ', '').split(',') if x]
     if names:
         import triton_npu
@@ -184,7 +184,7 @@ def main():
     operators = operator_table(model, optimizer, ema)
     result = dict(
         device=torch.npu.get_device_name(0), torch=torch.__version__, torch_npu=torch_npu.__version__,
-        arm='H3', params=sum(p.numel() for p in model.parameters()), batch=BATCH, samples=SAMPLES, precision='bf16-mixed',
+        arm=os.environ.get('ARM', 'H3'), params=sum(p.numel() for p in model.parameters()), batch=BATCH, samples=SAMPLES, precision='bf16-mixed',
         step=dict(ms=round(ms, 1), steps_per_s=round(1000 / ms, 3), warmup=args.warmup, timed=args.steps,
                   min_ms=round(min(times) * 1000, 1), max_ms=round(max(times) * 1000, 1)),
         segments_ms=segments,

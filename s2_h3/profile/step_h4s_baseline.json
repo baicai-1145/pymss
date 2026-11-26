@@ -1,0 +1,257 @@
+{
+ "device": "Ascend950PR_9579",
+ "torch": "2.13.0+cpu",
+ "torch_npu": "2.13.0",
+ "arm": "H4s",
+ "params": 20264896,
+ "batch": 24,
+ "samples": 131584,
+ "precision": "bf16-mixed",
+ "step": {
+  "ms": 420.1,
+  "steps_per_s": 2.381,
+  "warmup": 10,
+  "timed": 20,
+  "min_ms": 399.8,
+  "max_ms": 436.6
+ },
+ "segments_ms": {
+  "h2d": 60.0,
+  "forward.total": 96.1,
+  "loss": 1.2,
+  "backward": 263.8,
+  "optimizer+ema": 19.2,
+  "stft": 3.4,
+  "band_split": 4.1,
+  "time_axis[0]": 3.9,
+  "freq_branch[0]": 19.2,
+  "time_axis[1]": 23.2,
+  "freq_branch[1]": 8.6,
+  "time_axis[2]": 7.8,
+  "freq_branch[2]": 8.6,
+  "time_axis[3]": 5.7,
+  "freq_branch[3]": 15.3,
+  "time_axis[4]": 7.4,
+  "freq_branch[4]": 15.3,
+  "time_axis[5]": 5.7,
+  "freq_branch[5]": 15.3,
+  "final_norm": 1.6,
+  "mask_head": 11.3,
+  "mask_apply": 0.3,
+  "istft": 3.2,
+  "forward_instrumented.total": 159.9
+ },
+ "hbm_peak_gb": 26.0,
+ "operators": [
+  {
+   "name": "Mul_ce3d1ff8ba23a0bcb292da3577c1625d_high_performance_12",
+   "calls": 132,
+   "self_device_ms": 24.78849933333332,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "RealDiv_FLOAT32_high_precision_12",
+   "calls": 429,
+   "self_device_ms": 23.753665000000435,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Mul_ee98c6628030785f610b924ab1557b31_high_performance_8",
+   "calls": 645,
+   "self_device_ms": 22.417864333333757,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Mul_ce3d1ff8ba23a0bcb292da3577c1625d_high_performance_11",
+   "calls": 12,
+   "self_device_ms": 18.739987666666703,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Add_FLOAT32_high_performance_8",
+   "calls": 1563,
+   "self_device_ms": 18.108758999998972,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "AsStrided_float16_int64_high_performance_2",
+   "calls": 1422,
+   "self_device_ms": 14.194772333332386,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Slice",
+   "calls": 3,
+   "self_device_ms": 11.987862666666672,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Cast_9f288b80370c6545ffe8cef142d37f5c_high_performance_0",
+   "calls": 1995,
+   "self_device_ms": 11.960124999999849,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Mul_ee98c6628030785f610b924ab1557b31_high_performance_0",
+   "calls": 345,
+   "self_device_ms": 10.788383666666713,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Conv2DV2_NCHW_BF16_NCHW_BF16_BF16_NCHW_BF16_high_performance_2288",
+   "calls": 12,
+   "self_device_ms": 8.76282366666664,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "BatchMatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_769",
+   "calls": 1422,
+   "self_device_ms": 8.644412999999593,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Add_FLOAT32_high_performance_9",
+   "calls": 39,
+   "self_device_ms": 8.407235333333277,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_4114",
+   "calls": 504,
+   "self_device_ms": 8.07622800000007,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Cast_b2717900ea7de2d41ea9c63d23aa269b_high_performance_0",
+   "calls": 3336,
+   "self_device_ms": 6.677311333332315,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Add_BFLOAT16_FLOAT32_high_performance_9",
+   "calls": 36,
+   "self_device_ms": 6.548861333333426,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Add_BFLOAT16_high_performance_8",
+   "calls": 153,
+   "self_device_ms": 6.535766999999808,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "DropOutV3_5aa6e3839f9f67a5899a43d4e62640e0_high_performance_100",
+   "calls": 63,
+   "self_device_ms": 6.530565666666647,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Transpose_float32_int64_high_performance_10003",
+   "calls": 39,
+   "self_device_ms": 6.387660333333415,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Transpose_float16_int64_high_performance_10002",
+   "calls": 159,
+   "self_device_ms": 6.050882666666674,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ConcatD_ddafbeaeee4ee3a848734c13e000266d3_high_performance_20004",
+   "calls": 45,
+   "self_device_ms": 5.9245353333331785,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_131138",
+   "calls": 294,
+   "self_device_ms": 4.673256666666743,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ReduceMean_float32_int64_high_precision_20561",
+   "calls": 45,
+   "self_device_ms": 4.252655000000037,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "GeluGradV2_e87c9546cf2804355cf0d9445a2db01a_high_precision_8",
+   "calls": 18,
+   "self_device_ms": 4.036250666666689,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_131074",
+   "calls": 135,
+   "self_device_ms": 4.034707666666751,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ViewCopy_7778b2d0a2938f9247cc0c9f84559eb2_high_performance_242",
+   "calls": 120,
+   "self_device_ms": 3.9902943333331784,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ReduceSum_bfloat16_int64_high_performance_20561",
+   "calls": 1476,
+   "self_device_ms": 3.5943853333330096,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ViewCopy_7778b2d0a2938f9247cc0c9f84559eb2_high_performance_10002",
+   "calls": 48,
+   "self_device_ms": 3.5030689999998916,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Neg_5c5e58e043224cccf51a06108010ae13_high_performance_7",
+   "calls": 51,
+   "self_device_ms": 3.377581666666646,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Transpose_float16_int64_high_performance_10004",
+   "calls": 141,
+   "self_device_ms": 3.215548666666662,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ReduceSum_float32_int64_high_performance_23633",
+   "calls": 87,
+   "self_device_ms": 3.1119130000001074,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  }
+ ]
+}

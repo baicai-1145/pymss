@@ -124,3 +124,28 @@ rest for segment boundaries.
 (not a kernel, an op-count reduction) + `--pin-memory` on the NPU dataloader. Everything else is the eager path.
 200-step control against the eager curve: **mean 0.0076 %, max 0.032 %** (limit 1 %), `runs/H3-ref-triton2`
 (re-run after the RMSNorm fix; the earlier 0.055 % figure was measured while the norm gain was detached from the graph).
+
+## H4s speed sprint, round 1 (stage 5000 -> 10000 window, exclusive NPU)
+
+Baseline on H4s: **370.0 ms/step, 46,912 CPU launches/step**, HBM 17.2 GB, NPU util 76 % (real stage: 374 ms/step).
+
+| round | change | ms/step | verdict |
+|---|---|---|---|
+| R1 | vendor-FFT silent-zero probe cached per `(n_fft, device)` (`npu_fft.py`), so the 2 host syncs/step run once | **367.4** | **admitted**: small (−2.6 ms) but removes the graph-break precondition |
+| R1b | `PYMSS_CORE_EXPERIMENTAL_TRAIN_GROUPED_BANDS=1` (+ `..._DEEP_MASK_GROUPING=1`) | 387.7 / 388.6 | **rejected**: 18 ms *slower* with worst grad rel 1.3e-2; launches drop 46.9k -> 32.7k but the grouped ops are individually slower, so launch count is not the binding constraint here |
+| R2a | `make_graphed_callables` on the whole mask core | — | **blocked**: `aclnnMatmul ... error code 161002`. Bisected: `band_split` captures, every 62-band frequency mixer does not (inner dim 62 is not 32B-aligned; eager accepts it, ACLGraph does not) |
+| R2b | capture the 6 time-axis transformers only (`npu_graphs.py`, opt-in `S2_GRAPHS=time`) | 358.7 vs 358.4 | **neutral, not enabled**: fwd bit-identical (rel 0.0) and all 6 capture, but zero gain — that branch is compute-bound, not dispatch-bound. Also freezes dropout RNG (max rate 0.1), so it would need an explicit decision |
+| R3a | `torch.optim.AdamW(..., foreach=True)` | 366.8 = 366.8 | no effect on this device |
+| R3b | `NpuFusedAdamW` | — | fails `set_to_none is not supported in fused optimizers`; `issubclass(NpuFusedAdamW, torch.optim.AdamW)` is False so `s2_aw_entry.py:43` would need relaxing. Not pursued: the optimizer is not a bottleneck |
+| R3c | EMA as one `_foreach_lerp_` | 363.3 | −3.5 ms, **not adopted** (changes the EMA code path for ~1 % gain; revisit only if EMA export parity is verified) |
+| R5 | H2D pinned `non_blocking` | **1.10 ms** (pageable 2.75) | the old 59 ms profile figure was an artifact of unpinned buffers in the profiler, not a training cost |
+
+**Real bug fixed along the way** (`h4.py`): `band_up = nn.Parameter(q.T.clone())` produced 4 non-contiguous
+parameters (stride `(1, 62)`), which breaks any multi-tensor optimizer path (`Tensors to combine must be contiguous`);
+now `q.T.contiguous()`. Also cached `StridedPooledKVAttention._centers` (per-step `torch.arange`).
+
+**Conclusion for the ~10 steps/s target:** not reachable by configuration on this shape. The step is compute-bound at
+76 % util with 46.9k launches, and the two structural levers both fail for concrete reasons: the frequency branch's
+62-dim matmul cannot be ACLGraph-captured (161002), and the time branch that *can* be captured gains nothing. Getting
+from 367 ms to ~100 ms needs fewer FLOPs (smaller L/k on L1, lower band rate) or a hand-written UB-resident conv — an
+algorithmic change, not a wiring change.
