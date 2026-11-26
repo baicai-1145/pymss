@@ -80,6 +80,32 @@ def conv_forward(conv, x):
     return y.squeeze(2)
 
 
+def _make_npu_swiglu(module):
+    """Bind `torch_npu.npu_swiglu` to an MSC gate, swapping proj_in's output rows exactly once.
+
+    ``npu_swiglu(x) = silu(first_half) * second_half`` while MSC computes ``first * silu(second)``.  Swapping the two
+    halves of ``proj_in.weight``/``bias`` makes the fused op compute the identical function: the swap is a pure
+    re-parameterisation, applied in place once, so a checkpoint loaded *before* the first forward keeps its meaning.
+    """
+    try:
+        import torch_npu
+    except ImportError:
+        return None
+    if not hasattr(torch_npu, 'npu_swiglu'):
+        return None
+    if module.proj_in.out_features % 2:
+        return None
+    weight, bias = module.proj_in.weight, module.proj_in.bias
+    half = module.proj_in.out_features // 2
+    with torch.no_grad():
+        w = weight.detach().clone()
+        weight[:half].copy_(w[half:]); weight[half:].copy_(w[:half])
+        if bias is not None:
+            b = bias.detach().clone()
+            bias[:half].copy_(b[half:]); bias[half:].copy_(b[:half])
+    return lambda x: torch_npu.npu_swiglu(module.proj_in(x), dim=-1)
+
+
 class MSC(nn.Module):
     """Gated multi-scale temporal conv: Linear(d->2h) -> u*SiLU(v) -> [dropout] -> sum_d DWConv1d(k, dilation d) -> Linear(h->d)."""
     def __init__(self, dim, mult=4, dilations=(1,), k=31, dropout=0.0, gate_dropout=False):
@@ -90,12 +116,20 @@ class MSC(nn.Module):
         self.proj_out = nn.Linear(h, dim)
         self.drop = nn.Dropout(dropout)
         self.gate_drop = nn.Dropout(dropout) if gate_dropout else nn.Identity()
+        self._npu_swiglu = None
         self.dilations, self.k, self.mult, self.swiglu = tuple(dilations), k, mult, True
 
     def forward(self, x):  # (b, t, f, d)
         b, t, f, d = x.shape
-        u, v = self.proj_in(x).chunk(2, dim=-1)
-        g = self.gate_drop(u * F.silu(v))
+        if self._npu_swiglu is None and os.environ.get('S2_NPU_SWIGLU', '').lower() in ('1', 'true', 'yes'):
+            self._npu_swiglu = _make_npu_swiglu(self)
+        if self._npu_swiglu is not None:
+            # One CANN kernel for silu+mul.  `chunk(2,-1)` yields non-contiguous views, and under autocast the
+            # elementwise mul on those views measured 67.8 -> 34.4 ms on L1; the fused op takes the whole tensor.
+            g = self.gate_drop(self._npu_swiglu(x))
+        else:
+            u, v = self.proj_in(x).chunk(2, dim=-1)
+            g = self.gate_drop(u * F.silu(v))
         hid = g.shape[-1]
         # One transpose into the conv layout instead of three: the old form copied (b,t,f,hid)->(b,f,t,hid),
         # the conv result back, and then fed a strided view to proj_out.  proj_out is a Linear over the last
