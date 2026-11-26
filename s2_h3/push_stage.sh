@@ -1,29 +1,49 @@
 #!/bin/bash
-# §8 回传 for one finished stage: artifacts + STATUS first line, commit, push (rebases onto upstream first).
-# Usage: ./push_stage.sh <step>   (run only after that stage's STAGE_OK)
+# §8 回传 for one finished stage of any ARM (H3, H4s, ...):
+#   artifacts + STATUS first line + ModelScope upload of that stage's EMA checkpoint, commit, push (rebases first).
+# Usage: ./push_stage.sh <step> [ARM]      ARM defaults to $ARM_NAME, then H3
+# Requires MODELSCOPE_API_TOKEN in the environment for the upload (skipped with a note if unset).
 set -e
 cd /workspace/s2_h3
-export GIT_AUTHOR_NAME=pi GIT_AUTHOR_EMAIL=pi@local GIT_COMMITTER_NAME=pi GIT_COMMITTER_EMAIL=pi@local
+export GIT_AUTHOR_NAME=${GIT_AUTHOR_NAME:-pi} GIT_AUTHOR_EMAIL=${GIT_AUTHOR_EMAIL:-pi@local}
+export GIT_COMMITTER_NAME=${GIT_COMMITTER_NAME:-pi} GIT_COMMITTER_EMAIL=${GIT_COMMITTER_EMAIL:-pi@local}
 S=$1
-python - "$S" <<'PY'
-import json, glob, sys
+ARM=${2:-${ARM_NAME:-H3}}
+ROOT=s2_h3
+
+python - "$S" "$ARM" <<'PY'
+import glob, json, subprocess, sys
 from pathlib import Path
-step = sys.argv[1]
-d = json.load(open(f's2_h3/out/H3/eval-{step}.json'))
-t = json.load(open(f's2_h3/runs/H3/time-{step}.json'))
-done = sorted(int(p.split('eval-')[1].split('.')[0]) for p in glob.glob('s2_h3/out/H3/eval-*.json'))
-dbs = {s: round(json.load(open(f's2_h3/out/H3/eval-{s}.json'))['median_dB'], 2) for s in done}
-import subprocess
+step, arm = sys.argv[1], sys.argv[2]
+root = Path('s2_h3')
+ev = root / 'out' / arm / f'eval-{step}.json'
+tm = root / 'runs' / arm / f'time-{step}.json'
+dB = json.load(open(ev))['median_dB']
+per_min = json.load(open(tm))['steps_per_min']
+# STATUS first line: every finished stage of every arm, oldest step first
+rows = []
+for f in glob.glob(str(root / 'out' / '*' / 'eval-*.json')):
+    a = f.split('/')[-2]; s = int(f.split('eval-')[1].split('.')[0])
+    rows.append((s, a, json.load(open(f))['median_dB']))
+rows.sort()
+stages = ', '.join(f'{a} {s//1000}k {v:.2f} dB' for s, a, v in rows)
 now = subprocess.check_output(['date', '+%Y-%m-%d %H:%M']).decode().strip()
-Path('s2_h3/STATUS.md').write_text(
-    f"STATUS: 50k run {len(done)}/10 stages OK ({', '.join(f'{s//1000}k {v} dB' for s, v in dbs.items())}) | "
-    f"{t['steps_per_min']:.1f} steps/min ({60000/t['steps_per_min']:.0f} ms/step), S2_TRITON=dwconv_dw_bmm | "
-    f"200-step control 0.0076% | updated {now}\n")
-print(Path('s2_h3/STATUS.md').read_text().strip())
+(root / 'STATUS.md').write_text(
+    f"STATUS: {len(rows)} stages OK ({stages}) | {per_min:.1f} steps/min ({60000/per_min:.0f} ms/step) on "
+    f"{arm}, S2_TRITON=dwconv_dw_bmm | MS repo baicai1145/s2-h3-ascend-ema | updated {now}\n")
+print((root / 'STATUS.md').read_text().strip())
 PY
-git add s2_h3/out/H3/*.json s2_h3/out/H3/train-*.log s2_h3/*.md s2_h3/*.py s2_h3/*.json s2_h3/profile/ 2>/dev/null || true
-git add -f s2_h3/runs/H3/time-*.json s2_h3/runs/H3/train-*.log s2_h3/runs/H3/bs_roformer/loss_curve.csv \
-            s2_h3/runs/H3/bs_roformer/run_metadata.json s2_h3/H3-stage-*.log s2_h3/run_h2.log 2>/dev/null || true
-git commit -q -m "H3@npu stage $S: median_dB $(python -c "import json;print(round(json.load(open('s2_h3/out/H3/eval-$S.json'))['median_dB'],3))"), $(python -c "import json;print(round(json.load(open('s2_h3/runs/H3/time-$S.json'))['steps_per_min'],1))") steps/min - artifacts per TASK section 8" || echo "nothing to commit"
-git fetch -q origin exp/h3-ascend && git rebase -q origin/exp/h3-ascend 2>/dev/null || true
+
+# ModelScope: this stage's EMA checkpoint (weights only; git stays weight-free)
+if [ -n "$MODELSCOPE_API_TOKEN" ]; then
+  MS_ARM="$ARM" PYTHONPATH="$PWD/$ROOT" python "$ROOT/upload_ms.py" "$S" 2>&1 | grep -E '^MS_' | tail -3 || true
+else
+  echo "MS_UPLOAD_SKIPPED no MODELSCOPE_API_TOKEN in environment"
+fi
+
+git add "$ROOT/out/$ARM"/*.json "$ROOT/out/$ARM"/train-*.log "$ROOT"/*.md "$ROOT"/*.py "$ROOT"/*.json "$ROOT"/profile/ 2>/dev/null || true
+git add -f "$ROOT/runs/$ARM"/time-*.json "$ROOT/runs/$ARM"/train-*.log "$ROOT/runs/$ARM"/bs_roformer/loss_curve.csv \
+           "$ROOT/runs/$ARM"/bs_roformer/run_metadata.json "$ROOT/${ARM}-stage-"*.log 2>/dev/null || true
+git commit -q -m "$ARM@npu stage $S: median_dB $(python -c "import json;print(round(json.load(open('$ROOT/out/$ARM/eval-$S.json'))['median_dB'],3))"), $(python -c "import json;print(round(json.load(open('$ROOT/runs/$ARM/time-$S.json'))['steps_per_min'],1))") steps/min - artifacts per TASK section 8; EMA uploaded to ModelScope" || echo "nothing to commit"
+git fetch -q origin exp/h3-ascend && { git rebase -q origin/exp/h3-ascend 2>/dev/null || true; }
 git push -q origin exp/h3-ascend && git log --oneline -1
