@@ -61,11 +61,23 @@ def convert(checkpoint, model, dry_run=False):
         raise SystemExit('already converted (swiglu_permuted=True); refusing to swap twice')
 
     state = checkpoint['state_dict']
-    swapped_state = [k for k in state if base_key(k) in names]
-    assert len(swapped_state) == len(names) * 2 or len(swapped_state) >= len(names), \
-        (len(swapped_state), len(names), sorted(names)[:4])
-    for key in swapped_state:
+    # Exactly one swap per key.  The model-side and EMA-side names both match `names` after prefix stripping, so they
+    # must be partitioned here: an earlier version swapped the EMA keys in both passes and the double swap silently
+    # cancelled, leaving the shadow in the original order while the weights were permuted.
+    model_keys = [k for k in state if not k.startswith('ema_model.') and base_key(k) in names]
+    ema_keys = [k for k in state if k.startswith('ema_model.') and base_key(k) in names]
+    assert set(model_keys).isdisjoint(ema_keys)
+    assert len(model_keys) == len(names), ('model proj_in keys', len(model_keys), len(names))
+    assert len(ema_keys) == len(names), ('ema proj_in keys', len(ema_keys), len(names), sorted(ema_keys)[:2])
+
+    # Model and EMA only diverge by the 5000 steps of averaging, so their distance is a free self-check: a double swap
+    # on either side multiplies it by ~10, which is how the EMA bug above was caught.
+    before = _pair_gap(state, model_keys, ema_keys)
+    for key in model_keys + ema_keys:
         swap_rows_(state[key])
+    after = _pair_gap(state, model_keys, ema_keys)
+    assert after <= 3 * before + 1e-6, ('EMA/model gap exploded after conversion -- a key was swapped twice',
+                                        before, after)
 
     moments = 0
     if checkpoint.get('optimizer_states'):
@@ -89,14 +101,25 @@ def convert(checkpoint, model, dry_run=False):
                     swap_rows_(slot[key])
                     moments += 1
 
-    ema = [k for k in state if k.startswith('ema_model.') and base_key(k) in names]
-    for key in ema:
-        swap_rows_(state[key])
-
-    print('SWIGLU_CONVERT', 'weights', len(swapped_state), 'moments', moments, 'ema', len(ema),
-          'step', checkpoint.get('global_step'), flush=True)
+    print('SWIGLU_CONVERT', 'weights', len(model_keys), 'moments', moments, 'ema', len(ema_keys),
+          'ema_gap', f'{before:.4f}->{after:.4f}', 'step', checkpoint.get('global_step'), flush=True)
     checkpoint['swiglu_permuted'] = True
     return checkpoint
+
+
+def _pair_gap(state, model_keys, ema_keys):
+    """max |model - ema| over the proj_in weights: ~0.04 at step 5000, ~0.35 if one side was swapped twice."""
+    by_base = {base_key(k): k for k in ema_keys}
+    gaps = []
+    for m_key in model_keys:
+        e_key = by_base.get(base_key(m_key))
+        if e_key is None:
+            continue
+        a, b = state[m_key], state[e_key]
+        if a.shape != b.shape:
+            continue
+        gaps.append((a.float() - b.float()).abs().max().item())
+    return max(gaps) if gaps else 0.0
 
 
 def main(argv=None):
