@@ -201,3 +201,11 @@ permuted (observed: rel 1.42 on exactly `proj_in.weight`/`bias`, everything else
 correct for a fresh run, but resuming `resume-5000.ckpt` would leave Adam's `exp_avg`/`exp_avg_sq` and the EMA shadow in
 the *old* row order while the weights are in the new one. Enabling it for the resume therefore requires permuting those
 four tensors identically at load (a ~10-line hook, exact by construction). Not enabled until that hook exists.
+
+## Win 3 — fused optimizer + flat EMA (`npu_opt.py`, opt-in `S2_OPT=fused`)
+
+Measured on the H4s step: AdamW + `AveragedModel` **278.7 ms** -> `FixedNpuFusedAdamW` + `FlatEMA` **272.8 ms (-5.9 ms)**.
+Smaller than the audit's -16 ms because H4s's `optimizer+ema` segment is only 19.2 ms in the profile and most of that is
+AveragedModel's Python loop, which `FlatEMA` (one `lerp_` on `get_combined_params()`) does replace. Two API facts
+found while wiring it: `get_combined_params()` returns a *list* whose entries are `None` until the first `step()`, and
+`NpuFusedAdamW` is not an `AdamW` subclass, so `s2_aw_entry.py`'s callback assertion now accepts either type.

@@ -42,7 +42,11 @@ if __name__ == '__main__':
         step = trainer.global_step; opt, = trainer.optimizers; s = trainer.lr_scheduler_configs[0].scheduler
         model = module.model
         assert model.arm == arm and structure_ok(model), ('structure', arm)
-        assert isinstance(opt, torch.optim.AdamW) and s.last_epoch == step and int(cb.ema_model.n_averaged) == step
+        import torch_npu as _tn
+        fused = getattr(getattr(_tn, 'optim', None), 'NpuFusedAdamW', None)
+        fused_note = isinstance(opt, torch.optim.AdamW) or (fused is not None and isinstance(opt, fused))
+        # NpuFusedAdamW is not an AdamW subclass (MRO: NpuFusedAdamW -> NpuFusedOptimizerBase -> Optimizer).
+        assert fused_note and s.last_epoch == step and int(cb.ema_model.n_averaged) == step
         assert math.isclose(opt.param_groups[0]['lr'], 5e-4 * .9 ** (step // 40000)) and opt.param_groups[0]['weight_decay'] == .01
         print('ADAMW_START_VERIFIED', arm, step, opt.param_groups[0]['lr'], flush=True)
 
