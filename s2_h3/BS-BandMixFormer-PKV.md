@@ -159,13 +159,52 @@ D3 的频率轴 GEMM 353 → 124.5 GFLOP（−65%）。**冻结下界 −0.55 / 
 
 ## 5. 昇腾 950PR 移植
 
-### 5.1 环境与做法
+### 5.1 先被否决的那条路：在昇腾上重写训练循环（`train_ascend/`）
 
-服务器实测约束：GitHub 可达 / HuggingFace 不可达（`hf-mirror.com` 可达）/ 无 ffmpeg / torch 2.13.0+cpu + torch_npu 2.13.0 + pytorch-lightning 2.6.6（**没有 NPU 加速器**）/ `/workspace/musdb18hq` 是原始 WAV（不是 Colab 的 MP3 解码件）。`train_ascend/` 的裸循环配方与 Colab **不等价**（BandUNet 16k 只有 3.9 dB），不能拿来比曲线。
+在搬运 Colab 代码之前，先试过"为昇腾手写一条裸训练循环"。它跑起来了、也快，但**质量封顶**，最终弃用。
+
+**速度（做到了）**
+
+| 指标 | 数值 |
+|---|---|
+| 最终 step 时间（10000 步中位） | **1154.3 ms**（相对原始 2736.7 ms，**2.37×**） |
+| 目标 390–450 ms | **未达到**（差 2.6×） |
+| 训练吞吐 | 51.9 步/分钟，10000 步 11643 s |
+| 推理 8 s（bf16，逐段路径） | 13.85 ms（1817 个 device kernel） |
+| 推理 8 s（fp32） | 17.38 ms |
+| 40 步同协议归因 | fast-loss −1259.4 / iSTFT 伴随 −175.1 / 块内快速路径 −57.2 / pinned H2D −57.9 ms |
+
+**质量（否决理由）**：用的是它自己的协议（56 窗 / 50 歌，sha1 `8a9e6137`），**与 H2 的窗口不可配对**。
+
+| 系统 | 中位 SI-SDR |
+|---|---:|
+| B0 混合当人声 | −4.133 |
+| B1 未训练模型 | −31.943 |
+| 该配方 EMA@10k | **2.964** |
+| 该配方 best（8k raw） | 3.019 |
+| G4 的 H2-50k | 9.406（不同硬件/结构/协议，仅参考） |
+
+比 B0 高 7.15 dB，但**离 9.406 差 6.4 dB**。配对分析（`h2_paired_analysis.json`）在 12k 步对 H2 的
+配对中位差 **−2.81 dB**（7 胜 49 负），趋势不收敛。记录下来的结论是：**该结构在此数据量下封顶约 4 dB，需要换结构**。
+
+**决策**：弃用这条线，改为把 Colab 代码原样搬过来只做设备无关化（§5.2）——正是这条路产出了 9.103 dB 的 H3。
+
+**这条线留下的、后来一直在用的教训**：
+- **任何自定义 kernel 进入训练前向，必须做逐参数梯度对比**，不能只比前向数值
+- 昇腾（CANN 9.2.1 + Ascend950PR）**必须装 CPU-only 的 torch wheel**；不要用 pypi 默认 CUDA wheel，
+  也不要让 `uv sync` 走 `pytorch-cu128` index
+- `torch.npu.conv.allow_hf32` 默认 **True**（近似 TF32），fp32 数值对齐必须显式关掉，否则只有 ~4e-4
+- triton-ascend 在 950PR 上能真正编译并执行，首次调用 0.7–0.8 s 是编译开销
+- torch_npu 2.12→2.13 + triton-ascend 换代**没有改变**训练吞吐
+- fp32 训练慢 2.4× **不是调度问题**：fp32 在这张卡上本就没有 tensor 通路
+
+### 5.2 环境与做法
+
+服务器实测约束：GitHub 可达 / HuggingFace 不可达（`hf-mirror.com` 可达）/ 无 ffmpeg / torch 2.13.0+cpu + torch_npu 2.13.0 + pytorch-lightning 2.6.6（**没有 NPU 加速器**）/ `/workspace/musdb18hq` 是原始 WAV（不是 Colab 的 MP3 解码件）。`train_ascend/` 那条裸循环重写路线的结果不可与 Colab 曲线相提并论（见 §5.1）。
 
 做法：Colab 代码原样搬，只做设备无关化——`entry.py`（`install_npu_trainer()` 注册 `npu` 加速器 + `MixedPrecision('bf16-mixed','npu')` + `SingleDeviceStrategy`）、`stage.py`、`prepare.py`/`run_h2.py`。CUDA 路径逐字不变，本机 CPU 回归仍然 `PREFLIGHT_PASS`（10 个 arm）。
 
-### 5.2 数据一致性闸门（这段本身就是一次实验）
+### 5.3 数据一致性闸门（这段本身就是一次实验）
 
 第一版闸门用 **CRC32 逐位比对**，结果 `PROTOCOL_FAIL`。逐项排查（每种假设都验证到"0/112 窗匹配"）：
 
@@ -188,7 +227,7 @@ D3 的频率轴 GEMM 353 → 124.5 GFLOP（−65%）。**冻结下界 −0.55 / 
 float16 在评测分辨率下的一个量子——这是"同一数学、不同浮点顺序"，不是数据漂移。判据改为
 "每样本 ≤16 PCM16 LSB 且差异能量 ≤1e-9 窗能量"后 `PROTOCOL_PASS`。**教训：逐位 CRC 在浮点解码链上是过严的判据**，会把你引向"数据错了"的错误结论；应该用逐样本、带分辨率的判据。
 
-### 5.3 eager 基线 profile（每步 1169 ms）
+### 5.4 eager 基线 profile（每步 1169 ms）
 
 | 段 | ms |
 |---|---:|
@@ -203,7 +242,7 @@ float16 在评测分辨率下的一个量子——这是"同一数学、不同�
 
 反向的 rank-1 热点是 `Conv3DBackpropFilterV2` = 496 ms（42%）。
 
-### 5.4 Triton 内核：1 个采纳，5 个否决
+### 5.5 Triton 内核：1 个采纳，5 个否决
 
 **采纳：`dwconv_dw`（深度卷积的权重梯度）**
 
@@ -364,6 +403,12 @@ mask_head 134；band_split 19；final_norm 13；其余（STFT/ISTFT/掩码应用
 6. CPU 推理 1.26×（8 核单节点 0.351 → 0.275）纯免费，全部数值验证；核心放置再给 1.19×。
 7. 天花板算清了：8 核下限 RTF 0.14，0.125 需要砍 FLOP 或换小模型。
 
+**被否决、但值得记一笔的：**
+
+0. "在昇腾上手写训练循环"这条线（§5.1）速度做到 1154 ms/步（2.37×），但质量封顶 ~3 dB，
+   离 H2 的 9.406 差 6.4 dB，配对分析 −2.81 dB 且不收敛。结论：该配方在此数据量下天花板太低。
+   真正的解法是**不重写**——把 Colab 代码原样搬过来只做设备无关化，这条才产出 9.103 dB。
+
 **没解决的：**
 
 1. **训练平台混淆未排除**：H3 在 NPU 训、A/H2 在 Colab T4 训。需要 H2 在 NPU 上训一遍才能把
@@ -410,4 +455,6 @@ python ablate.py
 **相关文档**：`FINDINGS.md`（A–J 节的原始记录，含每张干预表）、`TASK.md`（昇腾任务书）、
 `TRITON.md`（每个内核的采纳/否决细节）、`PROFILE.md`（NPU 步内 profile）、
 `NPU_LOG.md`（每次 NPU 变通）、`FASTPATH.md`（CPU 快路径，与 §6 同源）、
-`PROTOCOL_FAIL_REPORT.md`（数据闸门失败的测量与决策）。
+`PROTOCOL_FAIL_REPORT.md`（数据闸门失败的测量与决策）、
+`train_ascend/REPORT.md`（被否决的裸循环重写线，1695 行原始记录）、
+`train_ascend/results/*.json`（该线的曲线、配对分析、bf16/bs24 基准）。
