@@ -1,3 +1,4 @@
+import os
 import torch
 from pymss_core.runtime_cache import _clear_cache_dicts
 import torch.nn.functional as F
@@ -70,6 +71,16 @@ def apply_rotary_emb_fast(cos, sin, t):
         rot = torch.complex(cos, sin)
         rotated = torch.view_as_complex(t.reshape(*t.shape[:-1], -1, 2)) * rot
         return torch.view_as_real(rotated).reshape_as(t)
+    if t.device.type == "npu" and os.environ.get("S2_NPU_ROPE", "").lower() in ("1", "true", "yes"):
+        # One fused CANN kernel instead of four strided multiplies plus two strided copies (18.7 ms/step measured,
+        # 12 calls = q,k x 6 layers).  It is bit-identical to the [even|odd] layout below in bf16 and, since only Q and
+        # K are rotated and both get the same head-dim permutation, Q @ K^T and every gradient are unchanged.
+        try:
+            import torch_npu
+            cos2, sin2 = _interleaved_cos_sin(cos, sin)
+            return torch_npu.npu_rotary_mul(t, cos2, sin2, rotary_mode="interleave")
+        except Exception:  # layout/dtype the kernel rejects -> keep the portable path
+            pass
     even = t[..., ::2] * cos - t[..., 1::2] * sin
     odd = t[..., 1::2] * cos + t[..., ::2] * sin
     if not FAST['rope_no_cat']:
@@ -79,6 +90,24 @@ def apply_rotary_emb_fast(cos, sin, t):
     out[..., 0, :] = even
     out[..., 1, :] = odd
     return out.reshape(t.shape)
+
+
+_INTERLEAVED_CACHE: dict[tuple[int, str], tuple[torch.Tensor, torch.Tensor]] = {}
+
+
+def _interleaved_cos_sin(cos, sin):
+    """Expand the half-width tables to full width, the layout ``npu_rotary_mul(interleave)`` wants.
+
+    Cached on the tables' data_ptr because ``cached_rotary_cos_sin`` already returns stable tensors: the
+    ``repeat_interleave`` must not run per step.
+    """
+    key = (cos.data_ptr(), str(cos.dtype))
+    hit = _INTERLEAVED_CACHE.get(key)
+    if hit is None:
+        hit = (cos.repeat_interleave(2, -1).contiguous(), sin.repeat_interleave(2, -1).contiguous())
+        _INTERLEAVED_CACHE.clear()
+        _INTERLEAVED_CACHE[key] = hit
+    return hit
 
 
 def cached_rotary_cos_sin(rotary_embed, seq_len, device, dtype):
@@ -101,28 +130,32 @@ class RMSNorm(Module):
     def __init__(self, dim): super().__init__(); self.scale,self.gamma,self._gamma_dtype_cache = dim**0.5, nn.Parameter(torch.ones(dim)), {}
     def clear_runtime_cache(self): _clear_cache_dicts(self, "_gamma_dtype_cache")
     def forward(self, x):
-        # Training uses the fused kernel too: `F.normalize(x, -1) * scale * gamma` is the same function but costs an
-        # fp32 RealDiv (42 ms/step measured) plus the casts around it.  The gain must stay attached to the graph, so
-        # training casts it (differentiable) instead of using the detached eval cache below.  eps 1e-12 matches what the
-        # eval path already used, so both now agree on the norm instead of differing by the eps placement.
-        if FAST['rms_norm'] and not self.training and x.dtype == torch.float32:
-            # Fused: F.normalize(x,-1)*scale*gamma is the same function, but costs a separate vector_norm, div and
-            # mul pass over the activation.  rms_norm divides by sqrt(mean(x^2)+eps) = ||x||/sqrt(dim), and the
-            # sqrt(dim) is exactly `self.scale`, so the gain applies unchanged.
-            return F.rms_norm(x, (x.shape[-1],), self.gamma, eps=1e-12)
+        # One fused op for every dtype.  The previous shape of this function routed fp32 through
+        # `F.normalize(x,-1)*scale*gamma`, which is a RealDiv plus two multiplies and was the single biggest
+        # elementwise cost in the H4s profile (23.8 ms/step, 143 calls): BandSplit feeds fp32 into 62 norms.
+        # `npu_rms_norm` was measured bit-identical in bf16 (fwd 0.0, grad_gamma 0.0) and 1.7e-07 in fp32.
+        weight = self.gamma.to(x.dtype)
+        if x.device.type == "npu":
+            fused = _npu_rms_norm(x, weight)
+            if fused is not None:
+                return fused
         if x.dtype in (torch.float16, torch.bfloat16):
-            if self.training:
-                return F.rms_norm(x, (x.shape[-1],), self.gamma.to(x.dtype), eps=1e-12)
-            if torch.compiler.is_compiling():
-                # The dict cache below is keyed by ``data_ptr()``, which dynamo
-                # cannot trace, so a compiled graph takes the plain cast instead.
-                # XLA constant-folds it per layer, so the cache is not needed.
-                return F.rms_norm(x, (x.shape[-1],), self.gamma.to(device=x.device, dtype=x.dtype), eps=1e-12)
-            key = (x.device.type, x.device.index, x.dtype, self.gamma.data_ptr(), self.gamma._version)
-            gamma = self._gamma_dtype_cache.get(key)
-            if gamma is None: gamma = self.gamma.detach().to(device=x.device, dtype=x.dtype); self._gamma_dtype_cache.clear(); self._gamma_dtype_cache[key] = gamma
-            return F.rms_norm(x, (x.shape[-1],), gamma, eps=1e-12)
+            return F.rms_norm(x, (x.shape[-1],), weight, eps=1e-12)
         return F.normalize(x, dim=-1) * self.scale * self.gamma
+
+
+def _npu_rms_norm(x, weight):
+    """``torch_npu.npu_rms_norm`` when the CANN kernel is importable, else ``None`` (caller falls back)."""
+    try:
+        import torch_npu
+    except ImportError:
+        return None
+    try:
+        return torch_npu.npu_rms_norm(x, weight, epsilon=1e-12)[0]
+    except Exception:  # unsupported dtype/shape on some CANN builds
+        return None
+
+
 class FeedForward(Module):
     def __init__(self, dim, mult=4, dropout=0.0): super().__init__(); self.net = nn.Sequential(RMSNorm(dim), nn.Linear(dim, int(dim * mult)), nn.GELU(), nn.Dropout(dropout), nn.Linear(int(dim * mult), dim), nn.Dropout(dropout))
     def forward(self, x): return self.net(x)

@@ -26,7 +26,9 @@ def block_mean(x, stride):
     blocks = -(-frames // stride)
     if blocks * stride != frames:
         x = torch.cat([x, x[:, -1:].expand(x.shape[0], blocks * stride - frames, *x.shape[2:])], 1)
-    return x.reshape(x.shape[0], blocks, stride, *x.shape[2:]).mean(2)
+    # sum * reciprocal instead of .mean: .mean lowers to a fp32 ReduceMean+RealDiv pair on Ascend (4.2 + part of
+    # the 23.8 ms RealDiv in the H4s profile); the reciprocal is a compile-time constant.
+    return x.reshape(x.shape[0], blocks, stride, *x.shape[2:]).sum(2) * (1.0 / stride)
 
 
 class StaticBandMixer(nn.Module):
@@ -45,10 +47,19 @@ class StaticBandMixer(nn.Module):
 
     def forward(self, x):  # (..., band, dim)
         y = self.norm(x)
-        v = self.to_v(y).unflatten(-1, (self.heads, -1)).transpose(-3, -2)  # (..., head, band, c)
-        z = self.drop(torch.matmul(self.weight, v)).transpose(-3, -2)  # (..., band, head, c)
-        z = z * self.to_gates(y).sigmoid().unsqueeze(-1)
-        return self.to_out(z.flatten(-2))
+        h, bands, dim = self.heads, y.shape[-2], y.shape[-1]
+        c = dim // h
+        lead, flat = y.shape[:-2], 1
+        for size in lead:
+            flat *= size
+        # One batched GEMM per head instead of a broadcast matmul that lowers to `flat` tiny (62, 62) @ (62, c) calls:
+        # 8 GEMMs of (62, 62) @ (62, flat * c).  Same arithmetic, a fraction of the launches.
+        v = self.to_v(y).reshape(flat, bands, h, c).permute(2, 1, 0, 3).reshape(h, bands, flat * c)
+        z = torch.bmm(self.weight, v).reshape(h, bands, flat, c).permute(2, 1, 0, 3)
+        if self.training and self.drop.p:
+            z = self.drop(z)
+        z = z * self.to_gates(y).reshape(flat, bands, h).sigmoid().unsqueeze(-1)
+        return self.to_out(z.reshape(*lead, bands, h * c))
 
 
 class SlowBandAttention(nn.Module):

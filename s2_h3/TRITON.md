@@ -149,3 +149,30 @@ now `q.T.contiguous()`. Also cached `StridedPooledKVAttention._centers` (per-ste
 62-dim matmul cannot be ACLGraph-captured (161002), and the time branch that *can* be captured gains nothing. Getting
 from 367 ms to ~100 ms needs fewer FLOPs (smaller L/k on L1, lower band rate) or a hand-written UB-resident conv — an
 algorithmic change, not a wiring change.
+
+## H4s speed sprint, round 2 (compute-first, driven by step_h4s_baseline profile)
+
+Attribution first: `with_stack` gives no Python frames for NPU events on this torch_npu, but the call counts are
+decisive — `RealDiv_FLOAT32` **143 calls/step** is the 62 BandSplit norms taking the fp32 `F.normalize` fallback
+(`transformer.py` only used the fused kernel for fp16/bf16, and STFT hands BandSplit fp32), and the single **12.0 ms
+`Slice` (1 call/step)** is `repeat_interleave(stride,1)[:, :t]` materialising a 4x tensor and cropping it.
+
+| milestone | step ms | vs 367.4 baseline | launches/step | hbm |
+|---|---|---|---|---|
+| R1 baseline (FFT probe cached) | 367.4 | 1.00x | 46,912 | 17.2 GB |
+| + `npu_rms_norm` for **all** dtypes (kills the 62-norm fp32 fallback) + `block_mean` without fp32 `.mean` | **295.9** | 1.24x | 44,390 | 13.8 GB |
+| + `StaticBandMixer` as 8 real GEMMs instead of a broadcast matmul lowering to 12,480 tiny ones | **296.5** | 1.24x | 44,465 | 13.8 GB |
+| + `npu_rotary_mul` (gated `S2_NPU_ROPE`, **off**: see below) | 277.4 | 1.32x | 43,045 | 14.5 GB |
+
+Honest verdicts:
+- **RMSNorm + block_mean: admitted.** −71.5 ms, deterministic eval-mode parity: loss rel **4.1e-06**, every weight
+  gradient <= 1.6e-02 (bf16 level); the 3.4e-02 outliers are norm-gain params, and four gammas that previously
+  received **no** gradient at all now do (the old eval path detached them).
+- **StaticBandMixer GEMM rewrite: kept but neutral** (296.5 vs 295.9 — within noise). It is still worth keeping because
+  it removes `flat` tiny matmuls (a launch-count and ACLGraph problem), not device time.
+- **`npu_rotary_mul`: REJECTED for now.** It measured −19 ms (277.4) and the loss matched to 2e-8, but
+  `convs.4.query.{weight,bias}` gradients came out at rel 1.3: `StridedPooledKVAttention` runs q at stride 2 and kv at
+  stride 4, so one cos/sin table cannot serve both, and the fused kernel silently accepted the mismatch instead of
+  raising. Left behind the `S2_NPU_ROPE` flag (default off) until it is wired per-stride with a per-tensor table.
+- **`S2_TRITON_BMM_CHUNK` sweep: chunk=8 wins.** 8 -> 278.1, 64 -> 295.0, 128 -> 294.0, 256/512 no better, so the
+  "fewer, larger chunks" hypothesis is wrong on this shape (bigger chunks lose the L2 reuse that makes 8 cheap).
