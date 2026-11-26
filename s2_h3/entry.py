@@ -6,8 +6,12 @@ ARMS (temporal branch applied per stack before the frequency transformer):
   S2lite  S with parallel dilated DWConv {1, 8} + gate dropout            21,926,684
   S2      S with parallel dilated DWConv {1, 4, 16} + gate dropout        22,000,412
   BandUNet frequency U-Net with 62→32→16→8 learned band scales         20,961,844
-  H3      H2 with stacks 0-2 = gated static band mixer, stacks 3-5 = slow routing (q/k every 4 frames) + narrow v
+  H3 / Largo
+          H2 with stacks 0-2 = gated static band mixer, stacks 3-5 = slow routing (q/k every 4 frames) + narrow v
           + FFN every 4 frames (h3.py; frozen audit in .tmp/freq-attn-audit/FINDINGS.md H)   20,274,048
+
+Names (ALIASES below, both spellings work everywhere, including ARM=<name>):  A = Stock, H2 = Pedal, H2M/H2MG/H2N128
+= Pedal-M / Pedal-MG / Pedal-N128, H3 = Largo.
 """
 import copy
 import os
@@ -43,6 +47,20 @@ ARMS = {
     'BandUNet': dict(params=20961844),
     'H3': dict(dilations=(1,), mult=4, gate_dropout=False, params=20274048),
 }
+
+# Talk about the arms by name; the code keeps the original keys so every archived result, weight file and run
+# directory still resolves.  Pedal = the frequency-axis attention with pooled keys/values in layers 0 and 4 (the audit's
+# finding: per-frame routing is a noisy sample around a slow mean).  Largo = Pedal taken further: layers 0-2 drop
+# attention for a static band mixer, layers 3-5 route every 4th frame with a narrow v and a 4-frame FFN.
+ALIASES = {
+    'Stock': 'A', 'Baseline': 'A', 'baseline': 'A',
+    'Pedal': 'H2', 'Pedal-M': 'H2M', 'Pedal-MG': 'H2MG', 'Pedal-N128': 'H2N128',
+    'Largo': 'H3',
+}
+
+
+def resolve(arm):
+    return ALIASES.get(arm, arm)
 A_PARAMS = 24591340
 H2_ATTENTION_LAYERS = (0, 4)
 
@@ -86,7 +104,7 @@ class ArmModel(BSRoformer):
 
 
 def factory(*args, **kw):
-    arm = os.environ['ARM']; assert arm == 'A' or arm in ARMS, arm
+    arm = resolve(os.environ['ARM']); assert arm == 'A' or arm in ARMS, arm
     if arm == 'H2N128':
         from narrow_h2 import build_narrow
         config_path = args[1] if len(args) > 1 else kw.get('config_path', CFG)
@@ -132,6 +150,7 @@ def factory(*args, **kw):
 
 
 def build(arm):
+    arm = resolve(arm)
     os.environ['ARM'] = arm; torch.manual_seed(0); return factory('bs_roformer', CFG)[0]
 
 
