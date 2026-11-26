@@ -3,14 +3,14 @@
 /workspace/s2_h3/s2_h3/pymss_core/npu_fft.py:159: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
 Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:822.)
   if float(out_planes.abs().max()) != 0.0:
-arm A params 24591340 max|y| 0.5305694341659546
-arm S params 21852956 max|y| 0.4760415256023407
-arm S2lite params 21926684 max|y| 0.5228036642074585
-arm S2 params 22000412 max|y| 0.5459079742431641
-arm H2 params 21582624 max|y| 0.47960710525512695
-arm H2M params 19398576 max|y| 0.44736507534980774
-arm H2MG params 19400112 max|y| 0.4632478654384613
-arm H2N128 params 10440536 max|y| 0.45252761244773865
-arm BandUNet params 20961844 max|y| 0.49711719155311584
-arm H3 params 20274048 max|y| 0.5174832344055176
+arm A params 24591340 max|y| 0.47412875294685364
+arm S params 21852956 max|y| 0.5208326578140259
+arm S2lite params 21926684 max|y| 0.485302597284317
+arm S2 params 22000412 max|y| 0.5363439321517944
+arm H2 params 21582624 max|y| 0.5539036989212036
+arm H2M params 19398576 max|y| 0.47023382782936096
+arm H2MG params 19400112 max|y| 0.46739110350608826
+arm H2N128 params 10440536 max|y| 0.43035173416137695
+arm BandUNet params 20961844 max|y| 0.45968353748321533
+arm H3 params 20274048 max|y| 0.509863018989563
 PREFLIGHT_PASS S exact under single-branch layout

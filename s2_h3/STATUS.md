@@ -1,1 +1,1 @@
-STATUS: 50k training launched (S2_TRITON=dwconv_dw_bmm) | speed sprint 22:38-00:40: 1112.6 -> 604.9 ms/step (1.84x), 3 rounds admitted, 200-step control PASS 0.055% | NOTE dW is the cube bmm per TASK §10.1(b), not a Triton kernel - Triton v1/v2a measured slower (62.7/89.0 vs 17.8 ms) | target 450 not reached, remaining hotspots in TRITON.md
+STATUS: 50k run 4/10 stages OK (5k 5.24 dB, 10k 6.37, 15k 7.09, 20k 7.71) | 25000 in progress | 627 ms/step = 1.594 steps/s (1.78x eager), S2_TRITON=dwconv_dw_bmm | 200-step control 0.0076% | updated 2026-11-25 23:47

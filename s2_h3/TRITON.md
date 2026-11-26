@@ -122,4 +122,5 @@ rest for segment boundaries.
 
 `S2_TRITON=dwconv_dw_bmm` (the depthwise-conv weight gradient on the cube, 4 convs) + fused `F.rms_norm` in the model
 (not a kernel, an op-count reduction) + `--pin-memory` on the NPU dataloader. Everything else is the eager path.
-200-step control against the eager curve: **mean 0.055 %, max 0.19 %** (limit 1 %), `runs/H3-ref-triton2`.
+200-step control against the eager curve: **mean 0.0076 %, max 0.032 %** (limit 1 %), `runs/H3-ref-triton2`
+(re-run after the RMSNorm fix; the earlier 0.055 % figure was measured while the norm gain was detached from the graph).

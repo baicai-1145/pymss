@@ -1,0 +1,40 @@
+/usr/local/python3.12.16/lib/python3.12/site-packages/triton/language/extra/cann/extension/math_ops.py:13: FutureWarning: triton.language.extra.cann.extension.atan2 is deprecated and will be removed in the next release; use triton.language.extra.cann.libdevice.atan2 instead.
+  @_deprecated(replacement="triton.language.extra.cann.libdevice.atan2")
+/usr/local/python3.12.16/lib/python3.12/site-packages/triton/language/extra/cann/extension/math_ops.py:35: FutureWarning: triton.language.extra.cann.extension.isfinited is deprecated and will be removed in the next release; use triton.language.extra.cann.libdevice.isfinited instead.
+  @_deprecated(replacement="triton.language.extra.cann.libdevice.isfinited")
+/usr/local/python3.12.16/lib/python3.12/site-packages/triton/language/extra/cann/extension/math_ops.py:49: FutureWarning: triton.language.extra.cann.extension.finitef is deprecated and will be removed in the next release; use triton.language.extra.cann.libdevice.finitef instead.
+  @_deprecated(replacement="triton.language.extra.cann.libdevice.finitef")
+Seed set to 0
+TRITON_INSTALLED ["('dwconv_dw_bmm',) on 4 convs"]
+GPU available: False, used: False
+TPU available: False, using: 0 TPU cores
+💡 Tip: For seamless cloud logging and experiment tracking, try installing [litlogger](https://pypi.org/project/litlogger/) to enable LitLogger, which logs metrics and artifacts automatically to the Lightning Experiments platform.
+/usr/local/python3.12.16/lib/python3.12/site-packages/pytorch_lightning/trainer/configuration_validator.py:70: You defined a `validation_step` but have no `val_dataloader`. Skipping val loop.
+Restoring states from the checkpoint path at /workspace/s2_h3/s2_h3/runs/H3/resume-5000.ckpt
+/usr/local/python3.12.16/lib/python3.12/site-packages/torch_npu/utils/storage.py:55: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  if self.device.type != 'cpu':
+/usr/local/python3.12.16/lib/python3.12/site-packages/pytorch_lightning/utilities/model_summary/model_summary.py:242: Precision bf16-mixed is not supported by the model summary.  Estimated model size in MB will not be accurate. Using 32 bits instead.
+
+  | Name      | Type          | Params | Mode  | FLOPs
+------------------------------------------------------------
+0 | model     | ArmModel      | 20.3 M | train | 0    
+1 | ema_model | AveragedModel | 20.3 M | train | 0    
+------------------------------------------------------------
+40.5 M    Trainable params
+64        Non-trainable params
+40.5 M    Total params
+162.192   Total estimated model params size (MB)
+1491      Modules in train mode
+0         Modules in eval mode
+0         Total Flops
+Restored all states from the checkpoint at /workspace/s2_h3/s2_h3/runs/H3/resume-5000.ckpt
+/usr/local/python3.12.16/lib/python3.12/site-packages/pytorch_lightning/utilities/_pytree.py:21: `isinstance(treespec, LeafSpec)` is deprecated, use `isinstance(treespec, TreeSpec) and treespec.is_leaf()` instead.
+RESUME_VERIFIED 5000 EMA 5000 Adam [5000]
+ADAMW_START_VERIFIED H3 5000 0.0005
+/workspace/s2_h3/s2_h3/pymss_core/npu_fft.py:445: UserWarning: An output with one or more elements was resized since it had shape [64, 17, 32], which does not match the required output shape [64, 32, 32]. This behavior is deprecated, and in a future PyTorch release outputs will not be resized unless they have zero elements. You can explicitly reuse an out tensor t by resizing it, inplace, to zero elements with t.resize_(0). (Triggered internally at /__w/pytorch/pytorch/aten/src/ATen/native/Resize.cpp:30.)
+  spec = torch.fft.rfft(frames_flat, dim=-1)  # (N, T, F)
+/workspace/s2_h3/s2_h3/pymss_core/npu_fft.py:159: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:822.)
+  if float(out_planes.abs().max()) != 0.0:
+`Trainer.fit` stopped: `max_steps=10000` reached.
+Exported pymss-core checkpoint: /workspace/s2_h3/s2_h3/runs/H3/ema-10000.pt
