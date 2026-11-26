@@ -21,9 +21,10 @@ sys.path.insert(0, os.environ.get('S2_ROOT', '/workspace/s2_h3/s2_h3'))
 import entry
 ARM = os.environ.get('ARM', 'H3').upper() if os.environ.get('ARM', 'H3') != 'A' else 'A'
 
-SAMPLES = 131584                      # 8 s chunk the RTF numbers are quoted per
-CH = 2
-T, F, D, HID, K = 690, 62, 192, 384, 31
+SAMPLES = int(os.environ.get('S2_SAMPLES', 352800))   # 8 s @ 44.1 kHz = the chunk the RTF numbers are quoted per
+CH = 2                                # stereo, as the protocol's chunks are
+T = SAMPLES // 512 + 1                # STFT frames (690 for 8 s)
+BANDS, F, D, HID, K = 62, 62, 192, 384, 31   # 62 bands; MSC hidden 384; conv k 31
 OUT = {}
 
 def bench(fn, warmup=3, reps=10):
@@ -41,7 +42,7 @@ def rnd(*shape):
 # ---------------------------------------------------------------- depthwise conv candidates
 def conv_candidates():
     import torch.nn.functional as F
-    x = rnd(1 * F_, HID, T)              # (b*f, hid, t) — what MSC feeds the conv today
+    x = rnd(BANDS, HID, T)               # (b*f, hid, t) — what MSC feeds the conv today, f=62
     w = rnd(HID, 1, K); b = rnd(HID)
     ref = F.conv1d(x, w, b, padding=K // 2, groups=HID)
     out = {}
@@ -85,14 +86,18 @@ def conv_candidates():
 
 # ---------------------------------------------------------------- model-level candidates
 def segment_times(model, x):
-    """Time every top-level block of the real forward with hooks."""
-    times, handles = {}, []
-    def mk(name):
+    """Time every top-level block of the real forward: pre-hook opens, post-hook closes."""
+    acc, stack, handles = {}, [], []
+    def pre(name):
+        def hook(m, inp): stack.append((name, time.perf_counter()))
+        return hook
+    def post(name):
         def hook(m, inp, outp):
-            t0 = time.perf_counter()
-            def done():
-                times[name] = times.get(name, 0.0) + (time.perf_counter() - t0) * 1000.0
-            done()
+            for i in range(len(stack) - 1, -1, -1):
+                if stack[i][0] == name:
+                    dt = (time.perf_counter() - stack.pop(i)[1]) * 1000.0
+                    acc[name] = acc.get(name, 0.0) + dt
+                    break
         return hook
     names = {}
     for i, conv in enumerate(getattr(model, 'convs', [])):
@@ -104,22 +109,33 @@ def segment_times(model, x):
         if m is not None: names[id(m)] = attr
     for mod in model.modules():
         if id(mod) in names:
-            handles.append(mod.register_forward_hook(mk(names[id(mod)])))
-    with torch.inference_mode():
-        model(x)
+            n = names[id(mod)]
+            handles += [mod.register_forward_pre_hook(pre(n)), mod.register_forward_hook(post(n))]
+    # the mask head is a method, not a module: wrap it
+    if hasattr(model, '_estimate_masks'):
+        orig = model._estimate_masks
+        def timed(*a, **k):
+            t0 = time.perf_counter(); o = orig(*a, **k)
+            acc['mask_head'] = acc.get('mask_head', 0.0) + (time.perf_counter() - t0) * 1000.0
+            return o
+        model._estimate_masks = timed
+    with torch.no_grad():
+        t0 = time.perf_counter(); model(x); total = (time.perf_counter() - t0) * 1000.0
+    if hasattr(model, '_estimate_masks'): model._estimate_masks = orig
     for h in handles: h.remove()
-    return times
+    acc['TOTAL'] = total
+    return acc
 
 def model_candidates(x):
     out = {}
     base = entry.build(ARM).eval()
-    with torch.inference_mode():
+    with torch.no_grad():
         ref = base(x).clone()
     out['baseline'] = (bench(lambda: base(x), 2, 5), None)
 
     # 1. channels_last memory format: lets oneDNN pick its preferred blocked layout everywhere
     cl = entry.build(ARM).eval()
-    with torch.inference_mode():
+    with torch.no_grad():
         cl = cl.to(memory_format=torch.channels_last) if any(t.dim() == 4 for t in cl.parameters()) else cl
         try:
             o = cl(x); d = (o - ref).abs().max().item()
@@ -130,7 +146,7 @@ def model_candidates(x):
     # 2. torch.compile: inductor fuses the elementwise chains and may emit a direct depthwise conv
     try:
         cp = torch.compile(entry.build(ARM).eval(), dynamic=False)
-        with torch.inference_mode():
+        with torch.no_grad():
             o = cp(x); d = (o - ref).abs().max().item()
             out['torch.compile'] = (bench(lambda: cp(x), 1, 3), d)
     except Exception as exc:
@@ -140,7 +156,7 @@ def model_candidates(x):
 
     # 3. where the time actually goes, by operator (self time), not by module
     from torch.profiler import profile, ProfilerActivity
-    with torch.inference_mode():
+    with torch.no_grad():
         with profile(activities=[ProfilerActivity.CPU], record_shapes=False) as prof:
             base(x)
     rows = sorted(((e.self_cpu_time_total, e.key) for e in prof.key_averages()), reverse=True)
@@ -166,7 +182,8 @@ if __name__ == '__main__':
         top = res.pop('_top_ops')
         OUT['top_ops'] = top
         for name, (ms, diff) in res.items():
-            print('  %-22s %8.2f ms   max|Δ| %s' % (name, 'n/a' if ms is None else '%.2f' % ms, 'ref' if diff is None else diff), flush=True)
+            shown = 'ref' if diff is None else ('%.2e' % diff if isinstance(diff, float) else str(diff)[:70])
+            print('  %-22s %8s ms   max|Δ| %s' % (name, 'n/a' if ms is None else '%.2f' % ms, shown), flush=True)
         print('\n  top operators by self time (ms):', flush=True)
         for ms, k in top:
             print('    %-52s %7.1f' % (k[:52], ms), flush=True)

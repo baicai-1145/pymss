@@ -65,6 +65,17 @@ A_PARAMS = 24591340
 H2_ATTENTION_LAYERS = (0, 4)
 
 
+def conv_forward(conv, x):
+    """Depthwise Conv1d on (N, C, T).  oneDNN's 1-D depthwise path runs at ~2.5 GB/s on the EPYC; the same
+    convolution as a 2-D kernel over an empty height axis in channels_last reaches 3.6x that, bit-identically."""
+    from pymss_core.modules.bs_roformer.transformer import FAST
+    if not FAST.get('conv2d_cl', True) or conv.groups != conv.in_channels:
+        return conv(x)
+    y = F.conv2d(x.unsqueeze(2).contiguous(memory_format=torch.channels_last), conv.weight.unsqueeze(2), conv.bias,
+                 padding=(0, conv.padding[0]), dilation=(1, conv.dilation[0]), groups=conv.groups)
+    return y.squeeze(2)
+
+
 class MSC(nn.Module):
     """Gated multi-scale temporal conv: Linear(d->2h) -> u*SiLU(v) -> [dropout] -> sum_d DWConv1d(k, dilation d) -> Linear(h->d)."""
     def __init__(self, dim, mult=4, dilations=(1,), k=31, dropout=0.0, gate_dropout=False):
@@ -85,10 +96,14 @@ class MSC(nn.Module):
         # One transpose into the conv layout instead of three: the old form copied (b,t,f,hid)->(b,f,t,hid),
         # the conv result back, and then fed a strided view to proj_out.  proj_out is a Linear over the last
         # axis, so it can run on the conv layout as a single matmul against the weight's transpose.
-        gc = g.permute(0, 2, 1, 3).reshape(b * f, t, hid).transpose(1, 2).contiguous()   # (b*f, hid, t)
-        h = sum(c(gc) for c in self.convs)                                              # (b*f, hid, t)
+        gc = g.permute(0, 2, 1, 3).reshape(b * f, t, hid).transpose(1, 2)                  # (b*f, hid, t)
+        # conv_forward makes the layout it wants (channels_last for the 2-D path); forcing a plain contiguous()
+        # here as well just adds a 66 MB copy per layer that the convolution then throws away.
+        h = sum(conv_forward(c, gc) for c in self.convs)                                # (b*f, hid, t)
         o = torch.matmul(self.proj_out.weight, h) + self.proj_out.bias[:, None]          # (b*f, d, t)
-        return self.drop(o.reshape(b, f, d, t).permute(0, 3, 1, 2))
+        # .contiguous() is not cosmetic: a permuted view makes every downstream residual add and the frequency
+        # branch's reshape run through TensorIterator's strided path (2-4 GB/s instead of ~10).
+        return self.drop(o.reshape(b, f, d, t).permute(0, 3, 1, 2).contiguous())
 
 
 class ArmModel(BSRoformer):

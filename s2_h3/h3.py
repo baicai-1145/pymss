@@ -81,7 +81,17 @@ class SlowBandAttention(nn.Module):
         blocks = a.shape[2]
         if blocks * s != t:
             v = torch.cat([v, v[:, :, -1:].expand(-1, -1, blocks * s - t, -1, -1)], 2)
-        out = (a.unsqueeze(3) @ v.reshape(b, h, blocks, s, f, dv)).flatten(2, 3)[:, :, :t]  # (b, h, t, band, dv)
+        # The block matmul used to broadcast `a` over the s sub-frames (a.unsqueeze(3) @ v.reshape(...)), which
+        # materialised an (s, f, f) copy of the attention matrix: 267 MB per layer at the 8 s shape.  Four bmms
+        # reuse the same `a` instead, so nothing is expanded.
+        from pymss_core.modules.bs_roformer.transformer import FAST
+        if FAST['band_bmm']:
+            vb = v.reshape(b, h, blocks, s, f, dv).permute(3, 0, 1, 2, 4, 5).reshape(s, b * h * blocks, f, dv)
+            ab = a.reshape(b * h * blocks, f, f)
+            out = torch.stack([torch.bmm(ab, vb[i]) for i in range(s)], 0)                 # (s, N, band, dv)
+            out = out.reshape(s, b, h, blocks, f, dv).permute(1, 2, 3, 0, 4, 5).flatten(2, 3)[:, :, :t]
+        else:
+            out = (a.unsqueeze(3) @ v.reshape(b, h, blocks, s, f, dv)).flatten(2, 3)[:, :, :t]
         out = out.permute(0, 2, 3, 1, 4) * self.to_gates(y).sigmoid().unsqueeze(-1)  # (b, t, band, h, dv)
         return self.to_out(out.flatten(-2))
 

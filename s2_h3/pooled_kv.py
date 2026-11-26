@@ -37,4 +37,4 @@ class PooledKVAttention(nn.Module):
         value = value.transpose(1, 2).contiguous()
         out = F.scaled_dot_product_attention(query, key, value, dropout_p=self.dropout if self.training else 0.0)
         out = out.transpose(1, 2) * self.gates(x).sigmoid().unsqueeze(-1)
-        return self.output(out.flatten(-2)).reshape(batch, bands, frames, dim).transpose(1, 2)
+        return self.output(out.flatten(-2)).reshape(batch, bands, frames, dim).transpose(1, 2).contiguous()

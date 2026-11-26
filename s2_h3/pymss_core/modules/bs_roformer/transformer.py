@@ -72,7 +72,13 @@ def apply_rotary_emb_fast(cos, sin, t):
         return torch.view_as_real(rotated).reshape_as(t)
     even = t[..., ::2] * cos - t[..., 1::2] * sin
     odd = t[..., 1::2] * cos + t[..., ::2] * sin
-    return torch.cat((even, odd), dim=-1)
+    if not FAST['rope_no_cat']:
+        return torch.cat((even, odd), dim=-1)
+    # [even | odd] is a reshape of an (..., 2, d/2) buffer: same layout as cat, one allocation fewer.
+    out = torch.empty(*t.shape[:-1], 2, t.shape[-1] // 2, dtype=t.dtype, device=t.device)
+    out[..., 0, :] = even
+    out[..., 1, :] = odd
+    return out.reshape(t.shape)
 
 
 def cached_rotary_cos_sin(rotary_embed, seq_len, device, dtype):
@@ -86,6 +92,11 @@ def cached_rotary_cos_sin(rotary_embed, seq_len, device, dtype):
     return cached
 def rotate_qk_fast_bnhd(rotary_embed, q, k): cos, sin = cached_rotary_cos_sin(rotary_embed, q.shape[1], q.device, q.dtype); return apply_rotary_emb_fast(cos, sin, q), apply_rotary_emb_fast(cos, sin, k)
 def qkv_to_bnhd(qkv, heads): b, n, _ = qkv.shape; return qkv.view(b, n, 3, heads, -1).unbind(dim=2)
+# Runtime switches for the inference fast path.  Each one is mathematically equivalent to the code it
+# replaces; the ablation harness flips them in one process so the deltas are not buried in CPU noise.
+FAST = {'rms_norm': True, 'rope_no_cat': True, 'band_bmm': True}
+
+
 class RMSNorm(Module):
     def __init__(self, dim): super().__init__(); self.scale,self.gamma,self._gamma_dtype_cache = dim**0.5, nn.Parameter(torch.ones(dim)), {}
     def clear_runtime_cache(self): _clear_cache_dicts(self, "_gamma_dtype_cache")
@@ -94,6 +105,11 @@ class RMSNorm(Module):
         # fp32 RealDiv (42 ms/step measured) plus the casts around it.  The gain must stay attached to the graph, so
         # training casts it (differentiable) instead of using the detached eval cache below.  eps 1e-12 matches what the
         # eval path already used, so both now agree on the norm instead of differing by the eps placement.
+        if FAST['rms_norm'] and not self.training and x.dtype == torch.float32:
+            # Fused: F.normalize(x,-1)*scale*gamma is the same function, but costs a separate vector_norm, div and
+            # mul pass over the activation.  rms_norm divides by sqrt(mean(x^2)+eps) = ||x||/sqrt(dim), and the
+            # sqrt(dim) is exactly `self.scale`, so the gain applies unchanged.
+            return F.rms_norm(x, (x.shape[-1],), self.gamma, eps=1e-12)
         if x.dtype in (torch.float16, torch.bfloat16):
             if self.training:
                 return F.rms_norm(x, (x.shape[-1],), self.gamma.to(x.dtype), eps=1e-12)
