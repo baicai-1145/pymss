@@ -277,3 +277,27 @@ So the gate as written cannot judge any change that perturbs dropout consumption
 and each is a rule/semantics decision, not engineering: (a) accept deterministic eval parity as the gate for RNG-order
 changes, (b) drop attention dropout (a semantic change), or (c) freeze a new reference *with* `S2_SDPA=1` and gate later
 changes against it, admitting SDPA itself on the eval parity above.
+
+## P2-a — stateless-seed dropout: works, full-graph capture still BLOCKED
+
+`npu_dropout.py` draws the mask on-device from a 1-element int64 NPU tensor (Philox-style hash of element index and
+seed), writes `x * mask * scale` **and** the mask, and reuses that mask in backward, so it reproduces `nn.Dropout`
+exactly while consuming no host RNG. Verified: keep-fraction **0.898** at p=0.1 over 4096 elements, identical output on
+repeated calls with the same seed, and the eager step is unchanged (**219.6 ms**), i.e. it is not a slowdown.
+
+Two findings from the capture attempts:
+
+1. Patching `nn.Dropout` modules is **not** sufficient — the attention paths call `F.dropout(a, p)` directly, and that
+   functional call still aborted on `NPUGeneratorImpl::philox_engine_inputs`. `install()` now wraps
+   `torch.nn.functional.dropout` itself, which covers both call styles.
+2. Even then the capture fails, and it fails on **forward alone** (so it is not backward, the optimizer, or the loss):
+
+```
+RuntimeError: Refactor this op to use NPUGeneratorImpl::philox_npu_state. Cannot call
+NPUGeneratorImpl::philox_engine_inputs during NPU graph capture. npuStreamCaptureStatus: Active
+```
+
+So a third RNG consumer remains inside the model forward. Ruled out: `nn.Dropout` modules (25 patched),
+`torch.nn.functional.dropout` (wrapped), every `self.dropout(...)` site (all are `nn.Dropout` instances), SDPA (off by
+default after the Win 5 revert). Remaining suspects are native ops that request the default generator internally, which
+the per-module capture bisect (the technique that localised the 161002 mixer error in four runs) will pin down.
