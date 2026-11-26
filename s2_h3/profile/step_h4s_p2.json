@@ -1,0 +1,257 @@
+{
+ "device": "Ascend950PR_9579",
+ "torch": "2.13.0+cpu",
+ "torch_npu": "2.13.0",
+ "arm": "H4s",
+ "params": 20264896,
+ "batch": 24,
+ "samples": 131584,
+ "precision": "bf16-mixed",
+ "step": {
+  "ms": 285.4,
+  "steps_per_s": 3.503,
+  "warmup": 10,
+  "timed": 20,
+  "min_ms": 258.3,
+  "max_ms": 304.3
+ },
+ "segments_ms": {
+  "h2d": 51.4,
+  "forward.total": 79.1,
+  "loss": 1.1,
+  "backward": 138.4,
+  "optimizer+ema": 22.3,
+  "stft": 3.4,
+  "band_split": 4.5,
+  "time_axis[0]": 2.8,
+  "freq_branch[0]": 17.8,
+  "time_axis[1]": 20.3,
+  "freq_branch[1]": 8.3,
+  "time_axis[2]": 6.4,
+  "freq_branch[2]": 8.3,
+  "time_axis[3]": 4.5,
+  "freq_branch[3]": 12.5,
+  "time_axis[4]": 6.3,
+  "freq_branch[4]": 12.5,
+  "time_axis[5]": 4.5,
+  "freq_branch[5]": 12.5,
+  "final_norm": 0.4,
+  "mask_head": 11.3,
+  "mask_apply": 0.3,
+  "istft": 3.3,
+  "forward_instrumented.total": 139.9
+ },
+ "hbm_peak_gb": 23.7,
+ "operators": [
+  {
+   "name": "Slice",
+   "calls": 3,
+   "self_device_ms": 11.863549999999995,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Add_FLOAT32_high_performance_8",
+   "calls": 75,
+   "self_device_ms": 10.876440333333333,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Cast_9f288b80370c6545ffe8cef142d37f5c_high_performance_0",
+   "calls": 1986,
+   "self_device_ms": 10.367182333332705,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "_dw_ntc_tiled",
+   "calls": 12,
+   "self_device_ms": 10.00115933333342,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "RmsNormGrad_fp32_fp32_high_performance_9000",
+   "calls": 234,
+   "self_device_ms": 9.002042000000113,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Conv2DV2_NCHW_BF16_NCHW_BF16_BF16_NCHW_BF16_high_performance_2288",
+   "calls": 12,
+   "self_device_ms": 8.764209999999954,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Add_FLOAT32_high_performance_9",
+   "calls": 39,
+   "self_device_ms": 8.26265833333319,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_4114",
+   "calls": 504,
+   "self_device_ms": 8.08688499999936,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Add_BFLOAT16_FLOAT32_high_performance_9",
+   "calls": 36,
+   "self_device_ms": 6.542706999999971,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "DropOutV3_5aa6e3839f9f67a5899a43d4e62640e0_high_performance_100",
+   "calls": 63,
+   "self_device_ms": 6.529448666666659,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Transpose_float32_int64_high_performance_10003",
+   "calls": 39,
+   "self_device_ms": 6.123618000000117,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ConcatD_ddafbeaeee4ee3a848734c13e000266d3_high_performance_20004",
+   "calls": 45,
+   "self_device_ms": 5.983198333333305,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Transpose_float16_int64_high_performance_10002",
+   "calls": 117,
+   "self_device_ms": 4.941926666666703,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ReduceSum_float32_int64_high_performance_20561",
+   "calls": 63,
+   "self_device_ms": 4.880137333333342,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_131138",
+   "calls": 294,
+   "self_device_ms": 4.683311000000249,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Cast_b2717900ea7de2d41ea9c63d23aa269b_high_performance_0",
+   "calls": 1908,
+   "self_device_ms": 4.6350913333329835,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "BroadcastTo_7538f6ca8b4e71ac38750eb26a539cca7_high_performance_11001",
+   "calls": 54,
+   "self_device_ms": 4.298684666666775,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "GeluGradV2_e87c9546cf2804355cf0d9445a2db01a_high_precision_8",
+   "calls": 18,
+   "self_device_ms": 4.038794000000043,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_131074",
+   "calls": 135,
+   "self_device_ms": 3.9944296666665955,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ViewCopy_7778b2d0a2938f9247cc0c9f84559eb2_high_performance_10002",
+   "calls": 48,
+   "self_device_ms": 3.5331313333332752,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Transpose_float16_int64_high_performance_10004",
+   "calls": 129,
+   "self_device_ms": 3.0402123333334092,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "GeluV2_4a5111502b3aecc4adbee9b165947d64_high_precision_9",
+   "calls": 18,
+   "self_device_ms": 2.94646399999999,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "RmsNorm_normal_all_fp32_high_performance_5000",
+   "calls": 234,
+   "self_device_ms": 2.766691666666583,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Mul_ee98c6628030785f610b924ab1557b31_high_performance_8",
+   "calls": 117,
+   "self_device_ms": 2.700396333333367,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "BatchMatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_257",
+   "calls": 69,
+   "self_device_ms": 2.6514520000000097,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ReduceSum_bfloat16_int64_high_performance_23633",
+   "calls": 486,
+   "self_device_ms": 2.6498073333332237,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "Transpose_float16_int64_high_performance_10006",
+   "calls": 222,
+   "self_device_ms": 2.595670666666488,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "DropOutV3Grad_bf16_uint8_high_performance_100",
+   "calls": 63,
+   "self_device_ms": 2.3450063333332656,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ReduceSum_bfloat16_int64_high_performance_20561",
+   "calls": 54,
+   "self_device_ms": 2.324174000000106,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  },
+  {
+   "name": "ZerosLike_4_BYTES_high_performance_1",
+   "calls": 54,
+   "self_device_ms": 2.0612069999999076,
+   "self_cpu_ms": 0.0,
+   "aicpu_or_host": false
+  }
+ ]
+}
