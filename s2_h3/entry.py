@@ -141,6 +141,7 @@ def prepare_swiglu(model):
                 module._npu_swiglu = fn
                 bound += 1
     model.swiglu_permuted = bound > 0
+    print('SWIGLU_PREPARE bound=%d prepermuted=%s swapped=%s' % (bound, prepermuted, model.swiglu_permuted), flush=True)
     return model.swiglu_permuted
 
 
@@ -435,7 +436,9 @@ def install_resume_hook():
     old_load, old_fit, old_start = LM.on_load_checkpoint, EMA.on_fit_start, EMA.on_train_start
     def load(module, ck):
         old_load(module, ck)
-        swapped = bool(getattr(module, 'swiglu_permuted', False))
+        # `module` here is the LightningModule, which does not carry the flag -- the model it wraps does.
+        inner = getattr(module, 'model', module)
+        swapped = bool(getattr(inner, 'swiglu_permuted', False))
         tagged = bool(ck.get('swiglu_permuted', False))
         assert swapped == tagged, ('swiglu convention mismatch: model swapped=%s but checkpoint tagged=%s; convert it with '
                                    'convert_swiglu_ckpt.py or set S2_NPU_SWIGLU=0 / S2_SWIGLU_PREPERMUTED to match' % (swapped, tagged))
