@@ -24,6 +24,7 @@ from pymss_core.modules.bs_roformer.transformer import (
     RMSNorm,
     apply_rotary_emb_fast,
     cached_rotary_cos_sin,
+    npu_rope,
     rotate_qk_fast_bnhd,
 )
 
@@ -116,11 +117,18 @@ class StridedPooledKVAttention(nn.Module):
         query = self.query(xq_f).unflatten(-1, (self.heads, self.head_dim))
         key, value = self.key_value(xkv_f).unflatten(-1, (2, self.heads, self.head_dim)).unbind(-3)
 
-        cos, sin = cached_rotary_cos_sin(self.rotary, frames, query.device, query.dtype)
         q_pos = self._centers(frames, qs, x.device)
         kv_pos = q_pos if kvs == qs else self._centers(frames, kvs, x.device)
-        query = apply_rotary_emb_fast(cos.index_select(1, q_pos), sin.index_select(1, q_pos), query).transpose(1, 2)
-        key = apply_rotary_emb_fast(cos.index_select(1, kv_pos), sin.index_select(1, kv_pos), key).transpose(1, 2)
+        # Fused kernel: interleave happens inside the module-owned cache, then positions are selected, so the q and kv
+        # temporaries never touch a cache key (that collision is what broke the first attempt at this).
+        q_rot = npu_rope(self.rotary, query, frames, q_pos)
+        if q_rot is not None:
+            query = q_rot.transpose(1, 2)
+            key = npu_rope(self.rotary, key, frames, kv_pos).transpose(1, 2)
+        else:
+            cos, sin = cached_rotary_cos_sin(self.rotary, frames, query.device, query.dtype)
+            query = apply_rotary_emb_fast(cos.index_select(1, q_pos), sin.index_select(1, q_pos), query).transpose(1, 2)
+            key = apply_rotary_emb_fast(cos.index_select(1, kv_pos), sin.index_select(1, kv_pos), key).transpose(1, 2)
         value = value.transpose(1, 2).contiguous()
 
         out = F.scaled_dot_product_attention(query, key, value, dropout_p=self.dropout if self.training else 0.0)

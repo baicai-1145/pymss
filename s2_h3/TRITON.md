@@ -170,9 +170,20 @@ Honest verdicts:
   received **no** gradient at all now do (the old eval path detached them).
 - **StaticBandMixer GEMM rewrite: kept but neutral** (296.5 vs 295.9 — within noise). It is still worth keeping because
   it removes `flat` tiny matmuls (a launch-count and ACLGraph problem), not device time.
-- **`npu_rotary_mul`: REJECTED for now.** It measured −19 ms (277.4) and the loss matched to 2e-8, but
+- **`npu_rotary_mul`: ADMITTED after fixing my own cache bug (see below).** 295.9 -> **278.0 ms/step**. It measured −19 ms (277.4) and the loss matched to 2e-8, but
   `convs.4.query.{weight,bias}` gradients came out at rel 1.3: `StridedPooledKVAttention` runs q at stride 2 and kv at
   stride 4, so one cos/sin table cannot serve both, and the fused kernel silently accepted the mismatch instead of
   raising. Left behind the `S2_NPU_ROPE` flag (default off) until it is wired per-stride with a per-tensor table.
 - **`S2_TRITON_BMM_CHUNK` sweep: chunk=8 wins.** 8 -> 278.1, 64 -> 295.0, 128 -> 294.0, 256/512 no better, so the
   "fewer, larger chunks" hypothesis is wrong on this shape (bigger chunks lose the L2 reuse that makes 8 cheap).
+
+### The RoPE "parity failure" was a use-after-free in my cache, not the kernel
+
+`_INTERLEAVED_CACHE` was keyed on `(cos.data_ptr(), dtype)` and held no reference to `cos`. `StridedPooledKVAttention`
+passes `cos.index_select(1, q_pos)` — a temporary. It is freed, and the allocator hands the same block back for
+`cos.index_select(1, kv_pos)`, so keys were rotated with the **query** positions: the rel-1.3 `convs.4.query.*`
+gradients. Fix: the interleaved tables are cached **on the rotary module** keyed by `(seq_len, device, dtype)` (the
+cache owns them), positions are selected *after* interleaving, and `npu_rope()` takes the module + `pos`. Verified with
+`S2_NPU_ROPE=1`: loss rel **4.88e-06** vs clean `a2bc621`, `convs.4.query` no longer in the top gradient deltas, worst
+remaining is the fp32 BandSplit norm gain (5.4e-02, the old path detached it). Also restored the CPU fp32
+`F.rms_norm` fastpath that round 2 had dropped.

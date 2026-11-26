@@ -71,16 +71,6 @@ def apply_rotary_emb_fast(cos, sin, t):
         rot = torch.complex(cos, sin)
         rotated = torch.view_as_complex(t.reshape(*t.shape[:-1], -1, 2)) * rot
         return torch.view_as_real(rotated).reshape_as(t)
-    if t.device.type == "npu" and os.environ.get("S2_NPU_ROPE", "").lower() in ("1", "true", "yes"):
-        # One fused CANN kernel instead of four strided multiplies plus two strided copies (18.7 ms/step measured,
-        # 12 calls = q,k x 6 layers).  It is bit-identical to the [even|odd] layout below in bf16 and, since only Q and
-        # K are rotated and both get the same head-dim permutation, Q @ K^T and every gradient are unchanged.
-        try:
-            import torch_npu
-            cos2, sin2 = _interleaved_cos_sin(cos, sin)
-            return torch_npu.npu_rotary_mul(t, cos2, sin2, rotary_mode="interleave")
-        except Exception:  # layout/dtype the kernel rejects -> keep the portable path
-            pass
     even = t[..., ::2] * cos - t[..., 1::2] * sin
     odd = t[..., 1::2] * cos + t[..., ::2] * sin
     if not FAST['rope_no_cat']:
@@ -92,22 +82,45 @@ def apply_rotary_emb_fast(cos, sin, t):
     return out.reshape(t.shape)
 
 
-_INTERLEAVED_CACHE: dict[tuple[int, str], tuple[torch.Tensor, torch.Tensor]] = {}
+def cached_rotary_cos_sin_interleaved(rotary_embed, seq_len, device, dtype):
+    """Full-width cos/sin in ``npu_rotary_mul(interleave)`` layout, cached **on the module**.
 
-
-def _interleaved_cos_sin(cos, sin):
-    """Expand the half-width tables to full width, the layout ``npu_rotary_mul(interleave)`` wants.
-
-    Cached on the tables' data_ptr because ``cached_rotary_cos_sin`` already returns stable tensors: the
-    ``repeat_interleave`` must not run per step.
+    The cache must own the tables and be keyed by (seq_len, device, dtype): keying a global dict on a tensor's
+    ``data_ptr()`` is unsafe here because ``StridedPooledKVAttention`` passes ``cos.index_select(1, q_pos)``
+    temporaries, and the allocator hands the freed block straight back for the ``kv_pos`` table — which silently
+    rotated keys with the query positions (this was the cause of the rel-1.3 ``convs.4.query`` gradients).
     """
-    key = (cos.data_ptr(), str(cos.dtype))
-    hit = _INTERLEAVED_CACHE.get(key)
+    cos, sin = cached_rotary_cos_sin(rotary_embed, seq_len, device, dtype)
+    cache = getattr(rotary_embed, "_pymss_cos_sin_il_cache", None)
+    if cache is None:
+        rotary_embed._pymss_cos_sin_il_cache = cache = {}
+    key = (seq_len, device.type, device.index, dtype)
+    hit = cache.get(key)
     if hit is None:
         hit = (cos.repeat_interleave(2, -1).contiguous(), sin.repeat_interleave(2, -1).contiguous())
-        _INTERLEAVED_CACHE.clear()
-        _INTERLEAVED_CACHE[key] = hit
+        cache.clear()
+        cache[key] = hit
     return hit
+
+
+def npu_rope(rotary_embed, t, seq_len, pos=None):
+    """Rotate ``t`` with the fused CANN kernel, or return ``None`` when unavailable/unwanted.
+
+    ``pos`` selects positions out of the full-width tables *after* interleaving, so the temporary never reaches a
+    cache.  Shapes are the ones ``npu_rotary_mul`` documents: ``t`` is (B, S, H, D), tables are (1, S, 1, D).
+    """
+    if os.environ.get("S2_NPU_ROPE", "1").lower() not in ("1", "true", "yes"):
+        return None
+    if t.device.type != "npu":
+        return None
+    try:
+        import torch_npu
+        cos2, sin2 = cached_rotary_cos_sin_interleaved(rotary_embed, seq_len, t.device, t.dtype)
+        if pos is not None:
+            cos2, sin2 = cos2.index_select(1, pos), sin2.index_select(1, pos)
+        return torch_npu.npu_rotary_mul(t, cos2, sin2, rotary_mode="interleave")
+    except Exception:
+        return None
 
 
 def cached_rotary_cos_sin(rotary_embed, seq_len, device, dtype):
@@ -119,7 +132,12 @@ def cached_rotary_cos_sin(rotary_embed, seq_len, device, dtype):
     freqs = rotary_embed.forward(lambda: rotary_embed.get_seq_pos(seq_len, device=device, dtype=phase_dtype, offset=0), cache_key=f"freqs:{seq_len}|offset:0")[None, :, None, :].to(device=device, dtype=phase_dtype)
     cache[key] = cached = (freqs[..., ::2].cos().to(dtype=dtype), freqs[..., ::2].sin().to(dtype=dtype))
     return cached
-def rotate_qk_fast_bnhd(rotary_embed, q, k): cos, sin = cached_rotary_cos_sin(rotary_embed, q.shape[1], q.device, q.dtype); return apply_rotary_emb_fast(cos, sin, q), apply_rotary_emb_fast(cos, sin, k)
+def rotate_qk_fast_bnhd(rotary_embed, q, k):
+    fused = npu_rope(rotary_embed, q, q.shape[1]) if q.shape[1] == k.shape[1] else None
+    if fused is not None:
+        return fused, npu_rope(rotary_embed, k, k.shape[1])
+    cos, sin = cached_rotary_cos_sin(rotary_embed, q.shape[1], q.device, q.dtype)
+    return apply_rotary_emb_fast(cos, sin, q), apply_rotary_emb_fast(cos, sin, k)
 def qkv_to_bnhd(qkv, heads): b, n, _ = qkv.shape; return qkv.view(b, n, 3, heads, -1).unbind(dim=2)
 # Runtime switches for the inference fast path.  Each one is mathematically equivalent to the code it
 # replaces; the ablation harness flips them in one process so the deltas are not buried in CPU noise.
@@ -134,6 +152,9 @@ class RMSNorm(Module):
         # `F.normalize(x,-1)*scale*gamma`, which is a RealDiv plus two multiplies and was the single biggest
         # elementwise cost in the H4s profile (23.8 ms/step, 143 calls): BandSplit feeds fp32 into 62 norms.
         # `npu_rms_norm` was measured bit-identical in bf16 (fwd 0.0, grad_gamma 0.0) and 1.7e-07 in fp32.
+        if FAST['rms_norm'] and not self.training and x.dtype == torch.float32:
+            # CPU/NAS eval: fused, same function (eps 1e-12) and no extra vector_norm+div+mul passes.
+            return F.rms_norm(x, (x.shape[-1],), self.gamma, eps=1e-12)
         weight = self.gamma.to(x.dtype)
         if x.device.type == "npu":
             fused = _npu_rms_norm(x, weight)
