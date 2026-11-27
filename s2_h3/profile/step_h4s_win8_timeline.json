@@ -1,0 +1,61 @@
+{
+ "span_ms": 4333.315232421875,
+ "busy_ms": 4324.37605078125,
+ "gap_ms": 8.939181640625,
+ "steps": 20,
+ "busy_per_step": 216.21880253906252,
+ "gap_per_step": 0.44695908203125,
+ "n_gaps": 92199,
+ "top_gaps": [
+  {
+   "gap_ms": 0.159822265625,
+   "after": "Slice_82e6b4faea71b451f217d7ea57c08012_high_performance_150",
+   "before": "ReverseV2_5e65f55400ac43648d93bb6e3339d2f7_high_performance_2011"
+  },
+  {
+   "gap_ms": 0.1594833984375,
+   "after": "BatchMatMulV3_ND_ND_ND_ND_FP32_FP32_FP32_FP32_high_performance_2",
+   "before": "Transpose_float32_int64_high_performance_10003"
+  },
+  {
+   "gap_ms": 0.1569775390625,
+   "after": "BatchMatMulV3_ND_ND_ND_ND_FP32_FP32_FP32_FP32_high_performance_2",
+   "before": "Transpose_float32_int64_high_performance_10003"
+  },
+  {
+   "gap_ms": 0.1554833984375,
+   "after": "BatchMatMulV3_ND_ND_ND_ND_FP32_FP32_FP32_FP32_high_performance_2",
+   "before": "Transpose_float32_int64_high_performance_10003"
+  },
+  {
+   "gap_ms": 0.1543720703125,
+   "after": "BatchMatMulV3_ND_ND_ND_ND_FP32_FP32_FP32_FP32_high_performance_2",
+   "before": "Transpose_float32_int64_high_performance_10003"
+  },
+  {
+   "gap_ms": 0.151791015625,
+   "after": "BatchMatMulV3_ND_ND_ND_ND_FP32_FP32_FP32_FP32_high_performance_2",
+   "before": "Transpose_float32_int64_high_performance_10003"
+  },
+  {
+   "gap_ms": 0.1513642578125,
+   "after": "BatchMatMulV3_ND_ND_ND_ND_FP32_FP32_FP32_FP32_high_performance_2",
+   "before": "Transpose_float32_int64_high_performance_10003"
+  },
+  {
+   "gap_ms": 0.1513603515625,
+   "after": "BatchMatMulV3_ND_ND_ND_ND_FP32_FP32_FP32_FP32_high_performance_2",
+   "before": "Transpose_float32_int64_high_performance_10003"
+  },
+  {
+   "gap_ms": 0.1512783203125,
+   "after": "BatchMatMulV3_ND_ND_ND_ND_FP32_FP32_FP32_FP32_high_performance_2",
+   "before": "Transpose_float32_int64_high_performance_10003"
+  },
+  {
+   "gap_ms": 0.15092578125,
+   "after": "BatchMatMulV3_ND_ND_ND_ND_FP32_FP32_FP32_FP32_high_performance_2",
+   "before": "Transpose_float32_int64_high_performance_10003"
+  }
+ ]
+}

@@ -1,0 +1,36 @@
+{
+ "steps": 20,
+ "kernels_per_step": 4610.0,
+ "busy_ms_per_step": 4324.375916,
+ "families_ms_per_step": {
+  "Add": 31.13,
+  "MatMulV": 21.79,
+  "Transpose": 19.45,
+  "Slice": 15.24,
+  "Cast": 14.98,
+  "DropOutV": 11.89,
+  "RmsNormGrad": 10.6,
+  "_dw_ntc_tiled": 9.97,
+  "Conv": 9.57,
+  "ReduceSum": 9.08,
+  "BatchMatMulV": 7.96,
+  "ConcatD": 6.63,
+  "Mul": 5.06,
+  "InplaceIndexAdd": 4.89,
+  "BroadcastTo": 4.44
+ },
+ "top_kernels_ms_per_step": {
+  "Slice": 15.24,
+  "Cast": 14.98,
+  "Add_FLOAT32_high_performance_8": 10.86,
+  "_dw_ntc_tiled": 9.97,
+  "RmsNormGrad_fp32_fp32_high_performance_9000": 9.02,
+  "Conv2DV2_NCHW_BF16_NCHW_BF16_BF16_NCHW_BF16_high_performance_2288": 8.76,
+  "Add_FLOAT32_high_performance_9": 8.28,
+  "DropOutV3": 8.12,
+  "MatMulV3_ND_ND_ND_ND_BF16_BF16_BF16_BF16_high_performance_4114": 8.02,
+  "Add_BFLOAT16_FLOAT32_high_performance_8": 7.68,
+  "ConcatD": 6.63,
+  "Transpose_float32_int64_high_performance_10003": 6.19
+ }
+}
