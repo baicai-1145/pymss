@@ -49,3 +49,32 @@ the `self_device_ms` top-10, so layout churn is a bigger lever than that ranking
 **Conclusion: device-bound at 216 ms with 99.8 % occupancy. Kernel fusion / layout elimination is the path; scheduling is
 not.** Next increments per the brief: `_dw_ntc_tiled` transposes (10.0 ms kernel, 2 transposes per conv), then the Cast
 family after answering the autocast question.
+
+## Increment 3 — the Cast question, answered before writing any kernel
+
+Cast is **15.0 ms over 1,303 calls (0.0115 ms/call)** — launch-cheap. Producer attribution:
+
+| cast block | ms | pattern |
+|---|---|---|
+| after `Add_FLOAT32` -> before `ZerosLike_2_BYTES` | 4.2 | structural, not dtype churn |
+| `Cast -> Cast` chains | 3.2 / 2.2 | structural |
+| before bf16 `MatMulV3` | **1.9** | genuine autocast churn |
+| before `DropOutV3Grad` | 1.0 | dropout mask dtype |
+
+**So dtype pinning (Win 6) would remove at most ~2-6 ms of the 15.0**, and the rest is structural — not worth a
+checkpoint-dialect change, and not worth a fused Cast kernel at 0.0115 ms/call. Cast is closed as a target.
+
+## Increment 3b — where the leverage actually is: layout chains feeding Add
+
+Attributing the biggest family by its neighbours instead of by name:
+
+| family | ms/step | calls | ms/call | dominant chain |
+|---|---|---|---|---|
+| **Add** | **32.5** | 628 | 0.052 | after `ViewCopy` 9.3, after `GatherV2` **8.4**, after `BroadcastTo` 6.9 |
+| Transpose | 19.4 | 250 | 0.078 | runs into `Slice` (3.2) and `RotaryPositionEmbeddingGrad` |
+| Slice | 15.2 | 405 | 0.038 | **after `Transpose` 12.0 -> before `ViewCopy` 12.0** |
+
+One chain dominates: **`Transpose -> Slice -> ViewCopy -> Add`, plus `GatherV2 -> Add` (8.4) and
+`BroadcastTo -> Add` (6.9)** — roughly **37 ms/step** of copy-then-add that a single fused
+"gather/broadcast + add" kernel collapses into one pass, with no intermediate tensor. That is the next target, and it is
+the fused `block_broadcast_add` the brief anticipated, now with a measured address instead of a guess.
