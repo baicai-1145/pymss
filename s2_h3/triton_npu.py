@@ -177,11 +177,16 @@ def _dw_ntc_tiled(X_ptr, DY_ptr, OUT_ptr, N, C: tl.constexpr, T: tl.constexpr, K
 
 
 def dw_ntc(x_ntc, dy_ntc, k, ns=9, bt=128, bc=64):
-    """dW from channels-last tensors, (N,T,C) each -> (C,K) fp32."""
+    """dW from channels-last tensors, (N,T,C) each -> **(C,K)** fp32, i.e. the conv weight layout.
+
+    The kernel stores (NS, K, C), so the reduce must transpose: returning (K, C) raised nothing downstream because
+    `dw.reshape(weight.shape)` from (31, 384) to (384, 1, 31) keeps the element count and silently scrambles which tap
+    each column belongs to (measured: dwconv weight gradients off by rel 1.22-1.42 against the bmm path).
+    """
     n, t, c = x_ntc.shape
     out = torch.empty(ns, k, c, device=x_ntc.device, dtype=torch.float32)
     _dw_ntc_tiled[(c // bc * ns,)](x_ntc, dy_ntc, out, n, C=c, T=t, K=k, BT=bt, BC=bc, NS=ns, num_warps=1)
-    return out.sum(0)
+    return out.sum(0).transpose(0, 1).contiguous()                          # (K,C) -> (C,K)
 
 
 STAGES = ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2', 'dwconv_dw_bmm', 'dwconv_dw_ntc', 'silu_mul')
@@ -249,7 +254,12 @@ class _DWConv(torch.autograd.Function):
         else:
             dx = F.conv1d(grad_out, weight.flip(-1), padding=pad, groups=c)
         if 'dwconv_dw_ntc' in stages:                                # V3 Win 2: channels-last, persistent grid
-            dw = dw_ntc(x.transpose(1, 2), grad_out.transpose(1, 2), k)
+            # `.contiguous()` is required, not cosmetic: the kernel indexes rows as `t*C + c`, so it needs an (N,T,C)
+            # tensor whose last-dim stride is 1.  A plain `transpose(1,2)` of the conv layout (N,C,T) is a *view* with
+            # last-dim stride T, and feeding it silently computes dW from the wrong elements (measured: dwconv weight
+            # gradients off by rel 1.22 against the bmm path).  The Win-1 gate could not catch this because both sides
+            # of that comparison used the same stage.
+            dw = dw_ntc(x.transpose(1, 2).contiguous(), grad_out.transpose(1, 2).contiguous(), k)
             db = grad_out.sum(dim=(0, 2)) if ctx.has_bias else dw
         elif 'dwconv_dw_bmm' in stages:                                # §10(b): cube core, batched GEMV over (n*c) rows
             pad_x = F.pad(x, (pad, pad))

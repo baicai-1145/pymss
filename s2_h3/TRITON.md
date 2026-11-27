@@ -357,3 +357,35 @@ Consequence for the accounting: the step is **device-bound at ~220 ms**, which i
 (replay 219.5 vs eager 220.9 - a real dispatch gap would have collapsed under replay). The instrumented profile's
 "device-active 163.5 ms" therefore **under-counts ~26 %** of device time; it is a ranking tool, not a budget. Any future
 budget has to come from a clean measurement, not from summing `self_device_ms`.
+
+## Win 2 was numerically WRONG as admitted — corrected, tier-2 gated, and now genuinely faster
+
+The ntc dW kernel returned **(K, C)** while the caller needs **(C, K)**. Nothing raised, because
+`dw.reshape(weight.shape)` turns (31, 384) into (384, 1, 31) — same element count — so the kernel taps were silently
+scrambled. Measured against the bmm path: dwconv weight gradients off by **rel 1.22**, and 1.41 after I first tried
+fixing only the layout.
+
+Two defects, in this order:
+1. **Orientation** (`dw_ntc` must return `out.sum(0).transpose(0,1).contiguous()`). This was the real bug.
+2. **Layout**: `.transpose(1,2)` of the (N,C,T) conv layout is a *view* with last-dim stride `T`, while the kernel
+   indexes rows as `t*C + c`; the NTC tensors must be `.contiguous()`.
+
+**Why the gates did not catch it:** the Win-1 gate compared `resume-5000-swiglu.ckpt` against a reference that *also*
+ran `dwconv_dw_ntc`, so it validated only the swiglu convention (its 0.2018 % is still valid for that), not the dW. The
+reference itself was built on the broken kernel.
+
+Corrected measurements and gates:
+
+| check | result |
+|---|---|
+| dwconv grads, ntc vs bmm (555 params) | worst real grad **9.2e-03** (bf16 noise); dwconv weights no longer in the top deltas |
+| per-step 200-step gate vs bmm | max **5.83 %** at 5198, mean 0.53 % -> fails tier 1 (expected: different summation order) |
+| **tier 2 (i)** deterministic eval parity | coefficients match to bf16, grads <= 9.2e-03 |
+| **tier 2 (ii)** window mean | bmm 0.000736 vs ntc 0.000736 -> **0.036 %** (limit 1 %) |
+| **tier 2 (ii)** trend | normalised slope 2.79e-04 vs 2.84e-04 /step, diff **4.5e-06**, far below the 1.25e-02 noise floor |
+| **tier 2 (iii)** reference frozen | `profile/h4s_resume5000_ref200_bmm.json` (correct path) |
+| speed, same code | bmm **238.4 ms** vs ntc **223.7 ms** -> **-14.7 ms** |
+
+**Corrected baseline is 223.7 ms/step**, not the 222.1/223.0 previously reported: those were measured with the broken
+kernel, whose gradient happened to be cheaper. The speed claim survives (-14.7 ms against the known-good path), the
+milestone number moves slightly.
