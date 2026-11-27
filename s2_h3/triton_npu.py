@@ -146,7 +146,9 @@ if HAS_TRITON:
 
 @triton.jit
 def _dw_ntc_tiled(X_ptr, DY_ptr, OUT_ptr, N, C: tl.constexpr, T: tl.constexpr, K: tl.constexpr,
-                  BT: tl.constexpr, BC: tl.constexpr, NS: tl.constexpr):
+                  BT: tl.constexpr, BC: tl.constexpr, NS: tl.constexpr,
+                  XN: tl.constexpr, XT: tl.constexpr, XC: tl.constexpr,
+                  YN: tl.constexpr, YT: tl.constexpr, YC: tl.constexpr):
     """Channels-last (N,T,C) depthwise-conv dW on a persistent grid, one UB-resident tile per (n, time block).
 
     Source: NPU_SPEED_GUIDE_V3.md (measured there 18.17 -> 7.62 ms on L1).  C=384 is 32B aligned, so
@@ -159,13 +161,16 @@ def _dw_ntc_tiled(X_ptr, DY_ptr, OUT_ptr, N, C: tl.constexpr, T: tl.constexpr, K
     ot_pad = tl.arange(0, BT_PAD); ot = tl.arange(0, BT); n_tb: tl.constexpr = (T + BT - 1) // BT
     acc = tl.zeros((K, BC), dtype=tl.float32)
     for n in range(n0, n1):
-        base = n * T * C
+        xb = n * XN
+        yb = n * YN
         for tb in range(n_tb):
             t0 = tb * BT; tx = t0 + ot_pad - pad
             mx = (tx >= 0) & (tx < T); ty = t0 + ot; my = ty < T
-            x_tile = tl.load(X_ptr + base + tl.where(mx, tx, 0)[:, None] * C + c_off[None, :],
+            # Strides are parameters, so an (N,C,T) conv buffer can be read as (N,T,C) *without materialising a copy*:
+            # the transposed view has XT=1, XC=T, and loading it directly is bit-identical to `.contiguous()` first.
+            x_tile = tl.load(X_ptr + xb + tl.where(mx, tx, 0)[:, None] * XT + c_off[None, :] * XC,
                              mask=mx[:, None], other=0.0).to(tl.float32)
-            y_tile = tl.load(DY_ptr + base + tl.where(my, ty, 0)[:, None] * C + c_off[None, :],
+            y_tile = tl.load(DY_ptr + yb + tl.where(my, ty, 0)[:, None] * YT + c_off[None, :] * YC,
                              mask=my[:, None], other=0.0).to(tl.float32)
             for k in range(K):
                 xk = ext.extract_slice(x_tile, offsets=(k, 0), sizes=(BT, BC), strides=(1, 1))
@@ -185,7 +190,9 @@ def dw_ntc(x_ntc, dy_ntc, k, ns=9, bt=128, bc=64):
     """
     n, t, c = x_ntc.shape
     out = torch.empty(ns, k, c, device=x_ntc.device, dtype=torch.float32)
-    _dw_ntc_tiled[(c // bc * ns,)](x_ntc, dy_ntc, out, n, C=c, T=t, K=k, BT=bt, BC=bc, NS=ns, num_warps=1)
+    _dw_ntc_tiled[(c // bc * ns,)](x_ntc, dy_ntc, out, n, C=c, T=t, K=k, BT=bt, BC=bc, NS=ns,
+                                   XN=x_ntc.stride(0), XT=x_ntc.stride(1), XC=x_ntc.stride(2),
+                                   YN=dy_ntc.stride(0), YT=dy_ntc.stride(1), YC=dy_ntc.stride(2), num_warps=1)
     return out.sum(0).transpose(0, 1).contiguous()                          # (K,C) -> (C,K)
 
 
@@ -295,6 +302,9 @@ class _DWConv(torch.autograd.Function):
             # last-dim stride T, and feeding it silently computes dW from the wrong elements (measured: dwconv weight
             # gradients off by rel 1.22 against the bmm path).  The Win-1 gate could not catch this because both sides
             # of that comparison used the same stage.
+            # Materialise NTC: reading the stride-T view directly is bit-exact but measured **14.63 ms vs 7.66 ms**
+            # (stride-T loads coalesce badly), so the copies (8.76 ms total) are the cheaper path.  The kernel takes
+            # strides anyway, which is what makes this a measurement rather than an assumption.
             dw = dw_ntc(x.transpose(1, 2).contiguous(), grad_out.transpose(1, 2).contiguous(), k)
             db = grad_out.sum(dim=(0, 2)) if ctx.has_bias else dw
         elif 'dwconv_dw_bmm' in stages:                                # §10(b): cube core, batched GEMV over (n*c) rows

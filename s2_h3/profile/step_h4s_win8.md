@@ -99,3 +99,26 @@ one pass, but on its own it does not pay for the plumbing risk.
 The 37 ms attributed to `copy-then-add` is therefore **not** one fusable op: it is spread over rotary `index_select`,
 `block_mean`'s slice+expand padding, and the strided residual expansions, each worth well under a millisecond. That
 reframes the next step: the remaining device time has to come from the *conv/MSC* path and the matmuls, not from layout.
+
+## Increment 5 — conv/MSC path: kernel config is already optimal, and the "no copies" idea loses
+
+**Config sweep** (`_dw_ntc_tiled` on the four real shapes, 8 configs of BC/NS/BT): the shipped `bc=64, ns=9, bt=128` is
+within **0.01 ms** of the best everywhere — L1 (N1488,T258,C384,K31) 7.67 vs best 7.66, L2 1.53, L3/L5 0.19 each,
+**9.58 ms total**, matching the 10.0 ms the trace attributes to it. No headroom in tuning.
+
+**Stride-aware kernel**: I made the loads take explicit strides so a strided `(N,C,T)->(N,T,C)` view could be read without
+`.contiguous()`, removing both copies. It is **bit-exact** (rel 0.0) and **slower**:
+
+| input | ms |
+|---|---|
+| contiguous NTC | **7.66** |
+| strided view (no copies) | **14.63** |
+| contiguous + the two copies | **8.76** |
+
+Stride-T loads coalesce badly, so the copies are the cheaper path. Dispatch stays on `.contiguous()`. The kernel keeps
+the stride parameters because they are what let this be measured instead of assumed.
+
+**Net for the increment: 0 ms.** Conv/MSC as it stands: `_dw_ntc_tiled` 9.6, `Conv2DV2` fwd 9.6, `MatMulV` 21.8 — and
+each of the three has now had its obvious lever measured and closed (config, layout, and — for matmuls — nothing to fuse
+without changing the module structure). Final confirmed step on the corrected path: **223.4 ms** (ntc) vs **238.4 ms**
+(bmm), i.e. the corrected ntc win is **14.9 ms**.
