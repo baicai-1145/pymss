@@ -189,6 +189,42 @@ def dw_ntc(x_ntc, dy_ntc, k, ns=9, bt=128, bc=64):
     return out.sum(0).transpose(0, 1).contiguous()                          # (K,C) -> (C,K)
 
 
+
+@triton.jit
+def _gather_add(RES, SRC, IDX, OUT, T, FW, BLOCKS: tl.constexpr, BLOCK: tl.constexpr):
+    """out[b, t] = res[b, t] + src[b, idx[t]] for a row of FW = f*d elements.
+
+    Collapses the `GatherV2 -> Add` / `BroadcastTo -> Add` / `ViewCopy -> Add` chains the trace attributes ~37 ms/step to:
+    one pass that reads the residual and the source block and writes the sum, with no expanded intermediate in HBM.
+    """
+    pid = tl.program_id(0)
+    didx = tl.program_id(1)
+    offs = tl.arange(0, BLOCK)
+    mask = offs < FW
+    base = (pid * T + didx) * FW + offs
+    src_row = tl.load(IDX + didx).to(tl.int64)
+    res = tl.load(RES + base, mask=mask, other=0.0)
+    src = tl.load(SRC + pid * BLOCKS * FW + src_row * FW + offs, mask=mask, other=0.0)
+    tl.store(OUT + base, res + src, mask=mask)
+
+
+def gather_add(residual, src, idx, block=None):
+    """`residual + src.index_select(1, idx)` in one kernel; `residual` is (b, t, f, d), `src` is (b, blocks, f, d).
+
+    `BLOCK` must cover a whole (f, d) row, so it is the next power of two above it — with a smaller BLOCK the kernel
+    silently writes only the first part of each row.
+    """
+    b, t = residual.shape[0], residual.shape[1]
+    fw = residual[0, 0].numel()
+    if block is None:
+        block = max(1, triton.next_power_of_2(fw))
+    src = src.contiguous()
+    out = torch.empty_like(residual)
+    _gather_add[(b, t)](residual.reshape(b, t, fw), src.reshape(b, src.shape[1], fw), idx, out.reshape(b, t, fw),
+                        t, fw, BLOCKS=src.shape[1], BLOCK=block, num_warps=1)
+    return out
+
+
 STAGES = ('dwconv_fwd', 'dwconv_dx', 'dwconv_dw', 'dwconv_dw2', 'dwconv_dw_bmm', 'dwconv_dw_ntc', 'silu_mul')
 
 

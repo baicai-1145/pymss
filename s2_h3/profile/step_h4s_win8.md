@@ -78,3 +78,24 @@ One chain dominates: **`Transpose -> Slice -> ViewCopy -> Add`, plus `GatherV2 -
 `BroadcastTo -> Add` (6.9)** — roughly **37 ms/step** of copy-then-add that a single fused
 "gather/broadcast + add" kernel collapses into one pass, with no intermediate tensor. That is the next target, and it is
 the fused `block_broadcast_add` the brief anticipated, now with a measured address instead of a guess.
+
+## Increment 4 — fused `gather_add` built and measured: 1.66x on the op, but the op is too small to wire
+
+`triton_npu.gather_add(residual, src, idx)` computes `residual + src.index_select(1, idx)` in a single pass, so the
+`GatherV2 -> Add` pattern has no expanded intermediate in HBM. Two bugs found while bringing it up, both mine:
+`base` omitted the time index, and `BLOCK` must be the next power of two above the whole `(f, d)` row (11,904 for the
+freq blocks) — a smaller BLOCK silently writes only part of each row.
+
+| | ms | |
+|---|---|---|
+| `res + expand_blocks(src, s, t)` | 0.46 | baseline |
+| `gather_add` | **0.28** | **1.66x, bit-exact (rel 0.00e+00)** |
+
+At 0.46 ms per site and roughly 8 strided sites, the total is **~1.5 ms against a 222 ms step**, i.e. below run-to-run
+noise, and wiring it needs an optional `residual` argument through the generic transformer loop plus three block classes.
+Measured and **not wired** — the kernel stays in `triton_npu.py` for when a real batch of layout chains can be fused in
+one pass, but on its own it does not pay for the plumbing risk.
+
+The 37 ms attributed to `copy-then-add` is therefore **not** one fusable op: it is spread over rotary `index_select`,
+`block_mean`'s slice+expand padding, and the strided residual expansions, each worth well under a millisecond. That
+reframes the next step: the remaining device time has to come from the *conv/MSC* path and the matmuls, not from layout.
