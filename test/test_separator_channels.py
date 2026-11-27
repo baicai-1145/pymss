@@ -236,3 +236,35 @@ def test_real_roformer_auto_loading_preserves_channel_contract(tmp_path, model_c
             assert all(np.isfinite(result).all() for result in results.values())
             if input_channels <= 2:
                 np.testing.assert_allclose(results["vocals"] + results["other"], audio.T, atol=1e-6)
+
+
+@pytest.mark.parametrize("variant", ["static_stride", "hourglass_fast"])
+def test_variant_checkpoint_loads_and_separates_through_config(tmp_path, variant):
+    from pymss_core import get_model_from_config
+
+    config = {
+        "audio": {"chunk_size": 128, "sample_rate": 8000, "num_channels": 2},
+        "model": {
+            "dim": 8, "depth": 6, "heads": 2, "dim_head": 4,
+            "stereo": True, "num_stems": 1,
+            "time_transformer_depth": 1, "freq_transformer_depth": 1,
+            "freqs_per_bands": [4, 5], "stft_n_fft": 16,
+            "stft_hop_length": 4, "stft_win_length": 16, "mask_estimator_depth": 1,
+            "variant": variant,
+        },
+        "training": {"instruments": ["vocals", "other"], "target_instrument": "vocals", "use_amp": False},
+        "inference": {"batch_size": 1, "overlap_size": 16},
+    }
+    config_path = tmp_path / "model.yaml"
+    model_path = tmp_path / "model.ckpt"
+    config_path.write_text(yaml.safe_dump(config), encoding="utf-8")
+    model, _ = get_model_from_config("bs_roformer", config_path)
+    torch.save(model.state_dict(), model_path)
+
+    with MSSeparator("auto", model_path, config_path, device="cpu", store_dirs={}) as separator:
+        assert separator.model.variant == variant
+        audio = channel_audio(2)
+        results = separator.separate(audio, pbar=False)
+
+    assert all(np.isfinite(result).all() for result in results.values())
+    np.testing.assert_allclose(results["vocals"] + results["other"], audio.T, atol=1e-6)
