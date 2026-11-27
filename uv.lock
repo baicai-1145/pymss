@@ -1209,7 +1209,7 @@ wheels = [
 
 [[package]]
 name = "pymss"
-version = "2.4.1"
+version = "2.4.2"
 source = { editable = "." }
 dependencies = [
     { name = "av" },
@@ -1248,7 +1248,7 @@ requires-dist = [
     { name = "mlx", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", specifier = ">=0.31.0" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "packaging", specifier = ">=24.0" },
-    { name = "pymss-core", specifier = "==0.1.16" },
+    { name = "pymss-core", specifier = "==0.1.17" },
     { name = "pysocks", marker = "extra == 'proxy'", specifier = ">=1.7.1,<2" },
     { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
@@ -1268,7 +1268,7 @@ dev = [
 
 [[package]]
 name = "pymss-core"
-version = "0.1.16"
+version = "0.1.17"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
@@ -1276,9 +1276,9 @@ dependencies = [
     { name = "torch", version = "2.11.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "torch", version = "2.12.0", source = { registry = "https://pypi.org/simple" }, marker = "sys_platform != 'linux' and sys_platform != 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fa/cc/f4d5bea16fc751a3cdb317cad2cd5f0c881cc90f9f71eb297622628912bd/pymss_core-0.1.16.tar.gz", hash = "sha256:eee5034671b1d2605b9f723c8f7dd376fb391c765b7c120da0fa2d260f24c0a7", size = 173114, upload-time = "2026-11-15T10:20:23.259Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/af/6d/642c6cd9747bbc8ad020096dcbc78922b07bdb9e1aa3061a0050ceff11ef/pymss_core-0.1.17.tar.gz", hash = "sha256:efa384da70bb97993a405b8398c33fc080d46495dfc6bbcc07886b979b8751c1", size = 179776, upload-time = "2026-11-27T13:52:47.744Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/74/36/78bda085d7cb2503e6070b0f54556f8fbb1e540d9da1693afc363044cb7f/pymss_core-0.1.16-py3-none-any.whl", hash = "sha256:9b7178abfddce0af1145cd70c58d40734624755ccde2ab63ac4e7a41008fb246", size = 171665, upload-time = "2026-11-15T10:20:21.811Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/09/5a33d2f47c0944c3e86e5c94cc2f9685efe2f3bde6723f4f6be384fdc38d/pymss_core-0.1.17-py3-none-any.whl", hash = "sha256:7ca688dfd0163874c542dfd487cc6065ec8848c70875640ea4033ca18cdad48f", size = 175677, upload-time = "2026-11-27T13:52:46.453Z" },
 ]
 
 [[package]]
