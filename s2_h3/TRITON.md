@@ -336,3 +336,24 @@ it removes the 4x intermediate. Five sites (h3.py:117, h4.py:61/152/170/235).
 Measured: **223.0 -> 222.5 ms** (within noise) but **HBM 14.1 -> 13.7 GB**. So the `Slice` was not the leak its 11.9 ms
 suggested — the gather pays its own copy — and this lands as a memory win, not a speed win. Kept because it is exact and
 strictly less traffic; not claimed as a milestone.
+
+## Win 7 — h2d overlap: NO HEADROOM, the 51.4 ms is a profiler artifact
+
+Measured clean (no profiler, 25.3 MB = 24 x 2 x 131584 float32, the exact batch):
+
+| path | ms | effective |
+|---|---|---|
+| pageable, blocking | **1.49** | 17.0 GB/s |
+| pinned, blocking | **0.48** | 52.3 GB/s |
+| pinned, non_blocking | 0.49 | |
+| pinned on a side stream | 0.50 | |
+
+So the real copy is **0.5-1.5 ms, not 51.4 ms** — 17-52 GB/s, not 0.49 GB/s. The 51.4 ms figure came from the
+instrumented profile, the same run that reported forward 139.9 ms against 79.1 ms uninstrumented, i.e. the same
+instrumentation tax. The overlap experiment confirms there is nothing to win: serial copy+compute 0.6 ms vs overlapped
+0.5 ms, a **0.1 ms** saving, because a 0.5 ms copy cannot hide under a step.
+
+Consequence for the accounting: the step is **device-bound at ~220 ms**, which is what the NPUGraph result already said
+(replay 219.5 vs eager 220.9 - a real dispatch gap would have collapsed under replay). The instrumented profile's
+"device-active 163.5 ms" therefore **under-counts ~26 %** of device time; it is a ranking tool, not a budget. Any future
+budget has to come from a clean measurement, not from summing `self_device_ms`.
